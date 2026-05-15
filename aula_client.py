@@ -2,13 +2,11 @@ import requests
 import os
 import logging
 import json
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 API_BASE = "https://www.aula.dk/api/v"
 API_VERSION = "23"
-SESSION_FILE = Path("session.json")
 
 
 class AulaClient:
@@ -18,24 +16,8 @@ class AulaClient:
         self._load_credentials()
 
     def _load_credentials(self):
-        """Load credentials from session file (takes priority) or env vars."""
-        phpsessid = None
-        csrf_token = None
-
-        if SESSION_FILE.exists():
-            try:
-                data = json.loads(SESSION_FILE.read_text())
-                phpsessid = data.get("PHPSESSID")
-                csrf_token = data.get("CSRF_TOKEN")
-                logger.info("Loaded credentials from session.json")
-            except Exception as e:
-                logger.warning(f"Could not read session.json: {e}")
-
-        if not phpsessid:
-            phpsessid = os.getenv("AULA_PHPSESSID", "")
-        if not csrf_token:
-            csrf_token = os.getenv("AULA_CSRF_TOKEN", "")
-
+        phpsessid = os.getenv("AULA_PHPSESSID", "")
+        csrf_token = os.getenv("AULA_CSRF_TOKEN", "")
         self._apply_credentials(phpsessid, csrf_token)
 
     def _apply_credentials(self, phpsessid: str, csrf_token: str):
@@ -49,17 +31,11 @@ class AulaClient:
         })
 
     def update_credentials(self, phpsessid: str, csrf_token: str):
-        """Update credentials at runtime and persist to file."""
         self._apply_credentials(phpsessid, csrf_token)
-        SESSION_FILE.write_text(json.dumps({
-            "PHPSESSID": phpsessid,
-            "CSRF_TOKEN": csrf_token
-        }))
         self.session_valid = True
-        logger.info("Credentials updated and saved to session.json")
+        logger.info("Credentials updated in memory")
 
     def check_session(self) -> bool:
-        """Verify session is still valid."""
         try:
             resp = self.session.get(
                 f"{API_BASE}{API_VERSION}/?method=profiles.getProfileContext&portalrole=guardian",

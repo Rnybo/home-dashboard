@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 AULA_URL = "https://www.aula.dk"
 MITID_USERNAME = os.getenv("MITID_USERNAME", "")
+MITID_IDENTITY = os.getenv("MITID_IDENTITY", "")  # e.g. "Rasmus Fogh Nybo"
 DEBUG = os.getenv("PLAYWRIGHT_DEBUG", "false").lower() == "true"
 
 
@@ -140,28 +141,30 @@ class AulaPlaywright:
                 while elapsed < deadline:
                     if AULA_URL in page.url and "/login" not in page.url:
                         break
-                    # Check if identity selector appeared
+
+                    # Check for identity selector on main page
                     try:
-                        identity = await target.evaluate("""
+                        private_visible = await page.evaluate("""
                             () => {
-                                const items = Array.from(document.querySelectorAll('.identity-item, [class*="identity"]'));
-                                return items.length > 0;
+                                const els = Array.from(document.querySelectorAll('*'));
+                                return els.some(el => el.offsetParent !== null && el.textContent.includes('privatperson'));
                             }
                         """)
-                        if identity:
-                            logger.info("Identity selector appeared, clicking private person...")
-                            await target.locator('.identity-item, [class*="identity"]').first.click(timeout=5000)
-                            await page.wait_for_timeout(2000)
+                        if private_visible:
+                            logger.info("Identity selector found, clicking private person...")
+                            await page.get_by_text("Log på som privatperson").click(timeout=5000)
+                            await page.wait_for_timeout(1000)
+                            # Click the actual name entry
+                            if MITID_IDENTITY:
+                                try:
+                                    await page.get_by_text(MITID_IDENTITY).click(timeout=5000)
+                                except Exception:
+                                    pass
+                            await page.wait_for_load_state("networkidle")
                             break
                     except Exception:
                         pass
-                    # Also check if we're on main page already (identity selected on QR screen)
-                    try:
-                        await page.locator('text=Log på som privatperson').first.click(timeout=1000)
-                        logger.info("Clicked privatperson")
-                        await page.wait_for_timeout(2000)
-                    except Exception:
-                        pass
+
                     try:
                         qr_bytes = await target.locator('.mitid-core-section').screenshot(timeout=2000)
                     except Exception:

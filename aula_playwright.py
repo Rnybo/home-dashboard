@@ -152,18 +152,18 @@ class AulaPlaywright:
                         """)
                         if private_visible:
                             logger.info("Identity selector found, clicking private person...")
-                            await page.get_by_text("Log på som privatperson").click(timeout=5000)
-                            await page.wait_for_timeout(1000)
-                            # Click the actual name entry
-                            if MITID_IDENTITY:
-                                try:
-                                    await page.get_by_text(MITID_IDENTITY).click(timeout=5000)
-                                except Exception:
-                                    pass
+                            # Try clicking the name row directly first
+                            try:
+                                await page.locator('li, div, button, a').filter(has_text="Rasmus Fogh Nybo").first.click(timeout=5000)
+                                logger.info("Clicked identity by name")
+                            except Exception:
+                                # Fall back to clicking the privatperson heading
+                                await page.get_by_text("Log på som privatperson").click(timeout=5000)
+                                logger.info("Clicked privatperson heading")
                             await page.wait_for_load_state("networkidle")
                             break
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.info(f"Identity check: {e}")
 
                     try:
                         qr_bytes = await target.locator('.mitid-core-section').screenshot(timeout=2000)

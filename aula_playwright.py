@@ -97,55 +97,26 @@ class AulaPlaywright:
                 await page.wait_for_timeout(4000)
                 await self._screenshot(page, "04_after_fortsaet")
 
-                # Step 5: Fill username in MitID iframe
+                # Step 5: Fill username
                 logger.info("Step 5: Filling username...")
-                # Wait for iframe to appear
                 await page.wait_for_timeout(3000)
                 mitid_frame = page.frame(url=lambda u: "mitid" in u)
-                logger.error(f"MitID frame: {mitid_frame.url if mitid_frame else 'NOT FOUND'}")
-                logger.error(f"All frames: {[f.url for f in page.frames]}")
                 target = mitid_frame if mitid_frame else page
                 await target.wait_for_selector('.mitid-core-user__input', state='attached', timeout=30000)
-                await target.evaluate('''
-                    const containers = Array.from(document.querySelectorAll(".mitid-core-user__input"));
-                    const visible = containers.find(el => el.offsetParent !== null);
-                    if (visible) {
-                        const input = visible.querySelector("input");
-                        if (input) { input.click(); input.focus(); }
-                    }
-                ''')
-                await page.wait_for_timeout(1000)
-                typed = False
+                # Use Playwright native click to properly focus the iframe input
                 try:
-                    await target.locator('.mitid-core-user__user-id').first.fill(MITID_USERNAME, timeout=5000)
-                    logger.error("Typed via fill()")
-                    typed = True
-                except Exception as e:
-                    logger.error(f"fill() failed: {e}")
-                if not typed:
-                    try:
-                        await target.locator('.mitid-core-user__input').first.click(timeout=3000)
-                        await page.wait_for_timeout(500)
-                        await page.keyboard.type(MITID_USERNAME, delay=80)
-                        logger.error("Typed via click+keyboard")
-                        typed = True
-                    except Exception as e:
-                        logger.error(f"click+keyboard failed: {e}")
-                if not typed:
-                    await target.evaluate(f'''
+                    await target.locator('.mitid-core-user__input').first.click(timeout=5000)
+                except Exception:
+                    await target.evaluate('''
                         const containers = Array.from(document.querySelectorAll(".mitid-core-user__input"));
                         const visible = containers.find(el => el.offsetParent !== null);
-                        if (visible) {{
+                        if (visible) {
                             const input = visible.querySelector("input");
-                            if (input) {{
-                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-                                nativeInputValueSetter.call(input, "{MITID_USERNAME}");
-                                input.dispatchEvent(new Event("input", {{bubbles: true}}));
-                                input.dispatchEvent(new Event("change", {{bubbles: true}}));
-                            }}
-                        }}
+                            if (input) { input.click(); input.focus(); }
+                        }
                     ''')
-                    logger.error("Typed via JS native setter")
+                await page.wait_for_timeout(1000)
+                await page.keyboard.type(MITID_USERNAME, delay=80)
                 await self._screenshot(page, "05_after_username")
                 await page.keyboard.press('Enter')
 

@@ -180,6 +180,11 @@ class AulaPlaywright:
                     elapsed += 3
 
                 await page.wait_for_load_state("networkidle")
+                # Ensure we are on Aula, not still on login/identity page
+                if "aula.dk" not in page.url or "login" in page.url:
+                    logger.info(f"Waiting for Aula redirect, current URL: {page.url}")
+                    await page.wait_for_url(f"{AULA_URL}/**", timeout=20000)
+                    await page.wait_for_load_state("networkidle")
                 await self._screenshot(page, "09_after_approval")
                 logger.info(f"Final URL: {page.url}")
 

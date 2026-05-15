@@ -1,9 +1,8 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
 from dotenv import load_dotenv
 from aula_client import AulaClient
+from aula_playwright import AulaPlaywright
 import os
 
 load_dotenv()
@@ -16,26 +15,21 @@ API_KEY = os.getenv("API_KEY", "")
 
 def check_api_key(request: Request):
     if not API_KEY:
-        return  # No key configured, allow all (dev mode)
+        return
     key = request.headers.get("x-api-key", "")
     if key != API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
-class SessionUpdate(BaseModel):
-    phpsessid: str
-    csrf_token: str
+async def on_login_success(phpsessid: str, csrf_token: str):
+    client.update_credentials(phpsessid, csrf_token)
 
 
-@app.get("/bookmarklet", response_class=HTMLResponse)
-def bookmarklet():
-    html = open("static/bookmarklet.html").read()
-    return html.replace("%%API_KEY%%", API_KEY)
+playwright_login = AulaPlaywright(on_success=on_login_success)
 
 
 @app.get("/api/config")
 def config():
-    """Expose API key to the frontend (served server-side, not in static files)."""
     return {"api_key": API_KEY}
 
 
@@ -46,14 +40,17 @@ def status(request: Request):
     return {"session_valid": valid}
 
 
-@app.post("/api/refresh-session")
-def refresh_session(request: Request, body: SessionUpdate):
+@app.post("/api/login/start")
+async def login_start(request: Request):
     check_api_key(request)
-    client.update_credentials(body.phpsessid, body.csrf_token)
-    valid = client.check_session()
-    if not valid:
-        raise HTTPException(status_code=401, detail="New credentials rejected by Aula")
-    return {"ok": True}
+    playwright_login.start_login()
+    return {"ok": True, "message": "Login started — check MitID app"}
+
+
+@app.get("/api/login/status")
+def login_status(request: Request):
+    check_api_key(request)
+    return playwright_login.get_status()
 
 
 @app.get("/api/profile")

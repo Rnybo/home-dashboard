@@ -53,7 +53,9 @@
       padding: 10px 16px;
       font-size: 0.85rem;
       cursor: pointer;
+      user-select: none;
     }
+    #session-banner:hover { background: #c73652; }
     #session-banner b { font-size: 1rem; }
 
     /* Refresh modal */
@@ -105,8 +107,8 @@
     <div id="clock"></div>
   </header>
 
-  <div id="session-banner" onclick="openModal()">
-    <b>⚠️ Session udløbet</b> — Klik her for at opdatere cookies
+  <div id="session-banner" onclick="window.open('/bookmarklet', '_blank')">
+    <b>⚠️ Session udløbet</b> — Gå til aula.dk, klik dit bogmærke, og kom tilbage
   </div>
 
   <div class="card">

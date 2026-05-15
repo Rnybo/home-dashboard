@@ -140,10 +140,32 @@ class AulaPlaywright:
                 while elapsed < deadline:
                     if AULA_URL in page.url and "/login" not in page.url:
                         break
+                    # Check if identity selector appeared
+                    try:
+                        identity = await target.evaluate("""
+                            () => {
+                                const items = Array.from(document.querySelectorAll('.identity-item, [class*="identity"]'));
+                                return items.length > 0;
+                            }
+                        """)
+                        if identity:
+                            logger.info("Identity selector appeared, clicking private person...")
+                            await target.locator('.identity-item, [class*="identity"]').first.click(timeout=5000)
+                            await page.wait_for_timeout(2000)
+                            break
+                    except Exception:
+                        pass
+                    # Also check if we're on main page already (identity selected on QR screen)
+                    try:
+                        await page.locator('text=Log på som privatperson').first.click(timeout=1000)
+                        logger.info("Clicked privatperson")
+                        await page.wait_for_timeout(2000)
+                    except Exception:
+                        pass
                     try:
                         qr_bytes = await target.locator('.mitid-core-section').screenshot(timeout=2000)
                     except Exception:
-                        qr_bytes = await page.screenshot(clip={'x': 150, 'y': 150, 'width': 400, 'height': 450})
+                        qr_bytes = await page.screenshot(clip={'x': 0, 'y': 0, 'width': 500, 'height': 500})
                     self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
                     await page.wait_for_timeout(3000)
                     elapsed += 3

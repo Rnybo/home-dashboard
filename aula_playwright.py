@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 AULA_URL = "https://www.aula.dk"
 MITID_USERNAME = os.getenv("MITID_USERNAME", "")
-MITID_IDENTITY = os.getenv("MITID_IDENTITY", "")  # e.g. "Rasmus Fogh Nybo"
+MITID_IDENTITY = os.getenv("MITID_IDENTITY", "")
 DEBUG = os.getenv("PLAYWRIGHT_DEBUG", "false").lower() == "true"
 
 
@@ -142,7 +142,7 @@ class AulaPlaywright:
                     if AULA_URL in page.url and "/login" not in page.url:
                         break
 
-                    # Check for identity selector on main page
+                    # Check for identity selector — it's an <a class="list-link"> element
                     try:
                         private_visible = await page.evaluate("""
                             () => {
@@ -152,19 +152,18 @@ class AulaPlaywright:
                         """)
                         if private_visible:
                             logger.info("Identity selector found, clicking private person...")
-                            # Try clicking the name row directly first
+                            name = MITID_IDENTITY or "Rasmus Fogh Nybo"
                             try:
-                                name = MITID_IDENTITY or "Rasmus Fogh Nybo"
-                                await page.locator('li, div, button, a').filter(has_text=name).first.click(timeout=5000)
-                                logger.info("Clicked identity by name")
+                                # The identity is an <a class="list-link"> that triggers JS form submit
+                                await page.locator(f'a.list-link:has-text("{name}")').click(timeout=5000)
+                                logger.info(f"Clicked list-link for {name}")
                             except Exception:
-                                # Fall back to clicking the privatperson heading
-                                await page.get_by_text("Log på som privatperson").click(timeout=5000)
-                                logger.info("Clicked privatperson heading")
+                                # Fallback: click first list-link (first = private person)
+                                await page.locator('a.list-link').first.click(timeout=5000)
+                                logger.info("Clicked first list-link")
                             await page.wait_for_load_state("networkidle")
-                            # Wait for full redirect back to Aula
                             try:
-                                await page.wait_for_url(f"{AULA_URL}/**", timeout=15000)
+                                await page.wait_for_url(f"{AULA_URL}/**", timeout=20000)
                                 await page.wait_for_load_state("networkidle")
                             except Exception:
                                 pass
@@ -181,7 +180,7 @@ class AulaPlaywright:
                     elapsed += 3
 
                 await page.wait_for_load_state("networkidle")
-                # Ensure we are on Aula, not still on login/identity page
+                # Ensure we are fully on Aula before extracting cookies
                 if "aula.dk" not in page.url or "login" in page.url:
                     logger.info(f"Waiting for Aula redirect, current URL: {page.url}")
                     await page.wait_for_url(f"{AULA_URL}/**", timeout=20000)

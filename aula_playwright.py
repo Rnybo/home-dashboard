@@ -70,7 +70,8 @@ class AulaPlaywright:
 
                 # Step 1: Navigate to Aula
                 logger.info("Step 1: Navigating to aula.dk...")
-                await page.goto(AULA_URL, wait_until="networkidle")
+                await page.goto(AULA_URL, wait_until="domcontentloaded")
+                await page.wait_for_timeout(1500)
                 await self._screenshot(page, "01_login_page")
 
                 # Step 2: Click MitID on Aula login page
@@ -88,7 +89,7 @@ class AulaPlaywright:
                 # Step 4: Click Fortsæt til login
                 logger.info("Step 4: Clicking Fortsæt til login...")
                 await page.get_by_role("button", name="FORTSÆT TIL LOGIN").click(timeout=10000)
-                await page.wait_for_timeout(5000)
+                await page.wait_for_timeout(2000)
                 await self._screenshot(page, "04_after_fortsaet")
 
                 # Step 5: Fill username in MitID iframe
@@ -104,14 +105,13 @@ class AulaPlaywright:
                         if (input) input.focus();
                     }
                 ''')
-                await page.wait_for_timeout(500)
-                await page.keyboard.type(MITID_USERNAME, delay=80)
+                await page.keyboard.type(MITID_USERNAME, delay=50)
                 await self._screenshot(page, "05_after_username")
                 await page.keyboard.press('Enter')
 
-                # Step 6: Wait for approval screen and check for errors
+                # Step 6: Wait for approval screen
                 logger.info("Step 6: Waiting for MitID approval screen...")
-                await page.wait_for_timeout(4000)
+                await page.wait_for_timeout(2000)
                 error_text = await target.evaluate("""
                     () => {
                         const err = document.querySelector('.mitid-notification--error');

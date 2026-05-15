@@ -1,3 +1,9 @@
+import asyncio
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -21,7 +27,7 @@ def check_api_key(request: Request):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
-async def on_login_success(phpsessid: str, csrf_token: str):
+def on_login_success(phpsessid: str, csrf_token: str):
     client.update_credentials(phpsessid, csrf_token)
 
 

@@ -139,7 +139,24 @@
       border-left-color: #005fa8;
     }
     .event .time { color: #005fa8; font-size: 0.75rem; white-space: nowrap; margin-left: 8px; font-weight: 600; }
-    .no-events { font-size: 0.78rem; color: #bbb; font-style: italic; }
+    .presence-tag {
+      font-size: 0.75rem;
+      background: #e8f4fc;
+      border-left: 3px solid #0093d0;
+      border-radius: 4px;
+      padding: 2px 7px;
+      color: #005fa8;
+      margin-bottom: 3px;
+    }
+    .presence-tag.vacation {
+      background: #fff3cd;
+      border-left-color: #f59e0b;
+      color: #92400e;
+    }
+    .day-row.today .presence-tag {
+      background: #cce4f7;
+      border-left-color: #005fa8;
+    }
 
     /* Messages */
     .messages-card {
@@ -161,13 +178,41 @@
       padding: 8px 0;
       border-bottom: 1px solid #e8f0f7;
       font-size: 0.82rem;
+      cursor: pointer;
     }
+    .msg-item:hover { background: #f0f7ff; }
     .msg-item:last-child { border-bottom: none; }
     .msg-item .subject { font-weight: 600; color: #333; }
     .msg-item.unread .subject { color: #005fa8; }
     .msg-item.unread { border-left: 3px solid #005fa8; padding-left: 8px; }
     .msg-item .meta { color: #999; font-size: 0.75rem; margin-top: 3px; }
     .loading { color: #bbb; font-style: italic; font-size: 0.82rem; }
+    .week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .week-nav h2 { flex: 1; margin: 0; }
+    .week-nav button {
+      background: #e8f4fc; border: 1px solid #d0e4f0; border-radius: 6px;
+      color: #005fa8; font-size: 1rem; cursor: pointer; padding: 2px 10px;
+    }
+    .week-nav button:hover { background: #cce4f7; }
+    /* Message modal */
+    #msg-modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    #msg-modal-overlay.open { display: flex; }
+    #msg-modal {
+      background: #fff; border-radius: 12px; padding: 20px;
+      width: 600px; max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    #msg-modal h2 { color: #005fa8; font-size: 1rem; margin-bottom: 8px; }
+    #msg-modal .msg-body { font-size: 0.85rem; color: #333; line-height: 1.6; }
+    #msg-modal .msg-meta { color: #999; font-size: 0.75rem; margin-bottom: 12px; }
+    #msg-modal-close {
+      float: right; background: none; border: none;
+      font-size: 1.2rem; cursor: pointer; color: #999;
+    }
   </style>
 </head>
 <body>
@@ -187,13 +232,27 @@
         <div class="tab" onclick="switchTab(1)">Max</div>
       </div>
       <div class="week-card">
-        <h2 id="week-title">Uge <span id="week-nr"></span></h2>
+        <div class="week-nav">
+          <button onclick="changeWeek(-1)">◀</button>
+          <h2>Uge <span id="week-nr"></span></h2>
+          <button onclick="changeWeek(1)">▶</button>
+        </div>
         <div id="week-content" class="loading">Henter...</div>
       </div>
     </div>
     <div class="messages-card">
       <h2>📬 Beskeder</h2>
       <div id="messages" class="loading">Henter...</div>
+    </div>
+  </div>
+
+  <!-- Message modal -->
+  <div id="msg-modal-overlay" onclick="closeMsgModal(event)">
+    <div id="msg-modal">
+      <button id="msg-modal-close" onclick="closeMsgModal()">✕</button>
+      <h2 id="msg-modal-subject"></h2>
+      <div class="msg-meta" id="msg-modal-meta"></div>
+      <div class="msg-body" id="msg-modal-body"></div>
     </div>
   </div>
 
@@ -204,7 +263,15 @@
       { name: 'Max',   id: 5620590 }
     ];
     let activeTab = 0;
+    let weekOffset = 0;
     let allEvents = [];
+    let presenceData = {};
+
+    function changeWeek(delta) {
+      weekOffset += delta;
+      loadCalendar();
+      loadPresence();
+    }
 
     async function initConfig() {
       const res = await fetch('/api/config');
@@ -232,7 +299,8 @@
     // Week helpers
     function getWeekDays() {
       const now = new Date();
-      const day = now.getDay() || 7; // Mon=1
+      now.setDate(now.getDate() + weekOffset * 7);
+      const day = now.getDay() || 7;
       const mon = new Date(now);
       mon.setDate(now.getDate() - day + 1);
       const days = [];
@@ -270,9 +338,13 @@
 
       const content = document.getElementById('week-content');
       const dayNames = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag'];
+      const childPresence = presenceData[child.id] || [];
 
       content.innerHTML = days.map((day, i) => {
         const isToday = isSameDay(day, today);
+        const dateStr = day.toISOString().split('T')[0];
+
+        // Calendar events
         const dayEvents = allEvents.filter(e => {
           if (!e.startDateTime) return false;
           const profiles = e.belongsToProfiles || [];
@@ -280,23 +352,43 @@
           return isSameDay(new Date(e.startDateTime), day);
         });
 
+        // Presence template for this day
+        const dayTemplate = childPresence.find(t => t.byDate === dateStr);
+        let presenceHtml = '';
+        if (dayTemplate) {
+          if (dayTemplate.isOnVacation) {
+            presenceHtml = `<div class="presence-tag vacation">🏖️ Ferie/fri</div>`;
+          } else {
+            const entry = dayTemplate.entryTime ? dayTemplate.entryTime.substring(0,5) : null;
+            const exit = dayTemplate.exitTime ? dayTemplate.exitTime.substring(0,5) : null;
+            const exitWith = dayTemplate.exitWith || '';
+            presenceHtml = `<div class="presence-tag">🕐 ${entry || '?'} – ${exit || '?'}${exitWith ? ` · ${exitWith}` : ''}</div>`;
+          }
+        }
+
         const eventsHtml = dayEvents.length
           ? dayEvents.map(e => {
               const start = new Date(e.startDateTime);
               const end = e.endDateTime ? new Date(e.endDateTime) : null;
-              const timeStr = start.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'}) +
-                (end ? '–' + end.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'}) : '');
               const isAllDay = start.getHours()===0 && start.getMinutes()===0 && (!end || (end.getHours()===0 && end.getMinutes()===0));
+              const timeStr = isAllDay ? '' : start.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'}) +
+                (end ? '–' + end.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'}) : '');
               return `<div class="event">
                 <span>${e.title || '(ingen titel)'}</span>
-                ${!isAllDay ? `<span class="time">${timeStr}</span>` : ''}
+                ${timeStr ? `<span class="time">${timeStr}</span>` : ''}
               </div>`;
             }).join('')
-          : '<div class="no-events">Ingen aktiviteter</div>';
+          : '';
+
+        const noContent = !dayEvents.length && !presenceHtml;
 
         return `<div class="day-row ${isToday ? 'today' : ''}">
           <div class="day-name">${dayNames[i]}</div>
-          <div class="events">${eventsHtml}</div>
+          <div class="events">
+            ${presenceHtml}
+            ${eventsHtml}
+            ${noContent ? '<div class="no-events">Ingen aktiviteter</div>' : ''}
+          </div>
         </div>`;
       }).join('');
     }
@@ -357,6 +449,25 @@
       }
     }
 
+    async function loadPresence() {
+      const ids = CHILDREN.map(c => c.id).join(',');
+      const days = getWeekDays();
+      const from = days[0].toISOString().split('T')[0];
+      const to = days[4].toISOString().split('T')[0];
+      try {
+        const res = await apiFetch(`/api/presence?inst_profile_ids=${ids}&from_date=${from}&to_date=${to}`);
+        if (res.status !== 200) return;
+        const templates = await res.json();
+        presenceData = {};
+        for (const t of templates) {
+          presenceData[t.institutionProfile.id] = t.dayTemplates || [];
+        }
+        renderWeek();
+      } catch(e) {
+        console.error('Presence error:', e);
+      }
+    }
+
     async function loadMessages() {
       const el = document.getElementById('messages');
       try {
@@ -365,11 +476,41 @@
         const threads = await res.json();
         if (!threads.length) { el.textContent = 'Ingen beskeder'; return; }
         el.innerHTML = threads.slice(0, 2).map(t => `
-          <div class="msg-item ${t.read ? '' : 'unread'}">
+          <div class="msg-item ${t.read ? '' : 'unread'}" onclick="openMsg(${t.id}, '${(t.subject||'').replace(/'/g,"\\'")}')">
             <div class="subject">${t.subject || '(ingen emne)'}</div>
             <div class="meta">${t.read ? '✓ Læst' : '● Ulæst'}</div>
           </div>`).join('');
       } catch(e) { el.textContent = 'Fejl: ' + e.message; }
+    }
+
+    async function openMsg(threadId, subject) {
+      document.getElementById('msg-modal-subject').textContent = subject;
+      document.getElementById('msg-modal-body').textContent = 'Henter...';
+      document.getElementById('msg-modal-meta').textContent = '';
+      document.getElementById('msg-modal-overlay').classList.add('open');
+      try {
+        const res = await apiFetch(`/api/messages/${threadId}`);
+        const data = await res.json();
+        const messages = data.messages || [];
+        if (!messages.length) {
+          document.getElementById('msg-modal-body').textContent = 'Ingen indhold';
+          return;
+        }
+        const first = messages.find(m => m.messageType === 'Message') || messages[0];
+        const sender = first.sender?.fullName || 'Ukendt';
+        const date = first.sendDateTime ? new Date(first.sendDateTime).toLocaleString('da-DK', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
+        document.getElementById('msg-modal-meta').textContent = `${sender} · ${date}`;
+        const body = first.text?.html || first.text || '(intet indhold)';
+        document.getElementById('msg-modal-body').innerHTML = body;
+      } catch(e) {
+        document.getElementById('msg-modal-body').textContent = 'Fejl: ' + e.message;
+      }
+    }
+
+    function closeMsgModal(e) {
+      if (!e || e.target === document.getElementById('msg-modal-overlay') || e.target === document.getElementById('msg-modal-close')) {
+        document.getElementById('msg-modal-overlay').classList.remove('open');
+      }
     }
 
     let pollTimer = null;
@@ -381,6 +522,7 @@
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
         loadCalendar();
+        loadPresence();
         loadMessages();
         schedulePoll(5 * 60 * 1000);
       } else {

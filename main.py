@@ -104,6 +104,18 @@ def thread(request: Request, thread_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/presence")
+def presence(request: Request, inst_profile_ids: str = "", from_date: str = "", to_date: str = ""):
+    check_api_key(request)
+    try:
+        ids = [int(i) for i in inst_profile_ids.split(",") if i]
+        return client.get_presence(ids, from_date or None, to_date or None)
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/calendar")
 def calendar(request: Request, inst_profile_ids: str = ""):
     check_api_key(request)

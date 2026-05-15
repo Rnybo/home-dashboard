@@ -95,7 +95,11 @@ class AulaPlaywright:
 
                 # Step 5: Fill username in MitID iframe
                 logger.info("Step 5: Filling username...")
+                # Wait for iframe to appear
+                await page.wait_for_timeout(3000)
                 mitid_frame = page.frame(url=lambda u: "mitid" in u)
+                logger.info(f"MitID frame: {mitid_frame.url if mitid_frame else 'NOT FOUND'}")
+                logger.info(f"All frames: {[f.url for f in page.frames]}")
                 target = mitid_frame if mitid_frame else page
                 await target.wait_for_selector('.mitid-core-user__input', state='attached', timeout=30000)
                 await target.evaluate('''

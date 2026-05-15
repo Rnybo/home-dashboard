@@ -161,6 +161,12 @@ class AulaPlaywright:
                                 await page.get_by_text("Log på som privatperson").click(timeout=5000)
                                 logger.info("Clicked privatperson heading")
                             await page.wait_for_load_state("networkidle")
+                            # Wait for full redirect back to Aula
+                            try:
+                                await page.wait_for_url(f"{AULA_URL}/**", timeout=15000)
+                                await page.wait_for_load_state("networkidle")
+                            except Exception:
+                                pass
                             break
                     except Exception as e:
                         logger.info(f"Identity check: {e}")

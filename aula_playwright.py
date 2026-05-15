@@ -1,9 +1,13 @@
 import asyncio
 import logging
 import os
+import sys
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
-logger = logging.getLogger(__name__)
+# Force stdout to flush immediately
+sys.stdout.reconfigure(line_buffering=True)
+
+logger = logging.getLogger("uvicorn.error")
 
 AULA_URL = "https://www.aula.dk"
 MITID_USERNAME = os.getenv("MITID_USERNAME", "")
@@ -98,11 +102,10 @@ class AulaPlaywright:
                 # Wait for iframe to appear
                 await page.wait_for_timeout(3000)
                 mitid_frame = page.frame(url=lambda u: "mitid" in u)
-                print(f"MitID frame: {mitid_frame.url if mitid_frame else 'NOT FOUND'}", flush=True)
-                print(f"All frames: {[f.url for f in page.frames]}", flush=True)
+                logger.error(f"MitID frame: {mitid_frame.url if mitid_frame else 'NOT FOUND'}")
+                logger.error(f"All frames: {[f.url for f in page.frames]}")
                 target = mitid_frame if mitid_frame else page
                 await target.wait_for_selector('.mitid-core-user__input', state='attached', timeout=30000)
-                # Focus via JS then also try clicking the container
                 await target.evaluate('''
                     const containers = Array.from(document.querySelectorAll(".mitid-core-user__input"));
                     const visible = containers.find(el => el.offsetParent !== null);
@@ -112,26 +115,22 @@ class AulaPlaywright:
                     }
                 ''')
                 await page.wait_for_timeout(1000)
-                # Try multiple approaches to type username
                 typed = False
-                # Approach 1: Direct fill on the input element in the frame
                 try:
                     await target.locator('.mitid-core-user__user-id').first.fill(MITID_USERNAME, timeout=5000)
-                    print("Typed via fill()", flush=True)
+                    logger.error("Typed via fill()")
                     typed = True
                 except Exception as e:
-                    print(f"fill() failed: {e}", flush=True)
-                # Approach 2: click + keyboard type
+                    logger.error(f"fill() failed: {e}")
                 if not typed:
                     try:
                         await target.locator('.mitid-core-user__input').first.click(timeout=3000)
                         await page.wait_for_timeout(500)
                         await page.keyboard.type(MITID_USERNAME, delay=80)
-                        print("Typed via click+keyboard", flush=True)
+                        logger.error("Typed via click+keyboard")
                         typed = True
                     except Exception as e:
-                        print(f"click+keyboard failed: {e}", flush=True)
-                # Approach 3: JS set value + dispatch events
+                        logger.error(f"click+keyboard failed: {e}")
                 if not typed:
                     await target.evaluate(f'''
                         const containers = Array.from(document.querySelectorAll(".mitid-core-user__input"));
@@ -146,7 +145,7 @@ class AulaPlaywright:
                             }}
                         }}
                     ''')
-                    print("Typed via JS native setter", flush=True)
+                    logger.error("Typed via JS native setter")
                 await self._screenshot(page, "05_after_username")
                 await page.keyboard.press('Enter')
 

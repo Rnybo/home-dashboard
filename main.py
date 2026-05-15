@@ -10,18 +10,22 @@ from dotenv import load_dotenv
 from aula_client import AulaClient
 from aula_playwright import AulaPlaywright
 import os
+import logging
 
+logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)  # Disable API docs in production
 client = AulaClient()
 
 API_KEY = os.getenv("API_KEY", "")
+if not API_KEY:
+    logging.warning("API_KEY is not set — API is unprotected!")
 
 
 def check_api_key(request: Request):
     if not API_KEY:
-        return
+        return  # Dev mode — no key set
     key = request.headers.get("x-api-key", "")
     if key != API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -35,7 +39,14 @@ playwright_login = AulaPlaywright(on_success=on_login_success)
 
 
 @app.get("/api/config")
-def config():
+def config(request: Request):
+    # Only expose API key to requests coming from the same host (dashboard itself)
+    # The key is needed by the frontend to include in subsequent requests
+    referer = request.headers.get("referer", "")
+    origin = request.headers.get("origin", "")
+    host = request.headers.get("host", "")
+    if referer and host and host not in referer and host not in origin:
+        raise HTTPException(status_code=403, detail="Forbidden")
     return {"api_key": API_KEY}
 
 

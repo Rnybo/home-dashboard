@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from aula_client import AulaClient
@@ -25,6 +25,12 @@ def check_api_key(request: Request):
 class SessionUpdate(BaseModel):
     phpsessid: str
     csrf_token: str
+
+
+@app.get("/bookmarklet", response_class=HTMLResponse)
+def bookmarklet():
+    html = open("static/bookmarklet.html").read()
+    return html.replace("%%API_KEY%%", API_KEY)
 
 
 @app.get("/api/config")

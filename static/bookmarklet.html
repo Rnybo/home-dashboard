@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aula Bookmarklet</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+    h1 { color: #e94560; }
+    p { color: #aaa; line-height: 1.6; }
+    .box { background: #16213e; border-radius: 10px; padding: 20px; margin: 20px 0; }
+    .bookmarklet {
+      display: inline-block;
+      background: #e94560;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: move;
+    }
+    code { background: #0f3460; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+    ol li { margin-bottom: 10px; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>🔄 Aula Session Opdatering</h1>
+
+  <div class="box">
+    <p>Træk denne knap til din bogmærkelinje:</p>
+    <br/>
+    <a class="bookmarklet" id="bookmarklet-link" href="">📌 Opdater Aula Session</a>
+    <br/><br/>
+    <p style="font-size:0.8rem">Eller højreklik → Tilføj til bogmærker</p>
+  </div>
+
+  <div class="box">
+    <h2 style="color:#e94560">Sådan bruges det</h2>
+    <ol>
+      <li>Log ind på <a href="https://www.aula.dk" style="color:#e94560">aula.dk</a></li>
+      <li>Klik på bogmærket <strong>"Opdater Aula Session"</strong></li>
+      <li>Færdig — sessionen opdateres automatisk</li>
+    </ol>
+  </div>
+
+  <script>
+    // Inject the dashboard URL dynamically so the bookmarklet always points to this server
+    const dashboardUrl = window.location.origin;
+    const apiKey = '%%API_KEY%%';
+
+    const code = `
+      (function() {
+        function getCookie(name) {
+          const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+          return match ? match[2] : null;
+        }
+        const phpsessid = getCookie('PHPSESSID');
+        const csrf = getCookie('Csrfp-Token');
+        if (!phpsessid || !csrf) {
+          alert('Kunne ikke finde Aula cookies. Er du logget ind på aula.dk?');
+          return;
+        }
+        fetch('${dashboardUrl}/api/refresh-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': '${apiKey}' },
+          body: JSON.stringify({ phpsessid, csrf_token: csrf })
+        })
+        .then(r => r.json())
+        .then(d => alert(d.ok ? '✅ Session opdateret!' : '❌ Fejl: ' + JSON.stringify(d)))
+        .catch(e => alert('❌ Netværksfejl: ' + e.message));
+      })();
+    `.trim().replace(/\s+/g, ' ');
+
+    document.getElementById('bookmarklet-link').href = 'javascript:' + encodeURIComponent(code);
+  </script>
+</body>
+</html>

@@ -221,7 +221,8 @@
         const profileRes = await apiFetch('/api/profile');
         if (profileRes.status === 401) { el.textContent = 'Session udløbet'; return; }
         const profile = await profileRes.json();
-        const ids = (profile?.data?.institutionProfiles || []).map(p => p.id).join(',');
+        const relations = profile?.data?.institutionProfile?.relations || [];
+        const ids = relations.map(r => r.id).join(',');
         const res = await apiFetch('/api/calendar?inst_profile_ids=' + ids);
         const events = await res.json();
         if (!events.length) { el.textContent = 'Ingen begivenheder'; return; }

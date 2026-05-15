@@ -82,8 +82,11 @@ class AulaClient:
 
     def _post(self, method: str, body: dict) -> dict:
         url = f"{API_BASE}{API_VERSION}/?method={method}"
-        resp = self.session.post(url, data=json.dumps(body),
-                                 headers={"content-type": "application/json"}, verify=True)
+        headers = {
+            "content-type": "application/json",
+            "csrfp-token": self.session.headers.get("csrfp-token", ""),
+        }
+        resp = self.session.post(url, data=json.dumps(body), headers=headers, verify=True)
         resp.raise_for_status()
         return resp.json()
 
@@ -108,4 +111,4 @@ class AulaClient:
             "start": start,
             "end": end
         })
-        return data.get("data", {}).get("events", [])
+        return data.get("data") or []

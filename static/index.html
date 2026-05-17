@@ -9,159 +9,84 @@
     :root {
       --blue: #005fa8; --blue-light: #e8f4fc; --blue-mid: #cce4f7;
       --blue-accent: #0093d0; --border: #d0e4f0; --bg: #f0f4f8; --radius: 10px;
-      --hour-h: 52px; --time-col: 44px; --start-h: 7; --end-h: 17;
+      --hour-h: 52px; --time-col: 44px;
     }
-    body {
-      background: var(--bg); color: #333; font-family: 'Segoe UI', sans-serif;
-      display: flex; flex-direction: column; min-height: 100dvh; gap: 10px; padding: 10px;
-    }
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0;
-    }
+    body { background: var(--bg); color: #333; font-family: 'Segoe UI', sans-serif;
+      display: flex; flex-direction: column; min-height: 100dvh; gap: 10px; padding: 10px; }
+    header { display: flex; justify-content: space-between; align-items: center;
+      background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0; }
     header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; }
     header #clock { font-size: 0.95rem; color: #cce4f7; }
-    #session-banner {
-      display: none; background: #d9534f; border-radius: var(--radius);
-      padding: 10px 16px; font-size: 0.85rem; cursor: pointer;
-      user-select: none; color: #fff; flex-shrink: 0; min-height: 44px;
-    }
+    #session-banner { display: none; background: #d9534f; border-radius: var(--radius);
+      padding: 10px 16px; font-size: 0.85rem; cursor: pointer; user-select: none;
+      color: #fff; flex-shrink: 0; min-height: 44px; }
     #session-banner:hover { background: #c9302c; }
 
-    /* ── Main layout ── */
-    .main { display: grid; grid-template-columns: 1fr 280px; gap: 10px; flex: 1; min-height: 0; }
-    .left { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+    /* ── Nav tabs (top) ── */
+    .top-nav { display: flex; gap: 6px; flex-shrink: 0; }
+    .top-nav-btn { padding: 7px 20px; border-radius: 8px; background: #fff; color: var(--blue);
+      cursor: pointer; font-size: 0.88rem; font-weight: 600; border: 2px solid var(--border);
+      transition: all 0.2s; }
+    .top-nav-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
 
-    /* ── Tabs ── */
+    /* ── Views ── */
+    .view { display: none; flex: 1; min-height: 0; gap: 10px; }
+    .view.active { display: flex; }
+
+    /* ── Calendar view ── */
+    #view-cal { flex-direction: row; }
+    .left { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
     .tabs { display: flex; gap: 8px; flex-shrink: 0; }
-    .tab {
-      padding: 7px 18px; border-radius: 8px; background: #fff; color: var(--blue);
-      cursor: pointer; font-size: 0.9rem; font-weight: 600; border: 2px solid var(--border); transition: all 0.2s;
-      display: flex; align-items: center; gap: 8px;
-    }
+    .tab { padding: 7px 18px; border-radius: 8px; background: #fff; color: var(--blue);
+      cursor: pointer; font-size: 0.9rem; font-weight: 600; border: 2px solid var(--border);
+      transition: all 0.2s; display: flex; align-items: center; gap: 8px; }
     .tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
     .tab img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(0,95,168,0.2); }
     .tab.active img { border-color: rgba(255,255,255,0.7); }
-
-    /* ── Week card ── */
-    .week-card {
-      background: #fff; border-radius: var(--radius); padding: 12px 12px 12px 12px;
-      flex: 1; overflow: hidden; border: 1px solid var(--border);
-      display: flex; flex-direction: column; min-height: 0;
-    }
+    .week-card { background: #fff; border-radius: var(--radius); padding: 12px;
+      flex: 1; overflow: hidden; border: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
     .week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
-    .week-nav h2 { flex: 1; margin: 0; font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-    .week-nav button {
-      background: var(--blue-light); border: 1px solid var(--border); border-radius: 6px;
-      color: var(--blue); font-size: 1rem; cursor: pointer; padding: 4px 14px; font-weight: 700;
-    }
+    .week-nav h2 { flex: 1; margin: 0; font-size: 0.85rem; color: var(--blue);
+      text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+    .week-nav button { background: var(--blue-light); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--blue); font-size: 1rem; cursor: pointer; padding: 4px 14px; font-weight: 700; }
     .week-nav button:hover { background: var(--blue-mid); }
-
-    /* ── Timetable ── */
     .timetable-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
-    .timetable {
-      display: grid;
-      /* time gutter + 5 day columns */
-      grid-template-columns: var(--time-col) repeat(5, 1fr);
-      min-width: 480px;
-    }
-
-    /* Day headers row */
-    .th-spacer { /* top-left corner */ }
-    .day-header {
-      padding: 4px 4px 8px;
-      text-align: center;
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: #666;
-      border-bottom: 2px solid var(--border);
-      position: sticky; top: 0; background: #fff; z-index: 2;
-    }
-    .day-header.today { color: var(--blue); }
-    .day-header .date-num {
-      display: block; font-size: 1.1rem; font-weight: 800;
-      color: #333; line-height: 1.2;
-    }
-    .day-header.today .date-num {
-      background: var(--blue); color: #fff;
-      border-radius: 50%; width: 28px; height: 28px;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 0.95rem;
-    }
+    .timetable { display: grid; grid-template-columns: var(--time-col) repeat(5, 1fr); min-width: 480px; }
     .th-spacer { position: sticky; top: 0; background: #fff; z-index: 2; border-bottom: 2px solid var(--border); }
-
-    /* Time gutter */
-    .time-gutter {
-      grid-column: 1;
-      position: relative;
-    }
-    .hour-label {
-      position: absolute; right: 6px;
-      font-size: 0.68rem; color: #aaa; font-weight: 600;
-      transform: translateY(-50%);
-      white-space: nowrap;
-    }
-
-    /* Day columns */
-    .day-col {
-      position: relative;
-      border-left: 1px solid var(--border);
-    }
+    .day-header { padding: 4px 4px 8px; text-align: center; font-size: 0.78rem; font-weight: 700;
+      color: #666; border-bottom: 2px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 2; }
+    .day-header.today { color: var(--blue); }
+    .day-header .date-num { display: block; font-size: 1.1rem; font-weight: 800; color: #333; line-height: 1.2; }
+    .day-header.today .date-num { background: var(--blue); color: #fff; border-radius: 50%;
+      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; }
+    .time-gutter { grid-column: 1; position: relative; }
+    .hour-label { position: absolute; right: 6px; font-size: 0.68rem; color: #aaa;
+      font-weight: 600; transform: translateY(-50%); white-space: nowrap; }
+    .day-col { position: relative; border-left: 1px solid var(--border); }
     .day-col.today { background: #f5faff; }
-
-    /* Hour lines (shared across all columns) */
-    .hour-line {
-      position: absolute; left: 0; right: 0;
-      border-top: 1px solid #eef2f7;
-      pointer-events: none;
-    }
+    .hour-line { position: absolute; left: 0; right: 0; border-top: 1px solid #eef2f7; pointer-events: none; }
     .hour-line.full { border-top-color: #dde8f2; }
-
-    /* Presence bar */
-    .presence-bar {
-      position: absolute; left: 2px; right: 2px;
-      background: var(--blue-light); border-left: 3px solid var(--blue-accent);
-      border-radius: 4px; font-size: 0.65rem; color: var(--blue);
-      padding: 2px 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-      opacity: 0.7;
-    }
+    .presence-bar { position: absolute; left: 2px; right: 2px; background: var(--blue-light);
+      border-left: 3px solid var(--blue-accent); border-radius: 4px; font-size: 0.65rem;
+      color: var(--blue); padding: 2px 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; opacity: 0.7; }
     .presence-bar.vacation { background: #fff3cd; border-left-color: #f59e0b; color: #92400e; }
-
-    /* Calendar events */
-    .cal-event {
-      position: absolute; left: 3px; right: 3px;
-      background: var(--blue-accent); color: #fff;
-      border-radius: 5px; padding: 3px 5px;
-      font-size: 0.7rem; font-weight: 600;
-      overflow: hidden; cursor: default;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-      display: flex; flex-direction: column; justify-content: flex-start;
-    }
+    .cal-event { position: absolute; left: 3px; right: 3px; background: var(--blue-accent);
+      color: #fff; border-radius: 5px; padding: 3px 5px; font-size: 0.7rem; font-weight: 600;
+      overflow: hidden; cursor: default; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column; }
     .cal-event .ev-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cal-event .ev-time { font-size: 0.62rem; opacity: 0.85; font-weight: 400; }
-    .cal-event.allday {
-      background: var(--blue-mid); color: var(--blue);
-      border-left: 3px solid var(--blue); border-radius: 4px;
-      left: 2px; right: 2px;
-    }
+    .cal-event.allday { background: var(--blue-mid); color: var(--blue); border-left: 3px solid var(--blue); }
+    .now-line { position: absolute; left: 0; right: 0; border-top: 2px solid #e53e3e; pointer-events: none; z-index: 3; }
+    .now-line::before { content: ''; position: absolute; left: -4px; top: -4px;
+      width: 8px; height: 8px; border-radius: 50%; background: #e53e3e; }
 
-    /* Now line */
-    .now-line {
-      position: absolute; left: 0; right: 0;
-      border-top: 2px solid #e53e3e;
-      pointer-events: none; z-index: 3;
-    }
-    .now-line::before {
-      content: ''; position: absolute; left: -4px; top: -4px;
-      width: 8px; height: 8px; border-radius: 50%; background: #e53e3e;
-    }
-
-    /* ── Messages ── */
-    .messages-card {
-      background: #fff; border-radius: var(--radius); padding: 12px;
-      overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column;
-    }
-    .messages-card h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; flex-shrink: 0; }
+    /* ── Messages panel ── */
+    .messages-card { background: #fff; border-radius: var(--radius); padding: 12px;
+      overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column; width: 300px; flex-shrink: 0; }
+    .messages-card h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; flex-shrink: 0; }
     .msg-item { padding: 9px 0; border-bottom: 1px solid #e8f0f7; font-size: 0.82rem; cursor: pointer; }
     .msg-item:hover { background: #f0f7ff; border-radius: 4px; padding-left: 4px; }
     .msg-item:last-child { border-bottom: none; }
@@ -171,59 +96,93 @@
     .msg-item .meta { color: #999; font-size: 0.75rem; margin-top: 3px; }
     .loading { color: #bbb; font-style: italic; font-size: 0.82rem; }
 
-    /* ── Modal ── */
-    #msg-modal-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-      z-index: 100; align-items: center; justify-content: center; padding: 16px;
-    }
+    /* ── Gallery view ── */
+    #view-gallery { flex-direction: column; gap: 10px; }
+    .gallery-card { background: #fff; border-radius: var(--radius); padding: 14px;
+      flex: 1; overflow-y: auto; border: 1px solid var(--border); }
+    .gallery-card h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 12px; font-weight: 700; }
+    .albums-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .album-card { border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid var(--border);
+      background: var(--blue-light); transition: all 0.2s; }
+    .album-card:hover { border-color: var(--blue-accent); box-shadow: 0 2px 12px rgba(0,95,168,0.15); transform: translateY(-1px); }
+    .album-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--blue-mid); }
+    .album-thumb-placeholder { width: 100%; aspect-ratio: 1; background: var(--blue-mid);
+      display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+    .album-info { padding: 8px 10px; }
+    .album-title { font-size: 0.8rem; font-weight: 700; color: #333; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; }
+    .album-date { font-size: 0.7rem; color: #999; margin-top: 2px; }
+
+    /* Media grid (inside album) */
+    .gallery-back { background: none; border: none; color: var(--blue); font-size: 0.85rem;
+      cursor: pointer; font-weight: 600; margin-bottom: 12px; padding: 0; display: flex; align-items: center; gap: 4px; }
+    .gallery-back:hover { text-decoration: underline; }
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .media-item { border-radius: 8px; overflow: hidden; cursor: pointer; aspect-ratio: 1;
+      background: var(--blue-mid); position: relative; }
+    .media-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.2s; }
+    .media-item:hover img { opacity: 0.85; }
+    .media-item .media-type { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.5);
+      color: #fff; border-radius: 4px; font-size: 0.65rem; padding: 1px 4px; }
+
+    /* Lightbox */
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+      z-index: 200; align-items: center; justify-content: center; }
+    #lightbox.open { display: flex; }
+    #lightbox img, #lightbox video { max-width: 92vw; max-height: 88vh; border-radius: 8px; object-fit: contain; }
+    #lightbox-close { position: absolute; top: 16px; right: 20px; background: none; border: none;
+      color: #fff; font-size: 2rem; cursor: pointer; line-height: 1; opacity: 0.8; }
+    #lightbox-close:hover { opacity: 1; }
+    #lightbox-caption { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: 0.8rem; opacity: 0.7; text-align: center; }
+    #lightbox-prev, #lightbox-next { position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 1.8rem;
+      cursor: pointer; border-radius: 50%; width: 44px; height: 44px; display: flex;
+      align-items: center; justify-content: center; }
+    #lightbox-prev { left: 16px; } #lightbox-next { right: 16px; }
+    #lightbox-prev:hover, #lightbox-next:hover { background: rgba(255,255,255,0.3); }
+
+    /* ── Modal (messages) ── */
+    #msg-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 100; align-items: center; justify-content: center; padding: 16px; }
     #msg-modal-overlay.open { display: flex; }
-    #msg-modal {
-      background: #fff; border-radius: 12px; padding: 20px; width: 100%;
-      max-width: 640px; max-height: 85dvh; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.2);
-    }
+    #msg-modal { background: #fff; border-radius: 12px; padding: 20px; width: 100%;
+      max-width: 640px; max-height: 85dvh; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
     #msg-modal h2 { color: var(--blue); font-size: 1rem; margin-bottom: 4px; padding-right: 28px; }
     #msg-modal .msg-meta { color: #999; font-size: 0.75rem; margin-bottom: 14px; }
-    #msg-modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #999; line-height: 1; }
+    #msg-modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #999; }
     .thread-msg { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #e8f0f7; }
     .thread-msg:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .thread-msg-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
     .thread-msg-sender { font-weight: 700; font-size: 0.82rem; color: var(--blue); }
-    .thread-msg-date { font-size: 0.72rem; color: #aaa; white-space: nowrap; margin-left: 8px; }
+    .thread-msg-date { font-size: 0.72rem; color: #aaa; margin-left: 8px; }
     .thread-msg-body { font-size: 0.83rem; color: #333; line-height: 1.6; }
     .thread-msg-body img { max-width: 100%; border-radius: 6px; margin-top: 6px; }
 
     /* ── Mobile ── */
-    .bottom-nav {
-      display: none; position: fixed; bottom: 0; left: 0; right: 0;
-      background: #fff; border-top: 1px solid var(--border); z-index: 50;
-    }
-    .bottom-nav button {
-      flex: 1; padding: 12px 0; background: none; border: none; font-size: 0.8rem;
-      color: #888; cursor: pointer; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    }
+    .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid var(--border); z-index: 50; }
+    .bottom-nav button { flex: 1; padding: 10px 0; background: none; border: none; font-size: 0.75rem;
+      color: #888; cursor: pointer; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .bottom-nav button.active { color: var(--blue); }
-    .bottom-nav button span.icon { font-size: 1.3rem; }
+    .bottom-nav button span.icon { font-size: 1.2rem; }
 
-    @media (min-width: 900px) {
-      body { max-width: 1500px; margin: 0 auto; }
-      .main { grid-template-columns: 1fr 300px; }
-    }
-    @media (min-width: 600px) and (max-width: 899px) {
-      .main { grid-template-columns: 1fr; }
-      .messages-card { min-height: 220px; max-height: 280px; }
+    @media (min-width: 900px) { body { max-width: 1500px; margin: 0 auto; } }
+    @media (max-width: 899px) {
+      #view-cal { flex-direction: column; }
+      .messages-card { width: 100%; max-height: 260px; }
     }
     @media (max-width: 599px) {
-      body { padding: 8px 8px 70px; gap: 8px; }
-      header h1 { font-size: 1rem; }
-      header #clock { font-size: 0.75rem; }
-      .main { grid-template-columns: 1fr; gap: 8px; }
-      .messages-card { display: none; }
-      .messages-card.mobile-active { display: flex; }
-      .left.mobile-hidden { display: none; }
+      body { padding: 8px 8px 68px; gap: 8px; }
+      header h1 { font-size: 1rem; } header #clock { font-size: 0.75rem; }
+      .top-nav { display: none; }
       .bottom-nav { display: flex; }
       :root { --hour-h: 44px; --time-col: 36px; }
-      .tab { padding: 6px 12px; font-size: 0.82rem; }
-      #msg-modal { padding: 14px; }
+      .tab { padding: 6px 10px; font-size: 0.8rem; }
+      .albums-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      .media-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
+      .messages-card { width: 100%; }
     }
   </style>
 </head>
@@ -235,7 +194,16 @@
   <div id="session-banner" onclick="startLogin()">
     <b>⚠️ Session udløbet</b> — <span id="banner-msg">Klik for at logge ind automatisk</span>
   </div>
-  <div class="main">
+
+  <!-- Top nav (desktop/tablet) -->
+  <div class="top-nav">
+    <div class="top-nav-btn active" onclick="switchView('cal')">📅 Kalender</div>
+    <div class="top-nav-btn" onclick="switchView('gallery')">🖼️ Galleri</div>
+    <div class="top-nav-btn" onclick="switchView('msg')">📬 Beskeder</div>
+  </div>
+
+  <!-- Calendar view -->
+  <div class="view active" id="view-cal">
     <div class="left" id="left-panel">
       <div class="tabs">
         <div class="tab active" onclick="switchTab(0)">Aksel</div>
@@ -252,15 +220,36 @@
         </div>
       </div>
     </div>
-    <div class="messages-card" id="messages-panel">
+    <div class="messages-card" id="messages-panel-cal">
       <h2>📬 Beskeder</h2>
-      <div id="messages" class="loading">Henter...</div>
+      <div id="messages-cal" class="loading">Henter...</div>
     </div>
   </div>
+
+  <!-- Gallery view -->
+  <div class="view" id="view-gallery">
+    <div class="gallery-card" id="gallery-card">
+      <h2 id="gallery-title">🖼️ Galleri</h2>
+      <div id="gallery-content" class="loading">Henter...</div>
+    </div>
+  </div>
+
+  <!-- Messages view (mobile full screen) -->
+  <div class="view" id="view-msg">
+    <div class="messages-card" style="width:100%;max-height:none;flex:1;">
+      <h2>📬 Beskeder</h2>
+      <div id="messages-full" class="loading">Henter...</div>
+    </div>
+  </div>
+
+  <!-- Mobile bottom nav -->
   <nav class="bottom-nav">
-    <button class="active" id="nav-cal" onclick="mobileNav('cal')"><span class="icon">📅</span>Kalender</button>
-    <button id="nav-msg" onclick="mobileNav('msg')"><span class="icon">📬</span>Beskeder</button>
+    <button class="active" id="nav-cal" onclick="switchView('cal')"><span class="icon">📅</span>Kalender</button>
+    <button id="nav-gallery" onclick="switchView('gallery')"><span class="icon">🖼️</span>Galleri</button>
+    <button id="nav-msg" onclick="switchView('msg')"><span class="icon">📬</span>Beskeder</button>
   </nav>
+
+  <!-- Message modal -->
   <div id="msg-modal-overlay" onclick="closeMsgModal(event)">
     <div id="msg-modal">
       <button id="msg-modal-close" onclick="closeMsgModal()">✕</button>
@@ -269,40 +258,56 @@
       <div id="msg-modal-body"></div>
     </div>
   </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox" onclick="closeLightbox(event)">
+    <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+    <button id="lightbox-prev" onclick="lightboxNav(-1)">‹</button>
+    <div id="lightbox-media"></div>
+    <button id="lightbox-next" onclick="lightboxNav(1)">›</button>
+    <div id="lightbox-caption"></div>
+  </div>
   <script>
     const START_H = 7, END_H = 17, HOURS = END_H - START_H;
     const DAY_NAMES = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag'];
-
     let API_KEY = '';
     const CHILDREN = [{ name: 'Aksel', id: 5620584 }, { name: 'Max', id: 5620590 }];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
+    let currentView = 'cal';
+    let lightboxItems = [], lightboxIdx = 0;
 
-    // ── Config & fetch ──
     async function initConfig() {
-      const data = await fetch('/api/config').then(r => r.json());
-      API_KEY = data.api_key || '';
+      API_KEY = (await fetch('/api/config').then(r => r.json())).api_key || '';
     }
     function apiFetch(url, opts = {}) {
-      return fetch(url, { ...opts, headers: { ...(opts.headers || {}), 'x-api-key': API_KEY } });
+      return fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
+    }
+
+    // ── View switching ──
+    function switchView(view) {
+      currentView = view;
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + (view === 'msg' ? 'msg' : view === 'gallery' ? 'gallery' : 'cal')).classList.add('active');
+      document.querySelectorAll('.top-nav-btn').forEach((b,i) => b.classList.toggle('active', ['cal','gallery','msg'][i] === view));
+      document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', ['cal','gallery','msg'][i] === view));
+      if (view === 'gallery' && !galleryLoaded) loadGallery();
+      if (view === 'msg') syncMessagesFull();
     }
 
     // ── Clock ──
     function updateClock() {
       const now = new Date();
       document.getElementById('clock').textContent = window.innerWidth < 600
-        ? now.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' })
-        : now.toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long' }) +
-          '  ' + now.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
+        ? now.toLocaleTimeString('da-DK', {hour:'2-digit',minute:'2-digit'})
+        : now.toLocaleDateString('da-DK', {weekday:'long',day:'numeric',month:'long'}) + '  ' + now.toLocaleTimeString('da-DK', {hour:'2-digit',minute:'2-digit'});
     }
     updateClock(); setInterval(updateClock, 30000); window.addEventListener('resize', updateClock);
 
     // ── Week helpers ──
     function getWeekDays() {
-      const now = new Date();
-      now.setDate(now.getDate() + weekOffset * 7);
-      const day = now.getDay() || 7;
-      const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
-      return Array.from({ length: 5 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+      const now = new Date(); now.setDate(now.getDate() + weekOffset * 7);
+      const day = now.getDay() || 7; const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
+      return Array.from({length:5}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d; });
     }
     function getWeekNr(date) {
       const d = new Date(date); d.setHours(0,0,0,0);
@@ -310,220 +315,210 @@
       const w1 = new Date(d.getFullYear(), 0, 4);
       return 1 + Math.round(((d-w1)/86400000 - 3 + (w1.getDay()+6)%7)/7);
     }
-    function isSameDay(a, b) {
-      return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
-    }
-    function minutesFromMidnight(date) { return date.getHours()*60 + date.getMinutes(); }
-    function pct(minutes) { return ((minutes - START_H*60) / (HOURS*60)) * 100; }
+    function isSameDay(a,b) { return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+    function pct(min) { return ((min - START_H*60) / (HOURS*60)) * 100; }
 
-    // ── Tab switch ──
+    // ── Child tabs & photos ──
     function switchTab(idx) {
       activeTab = idx;
       document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
       renderWeek();
     }
     function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); }
-
-    // ── Photos ──
     async function loadChildPhotos() {
       try {
         const data = await apiFetch('/api/profile').then(r => r.json());
-        const relations = data?.data?.institutionProfile?.relations || [];
+        const rels = data?.data?.institutionProfile?.relations || [];
         CHILDREN.forEach((child, i) => {
-          const rel = relations.find(r => r.id === child.id);
-          const url = rel?.profilePicture?.url;
-          if (url) {
-            document.querySelectorAll('.tab')[i].innerHTML =
-              `<img src="${url}" alt="${child.name}" onerror="this.style.display='none'"> ${child.name}`;
-          }
+          const url = rels.find(r => r.id === child.id)?.profilePicture?.url;
+          if (url) document.querySelectorAll('.tab')[i].innerHTML =
+            `<img src="${url}" alt="${child.name}" onerror="this.style.display='none'"> ${child.name}`;
         });
-      } catch(e) { console.error('Photos:', e); }
+      } catch(e) {}
     }
 
-    // ── Timetable render ──
+    // ── Timetable ──
     function renderWeek() {
-      const child = CHILDREN[activeTab];
-      const days = getWeekDays();
-      const today = new Date();
+      const child = CHILDREN[activeTab], days = getWeekDays(), today = new Date();
       document.getElementById('week-nr').textContent = getWeekNr(days[0]);
       const childPresence = presenceData[child.id] || [];
-      const totalHeight = HOURS * 52; // px, matches --hour-h CSS var fallback
-
-      // Get computed --hour-h in px
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
       const totalH = HOURS * hourH;
-
-      let html = '';
-
-      // ── Header row ──
-      html += `<div class="th-spacer"></div>`;
-      days.forEach((day, i) => {
-        const isToday = isSameDay(day, today);
-        const dateNum = day.getDate();
-        html += `<div class="day-header ${isToday ? 'today' : ''}">
-          ${DAY_NAMES[i]}<br>
-          <span class="date-num">${dateNum}</span>
-        </div>`;
+      let html = `<div class="th-spacer"></div>`;
+      days.forEach((day,i) => {
+        const isToday = isSameDay(day,today);
+        html += `<div class="day-header ${isToday?'today':''}">
+          ${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span></div>`;
       });
-
-      // ── Time gutter ──
-      html += `<div class="time-gutter" style="height:${totalH}px; grid-row: 2;">`;
-      for (let h = START_H; h <= END_H; h++) {
-        const top = (h - START_H) * hourH;
-        html += `<div class="hour-label" style="top:${top}px">${String(h).padStart(2,'0')}:00</div>`;
-      }
+      html += `<div class="time-gutter" style="height:${totalH}px;grid-row:2">`;
+      for (let h=START_H; h<=END_H; h++) html += `<div class="hour-label" style="top:${(h-START_H)*hourH}px">${String(h).padStart(2,'0')}:00</div>`;
       html += `</div>`;
-
-      // ── Day columns ──
-      days.forEach((day, i) => {
-        const isToday = isSameDay(day, today);
-        const dateStr = day.toISOString().split('T')[0];
-        const tpl = childPresence.find(t => t.byDate === dateStr);
-        const dayEvents = allEvents.filter(e =>
-          e.startDateTime && (e.belongsToProfiles || []).includes(child.id) && isSameDay(new Date(e.startDateTime), day)
-        );
-
-        html += `<div class="day-col ${isToday ? 'today' : ''}" style="height:${totalH}px; grid-row: 2;">`;
-
-        // Hour lines
-        for (let h = START_H; h <= END_H; h++) {
-          const top = (h - START_H) * hourH;
-          html += `<div class="hour-line full" style="top:${top}px"></div>`;
-          if (h < END_H) {
-            html += `<div class="hour-line" style="top:${top + hourH/2}px; border-top-style: dashed; opacity:0.5"></div>`;
-          }
+      days.forEach((day,i) => {
+        const isToday = isSameDay(day,today), dateStr = day.toISOString().split('T')[0];
+        const tpl = childPresence.find(t => t.byDate===dateStr);
+        const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles||[]).includes(child.id) && isSameDay(new Date(e.startDateTime),day));
+        html += `<div class="day-col ${isToday?'today':''}" style="height:${totalH}px;grid-row:2">`;
+        for (let h=START_H; h<=END_H; h++) {
+          html += `<div class="hour-line full" style="top:${(h-START_H)*hourH}px"></div>`;
+          if (h<END_H) html += `<div class="hour-line" style="top:${(h-START_H)*hourH+hourH/2}px;border-top-style:dashed;opacity:.5"></div>`;
         }
-
-        // Presence bar
         if (tpl && !tpl.isOnVacation && tpl.entryTime && tpl.exitTime) {
-          const [eh, em] = tpl.entryTime.split(':').map(Number);
-          const [xh, xm] = tpl.exitTime.split(':').map(Number);
-          const entryMin = eh*60+em, exitMin = xh*60+xm;
-          const topPct = pct(entryMin), heightPct = pct(exitMin) - topPct;
-          const label = `${tpl.entryTime.substring(0,5)}–${tpl.exitTime.substring(0,5)}${tpl.exitWith ? ' · '+tpl.exitWith : ''}`;
-          html += `<div class="presence-bar" style="top:${topPct}%;height:${heightPct}%;min-height:14px" title="${label}">🕐 ${label}</div>`;
+          const [eh,em]=tpl.entryTime.split(':').map(Number), [xh,xm]=tpl.exitTime.split(':').map(Number);
+          const tp=pct(eh*60+em), hp=pct(xh*60+xm)-tp;
+          const lbl=`${tpl.entryTime.substring(0,5)}–${tpl.exitTime.substring(0,5)}${tpl.exitWith?' · '+tpl.exitWith:''}`;
+          html += `<div class="presence-bar" style="top:${tp}%;height:${hp}%;min-height:14px" title="${lbl}">🕐 ${lbl}</div>`;
         } else if (tpl?.isOnVacation) {
           html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
         }
-
-        // All-day events at top
-        const allDayEvents = dayEvents.filter(e => e.isAllDayEvent || (e.endDateTime && (new Date(e.endDateTime)-new Date(e.startDateTime)) >= 23*3600000));
-        allDayEvents.forEach((e, idx) => {
-          html += `<div class="cal-event allday" style="top:${idx*18}px;height:16px;font-size:0.65rem">
-            <span class="ev-title">${e.title || '(ingen titel)'}</span>
-          </div>`;
-        });
-
-        // Timed events
-        const timedEvents = dayEvents.filter(e => !e.isAllDayEvent && !(e.endDateTime && (new Date(e.endDateTime)-new Date(e.startDateTime)) >= 23*3600000));
-        timedEvents.forEach(e => {
-          const s = new Date(e.startDateTime);
-          const en = e.endDateTime ? new Date(e.endDateTime) : new Date(s.getTime() + 3600000);
-          const sMin = minutesFromMidnight(s), eMin = minutesFromMidnight(en);
-          const clampS = Math.max(sMin, START_H*60), clampE = Math.min(eMin, END_H*60);
-          if (clampS >= clampE) return;
-          const topPct = pct(clampS), heightPct = pct(clampE) - topPct;
-          const timeStr = s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'}) + '–' + en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-          html += `<div class="cal-event" style="top:${topPct}%;height:${Math.max(heightPct,3)}%;min-height:20px" title="${e.title} · ${timeStr}">
-            <span class="ev-title">${e.title || '(ingen titel)'}</span>
-            <span class="ev-time">${timeStr}</span>
-          </div>`;
-        });
-
-        // Now line (today only)
+        dayEvents.filter(e => e.isAllDayEvent||(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
+          .forEach((e,idx) => { html += `<div class="cal-event allday" style="top:${idx*18}px;height:16px;font-size:.65rem"><span class="ev-title">${e.title||'(ingen titel)'}</span></div>`; });
+        dayEvents.filter(e => !e.isAllDayEvent&&!(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
+          .forEach(e => {
+            const s=new Date(e.startDateTime), en=e.endDateTime?new Date(e.endDateTime):new Date(s.getTime()+3600000);
+            const sM=s.getHours()*60+s.getMinutes(), eM=en.getHours()*60+en.getMinutes();
+            const cS=Math.max(sM,START_H*60), cE=Math.min(eM,END_H*60); if(cS>=cE) return;
+            const tp=pct(cS), hp=pct(cE)-tp;
+            const ts=s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+            html += `<div class="cal-event" style="top:${tp}%;height:${Math.max(hp,3)}%;min-height:20px" title="${e.title} · ${ts}">
+              <span class="ev-title">${e.title||'(ingen titel)'}</span><span class="ev-time">${ts}</span></div>`;
+          });
         if (isToday) {
-          const now = new Date();
-          const nowMin = minutesFromMidnight(now);
-          if (nowMin >= START_H*60 && nowMin <= END_H*60) {
-            html += `<div class="now-line" style="top:${pct(nowMin)}%"></div>`;
-          }
+          const now=new Date(), nm=now.getHours()*60+now.getMinutes();
+          if(nm>=START_H*60&&nm<=END_H*60) html+=`<div class="now-line" style="top:${pct(nm)}%"></div>`;
         }
-
         html += `</div>`;
       });
-
       document.getElementById('timetable').innerHTML = html;
-
-      // Scroll to show current time / start of day
-      const wrap = document.querySelector('.timetable-wrap');
-      const now = new Date();
-      const scrollToHour = isSameDay(days[0], now) || days.some(d => isSameDay(d, now))
-        ? Math.max(0, now.getHours() - 1)
-        : START_H;
-      wrap.scrollTop = (scrollToHour - START_H) * hourH;
+      const wrap = document.querySelector('.timetable-wrap'), now = new Date();
+      const scrollH = days.some(d=>isSameDay(d,now)) ? Math.max(0,now.getHours()-1) : START_H;
+      wrap.scrollTop = (scrollH-START_H)*hourH;
     }
 
-    // ── Login ──
-    let loginPolling = null;
-    async function startLogin() {
-      const msg = document.getElementById('banner-msg');
-      msg.textContent = 'Starter login...';
+    // ── Gallery ──
+    let galleryLoaded = false, currentAlbumId = null;
+    const childIds = CHILDREN.map(c => c.id).join(',');
+
+    async function loadGallery() {
+      galleryLoaded = true;
+      const el = document.getElementById('gallery-content');
+      el.innerHTML = '<div class="loading">Henter albums...</div>';
       try {
-        await apiFetch('/api/login/start', { method: 'POST' });
-        msg.textContent = '📱 Godkend i MitID-appen på din telefon...';
-        pollLoginStatus();
-      } catch(e) { msg.textContent = 'Fejl: ' + e.message; }
+        const albums = await apiFetch(`/api/gallery/albums?inst_profile_ids=${childIds}`).then(r => r.json());
+        renderAlbums(albums);
+      } catch(e) { el.textContent = 'Fejl: ' + e.message; }
     }
-    function pollLoginStatus() {
-      clearInterval(loginPolling);
-      loginPolling = setInterval(async () => {
-        const data = await apiFetch('/api/login/status').then(r => r.json());
-        const msg = document.getElementById('banner-msg');
-        if (data.state === 'show_qr') {
-          document.getElementById('session-banner').style.display = 'block';
-          msg.innerHTML = '<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,' + data.qr_image + '"/>';
-        } else if (data.state === 'success') {
-          clearInterval(loginPolling); msg.textContent = '✅ Login lykkedes!';
-          setTimeout(() => window.location.reload(), 1000);
-        } else if (data.state === 'failed') {
-          clearInterval(loginPolling);
-          msg.textContent = '❌ ' + (data.error || 'Login fejlede') + ' — Klik for at prøve igen';
+
+    function renderAlbums(albums) {
+      document.getElementById('gallery-title').textContent = '🖼️ Galleri';
+      currentAlbumId = null;
+      const el = document.getElementById('gallery-content');
+      if (!albums.length) { el.textContent = 'Ingen albums fundet'; return; }
+      el.innerHTML = `<div class="albums-grid">${albums.map(a => {
+        const thumb = a.thumbnailsUrls?.[0];
+        const isVideo = thumb && (thumb.includes('.mov') || thumb.includes('.mp4'));
+        const date = a.creationDate ? new Date(a.creationDate).toLocaleDateString('da-DK', {day:'numeric',month:'short',year:'numeric'}) : '';
+        const thumbHtml = thumb && !isVideo
+          ? `<img class="album-thumb" src="${thumb}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=album-thumb-placeholder>📷</div>'">`
+          : `<div class="album-thumb-placeholder">${isVideo?'🎥':'📷'}</div>`;
+        return `<div class="album-card" onclick="openAlbum(${JSON.stringify(a.id)}, ${JSON.stringify(a.title)})">
+          ${thumbHtml}
+          <div class="album-info">
+            <div class="album-title">${a.title||'Album'}</div>
+            <div class="album-date">${date}</div>
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    async function openAlbum(albumId, title) {
+      currentAlbumId = albumId;
+      document.getElementById('gallery-title').textContent = title || 'Album';
+      const el = document.getElementById('gallery-content');
+      el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
+      try {
+        let media;
+        if (albumId === null) {
+          media = await apiFetch(`/api/gallery/tagged?inst_profile_ids=${childIds}`).then(r => r.json());
+        } else {
+          media = await apiFetch(`/api/gallery/albums/${albumId}/media`).then(r => r.json());
         }
-      }, 3000);
-    }
-    async function checkSession() {
-      const data = await apiFetch('/api/status').then(r => r.json());
-      document.getElementById('session-banner').style.display = data.session_valid ? 'none' : 'block';
-      return data.session_valid;
+        renderMedia(media);
+      } catch(e) {
+        el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;
+      }
     }
 
-    // ── Data loaders ──
-    async function loadCalendar() {
-      const ids = CHILDREN.map(c => c.id).join(',');
-      const days = getWeekDays();
-      const from = days[0].toISOString().split('T')[0], to = days[4].toISOString().split('T')[0];
-      try {
-        const res = await apiFetch(`/api/calendar?inst_profile_ids=${ids}&from_date=${from}&to_date=${to}`);
-        if (res.status === 401) return;
-        allEvents = await res.json();
-        renderWeek();
-      } catch(e) { document.getElementById('timetable').textContent = 'Fejl: ' + e.message; }
+    function renderMedia(mediaList) {
+      const el = document.getElementById('gallery-content');
+      if (!mediaList.length) {
+        el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p class="loading">Ingen medier i dette album</p>`;
+        return;
+      }
+      // Build lightbox items
+      lightboxItems = mediaList.map(m => ({
+        url: m.file?.url || m.url || m.thumbnailUrl || '',
+        thumbUrl: m.file?.thumbnailUrl || m.thumbnailUrl || m.file?.url || m.url || '',
+        isVideo: (m.file?.url||m.url||'').match(/\.(mov|mp4|webm)/i),
+        title: m.title || ''
+      }));
+      el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button>
+        <div class="media-grid">${lightboxItems.map((item, idx) => `
+          <div class="media-item" onclick="openLightbox(${idx})">
+            <img src="${item.thumbUrl}" loading="lazy" alt="${item.title}" onerror="this.style.display='none'">
+            ${item.isVideo ? '<span class="media-type">▶ Video</span>' : ''}
+          </div>`).join('')}
+        </div>`;
     }
-    async function loadPresence() {
-      const ids = CHILDREN.map(c => c.id).join(',');
-      const days = getWeekDays();
-      const from = days[0].toISOString().split('T')[0], to = days[4].toISOString().split('T')[0];
-      try {
-        const res = await apiFetch(`/api/presence?inst_profile_ids=${ids}&from_date=${from}&to_date=${to}`);
-        if (res.status !== 200) return;
-        presenceData = {};
-        for (const t of await res.json()) presenceData[t.institutionProfile.id] = t.dayTemplates || [];
-        renderWeek();
-      } catch(e) { console.error('Presence:', e); }
+
+    // ── Lightbox ──
+    function openLightbox(idx) {
+      lightboxIdx = idx; showLightboxItem();
+      document.getElementById('lightbox').classList.add('open');
     }
+    function showLightboxItem() {
+      const item = lightboxItems[lightboxIdx];
+      const med = document.getElementById('lightbox-media');
+      if (item.isVideo) {
+        med.innerHTML = `<video src="${item.url}" controls autoplay style="max-width:92vw;max-height:88vh;border-radius:8px"></video>`;
+      } else {
+        med.innerHTML = `<img src="${item.url}" alt="${item.title}" onerror="this.src='${item.thumbUrl}'">`;
+      }
+      document.getElementById('lightbox-caption').textContent = `${lightboxIdx+1} / ${lightboxItems.length}${item.title ? ' · ' + item.title : ''}`;
+    }
+    function lightboxNav(delta) {
+      lightboxIdx = (lightboxIdx + delta + lightboxItems.length) % lightboxItems.length;
+      showLightboxItem();
+    }
+    function closeLightbox(e) {
+      if (!e || e.target===document.getElementById('lightbox') || e.target===document.getElementById('lightbox-close'))
+        document.getElementById('lightbox').classList.remove('open');
+    }
+    document.addEventListener('keydown', e => {
+      if (!document.getElementById('lightbox').classList.contains('open')) return;
+      if (e.key==='ArrowRight') lightboxNav(1);
+      if (e.key==='ArrowLeft') lightboxNav(-1);
+      if (e.key==='Escape') closeLightbox();
+    });
+
+    // ── Messages ──
+    let cachedThreads = [];
     async function loadMessages() {
-      const el = document.getElementById('messages');
       try {
         const res = await apiFetch('/api/messages');
-        if (res.status === 401) { el.textContent = 'Session udløbet'; return; }
-        const threads = await res.json();
-        if (!threads.length) { el.textContent = 'Ingen beskeder'; return; }
-        el.innerHTML = threads.slice(0,15).map(t =>
-          `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')">
-            <div class="subject">${t.subject||'(ingen emne)'}</div>
-            <div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div>
-          </div>`).join('');
-      } catch(e) { el.textContent = 'Fejl: ' + e.message; }
+        if (res.status === 401) return;
+        cachedThreads = await res.json();
+        renderMessages('messages-cal');
+      } catch(e) {}
+    }
+    function syncMessagesFull() { renderMessages('messages-full'); }
+    function renderMessages(elId) {
+      const el = document.getElementById(elId);
+      if (!cachedThreads.length) { el.textContent = 'Ingen beskeder'; return; }
+      el.innerHTML = cachedThreads.slice(0,20).map(t =>
+        `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')">
+          <div class="subject">${t.subject||'(ingen emne)'}</div>
+          <div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div>
+        </div>`).join('');
     }
     async function openMsg(threadId, subject) {
       document.getElementById('msg-modal-subject').textContent = subject;
@@ -546,19 +541,58 @@
       } catch(e) { document.getElementById('msg-modal-body').textContent = 'Fejl: ' + e.message; }
     }
     function closeMsgModal(e) {
-      if (!e || e.target===document.getElementById('msg-modal-overlay') || e.target===document.getElementById('msg-modal-close'))
+      if (!e||e.target===document.getElementById('msg-modal-overlay')||e.target===document.getElementById('msg-modal-close'))
         document.getElementById('msg-modal-overlay').classList.remove('open');
     }
-    function mobileNav(view) {
-      const isCal = view==='cal';
-      document.getElementById('left-panel').classList.toggle('mobile-hidden', !isCal);
-      document.getElementById('messages-panel').classList.toggle('mobile-active', !isCal);
-      document.getElementById('nav-cal').classList.toggle('active', isCal);
-      document.getElementById('nav-msg').classList.toggle('active', !isCal);
+
+    // ── Login ──
+    let loginPolling = null;
+    async function startLogin() {
+      const msg = document.getElementById('banner-msg'); msg.textContent = 'Starter login...';
+      try { await apiFetch('/api/login/start', {method:'POST'}); msg.textContent = '📱 Godkend i MitID-appen...'; pollLoginStatus(); }
+      catch(e) { msg.textContent = 'Fejl: ' + e.message; }
+    }
+    function pollLoginStatus() {
+      clearInterval(loginPolling);
+      loginPolling = setInterval(async () => {
+        const data = await apiFetch('/api/login/status').then(r => r.json());
+        const msg = document.getElementById('banner-msg');
+        if (data.state==='show_qr') {
+          document.getElementById('session-banner').style.display='block';
+          msg.innerHTML = '<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,'+data.qr_image+'"/>';
+        } else if (data.state==='success') {
+          clearInterval(loginPolling); msg.textContent='✅ Login lykkedes!'; setTimeout(()=>window.location.reload(),1000);
+        } else if (data.state==='failed') {
+          clearInterval(loginPolling); msg.textContent='❌ '+(data.error||'Login fejlede')+' — Klik for at prøve igen';
+        }
+      }, 3000);
+    }
+    async function checkSession() {
+      const data = await apiFetch('/api/status').then(r => r.json());
+      document.getElementById('session-banner').style.display = data.session_valid ? 'none' : 'block';
+      return data.session_valid;
+    }
+
+    // ── Data loaders ──
+    async function loadCalendar() {
+      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[4].toISOString().split('T')[0];
+      try {
+        const res = await apiFetch(`/api/calendar?inst_profile_ids=${childIds}&from_date=${from}&to_date=${to}`);
+        if (res.status===401) return; allEvents = await res.json(); renderWeek();
+      } catch(e) {}
+    }
+    async function loadPresence() {
+      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[4].toISOString().split('T')[0];
+      try {
+        const res = await apiFetch(`/api/presence?inst_profile_ids=${childIds}&from_date=${from}&to_date=${to}`);
+        if (res.status!==200) return; presenceData={};
+        for (const t of await res.json()) presenceData[t.institutionProfile.id] = t.dayTemplates||[];
+        renderWeek();
+      } catch(e) {}
     }
 
     // ── Boot ──
-    let pollTimer = null, sessionWasExpired = false;
+    let pollTimer=null, sessionWasExpired=false;
     async function loadAll() {
       await initConfig();
       const valid = await checkSession();
@@ -566,11 +600,10 @@
         if (sessionWasExpired) { window.location.reload(); return; }
         loadChildPhotos(); loadCalendar(); loadPresence(); loadMessages();
         schedulePoll(5*60*1000);
-      } else { sessionWasExpired = true; schedulePoll(10*1000); }
+      } else { sessionWasExpired=true; schedulePoll(10*1000); }
     }
-    function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer = setTimeout(loadAll, ms); }
-    // Refresh now-line every minute
-    setInterval(() => { if (document.querySelector('.now-line')) renderWeek(); }, 60000);
+    function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
+    setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); }, 60000);
     loadAll();
   </script>
 </body>

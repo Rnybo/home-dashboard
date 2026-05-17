@@ -111,6 +111,28 @@ class AulaClient:
         })
         return data.get("data") or []
 
+    def get_albums(self, inst_profile_ids: list, index: int = 0, limit: int = 24) -> list:
+        ids_param = "".join(f"&filterInstProfileIds[]={i}" for i in inst_profile_ids)
+        data = self._get("gallery.getAlbums", f"&index={index}&limit={limit}&sortOn=mediaCreatedAt&orderDirection=desc&filterBy=all{ids_param}")
+        return data.get("data", []) or []
+
+    def get_album_media(self, album_id: int, index: int = 0, limit: int = 40) -> list:
+        data = self._get("gallery.getAlbumMedia", f"&albumId={album_id}&index={index}&limit={limit}&sortOn=mediaCreatedAt&orderDirection=desc")
+        return data.get("data", {}).get("albumMedia", []) or []
+
+    def get_tagged_media(self, inst_profile_ids: list, index: int = 0, limit: int = 40) -> list:
+        ids_param = "".join(f"&filterInstProfileIds[]={i}" for i in inst_profile_ids)
+        data = self._get("gallery.getAlbums", f"&index=0&limit=1&sortOn=mediaCreatedAt&orderDirection=desc&filterBy=all{ids_param}")
+        albums = data.get("data", []) or []
+        # First album with id=None is the tagged media virtual album
+        tagged = next((a for a in albums if a.get("id") is None), None)
+        if not tagged:
+            return []
+        # Fetch media using getMedia with profile filter
+        ids_param2 = "".join(f"&filterInstProfileIds[]={i}" for i in inst_profile_ids)
+        data2 = self._get("gallery.getMedia", f"&index={index}&limit={limit}&sortOn=mediaCreatedAt&orderDirection=desc{ids_param2}")
+        return data2.get("data", {}).get("media", []) or data2.get("data", []) or []
+
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
         if not from_date:
             from_date = datetime.datetime.utcnow().strftime("%Y-%m-%d")

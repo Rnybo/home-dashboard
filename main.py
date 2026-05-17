@@ -128,4 +128,36 @@ def calendar(request: Request, inst_profile_ids: str = "", from_date: str = "", 
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/gallery/albums")
+def gallery_albums(request: Request, inst_profile_ids: str = ""):
+    check_api_key(request)
+    try:
+        ids = [int(i) for i in inst_profile_ids.split(",") if i]
+        return client.get_albums(ids)
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/gallery/albums/{album_id}/media")
+def gallery_album_media(request: Request, album_id: int, index: int = 0):
+    check_api_key(request)
+    try:
+        return client.get_album_media(album_id, index)
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/gallery/tagged")
+def gallery_tagged(request: Request, inst_profile_ids: str = "", index: int = 0):
+    check_api_key(request)
+    try:
+        ids = [int(i) for i in inst_profile_ids.split(",") if i]
+        return client.get_tagged_media(ids, index)
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

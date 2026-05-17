@@ -140,10 +140,11 @@ def gallery_albums(request: Request, inst_profile_ids: str = ""):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/gallery/albums/{album_id}/media")
-def gallery_album_media(request: Request, album_id: int, index: int = 0):
+def gallery_album_media(request: Request, album_id: int, inst_profile_ids: str = "", index: int = 0):
     check_api_key(request)
     try:
-        return client.get_album_media(album_id, index)
+        ids = [int(i) for i in inst_profile_ids.split(",") if i]
+        return client.get_album_media(album_id, ids, index)
     except PermissionError:
         raise HTTPException(status_code=401, detail="Session expired")
     except Exception as e:

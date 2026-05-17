@@ -436,13 +436,18 @@
       const el = document.getElementById('gallery-content');
       el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
       try {
-        let media;
+        let data;
         if (albumId === null) {
-          media = await apiFetch(`/api/gallery/tagged?inst_profile_ids=${childIds}`).then(r => r.json());
+          data = await apiFetch(`/api/gallery/tagged?inst_profile_ids=${childIds}`).then(r => r.json());
         } else {
-          media = await apiFetch(`/api/gallery/albums/${albumId}/media`).then(r => r.json());
+          data = await apiFetch(`/api/gallery/albums/${albumId}/media?inst_profile_ids=${childIds}`).then(r => r.json());
         }
-        renderMedia(media);
+        const results = data.results || [];
+        const album = data.album || {};
+        if (album.description) {
+          document.getElementById('gallery-title').textContent = (title || album.title || 'Album');
+        }
+        renderMedia(results);
       } catch(e) {
         el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;
       }
@@ -454,17 +459,16 @@
         el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p class="loading">Ingen medier i dette album</p>`;
         return;
       }
-      // Build lightbox items
       lightboxItems = mediaList.map(m => ({
-        url: m.file?.url || m.url || m.thumbnailUrl || '',
-        thumbUrl: m.file?.thumbnailUrl || m.thumbnailUrl || m.file?.url || m.url || '',
-        isVideo: (m.file?.url||m.url||'').match(/\.(mov|mp4|webm)/i),
-        title: m.title || ''
+        url: m.file?.url || m.url || '',
+        thumbUrl: m.largeThumbnailUrl || m.mediumThumbnailUrl || m.thumbnailUrl || m.file?.url || '',
+        isVideo: m.mediaType === 'video' || (m.file?.url||'').match(/\.(mov|mp4|webm)/i),
+        title: m.title || m.file?.name || ''
       }));
       el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button>
         <div class="media-grid">${lightboxItems.map((item, idx) => `
           <div class="media-item" onclick="openLightbox(${idx})">
-            <img src="${item.thumbUrl}" loading="lazy" alt="${item.title}" onerror="this.style.display='none'">
+            <img src="${item.thumbUrl}" loading="lazy" alt="${item.title}" onerror="this.style.opacity='0'">
             ${item.isVideo ? '<span class="media-type">▶ Video</span>' : ''}
           </div>`).join('')}
         </div>`;

@@ -34,6 +34,8 @@
       cursor: pointer; font-size: 0.9rem; font-weight: 600; border: 2px solid var(--border); transition: all 0.2s;
     }
     .tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .tab img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; margin-right: 6px; vertical-align: middle; border: 2px solid rgba(255,255,255,0.5); }
+    .tab.active img { border-color: rgba(255,255,255,0.9); }
     .week-card {
       background: #fff; border-radius: var(--radius); padding: 12px; flex: 1;
       overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column;
@@ -179,6 +181,21 @@
     let API_KEY = '';
     const CHILDREN = [{ name: 'Aksel', id: 5620584 }, { name: 'Max', id: 5620590 }];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
+
+    async function loadChildPhotos() {
+      try {
+        const data = await apiFetch('/api/profile').then(r => r.json());
+        const relations = data?.data?.institutionProfile?.relations || [];
+        CHILDREN.forEach((child, i) => {
+          const rel = relations.find(r => r.id === child.id);
+          const url = rel?.profilePicture?.url;
+          if (url) {
+            const tab = document.querySelectorAll('.tab')[i];
+            tab.innerHTML = `<img src="${url}" alt="${child.name}" onerror="this.style.display='none'"> ${child.name}`;
+          }
+        });
+      } catch (e) { console.error('Could not load child photos:', e); }
+    }
 
     function mobileNav(view) {
       const isCal = view === 'cal';
@@ -391,7 +408,7 @@
       const valid = await checkSession();
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
-        loadCalendar(); loadPresence(); loadMessages();
+        loadChildPhotos(); loadCalendar(); loadPresence(); loadMessages();
         schedulePoll(5 * 60 * 1000);
       } else { sessionWasExpired = true; schedulePoll(10 * 1000); }
     }

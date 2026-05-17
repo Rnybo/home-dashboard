@@ -2,210 +2,136 @@
 <html lang="da">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=1024" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aula Dashboard</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --blue: #005fa8; --blue-light: #e8f4fc; --blue-mid: #cce4f7;
+      --blue-accent: #0093d0; --border: #d0e4f0; --bg: #f0f4f8; --radius: 10px;
+    }
     body {
-      background: #f0f4f8;
-      color: #333;
-      font-family: 'Segoe UI', sans-serif;
-      width: 1024px;
-      height: 600px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 10px;
+      background: var(--bg); color: #333; font-family: 'Segoe UI', sans-serif;
+      display: flex; flex-direction: column; min-height: 100dvh; gap: 10px; padding: 10px;
     }
     header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #005fa8;
-      border-radius: 10px;
-      padding: 8px 16px;
-      flex-shrink: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0;
     }
     header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; }
-    header #clock { font-size: 1rem; color: #cce4f7; }
-
+    header #clock { font-size: 0.95rem; color: #cce4f7; }
     #session-banner {
-      display: none;
-      background: #d9534f;
-      border-radius: 10px;
-      padding: 10px 16px;
-      font-size: 0.85rem;
-      cursor: pointer;
-      user-select: none;
-      color: #fff;
-      flex-shrink: 0;
-      overflow: visible;
-      height: auto;
-      min-height: 44px;
+      display: none; background: #d9534f; border-radius: var(--radius);
+      padding: 10px 16px; font-size: 0.85rem; cursor: pointer;
+      user-select: none; color: #fff; flex-shrink: 0; min-height: 44px;
     }
     #session-banner:hover { background: #c9302c; }
-
-    .main {
-      display: grid;
-      grid-template-columns: 1fr 280px;
-      gap: 10px;
-      flex: 1;
-      min-height: 0;
-    }
-
-    .left {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 0;
-    }
-
-    /* Tabs */
-    .tabs {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
+    .main { display: grid; grid-template-columns: 1fr 300px; gap: 10px; flex: 1; min-height: 0; }
+    .left { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+    .tabs { display: flex; gap: 8px; flex-shrink: 0; }
     .tab {
-      padding: 6px 20px;
-      border-radius: 8px;
-      background: #fff;
-      color: #005fa8;
-      cursor: pointer;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border: 2px solid #d0e4f0;
-      transition: all 0.2s;
+      padding: 7px 22px; border-radius: 8px; background: #fff; color: var(--blue);
+      cursor: pointer; font-size: 0.9rem; font-weight: 600; border: 2px solid var(--border); transition: all 0.2s;
     }
-    .tab.active {
-      background: #005fa8;
-      color: #fff;
-      border-color: #005fa8;
-    }
-
-    /* Week view */
+    .tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
     .week-card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 12px;
-      flex: 1;
-      overflow-y: auto;
-      border: 1px solid #d0e4f0;
-      display: flex;
-      flex-direction: column;
+      background: #fff; border-radius: var(--radius); padding: 12px; flex: 1;
+      overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column;
     }
-    .day-row {
-      display: grid;
-      grid-template-columns: 90px 1fr;
-      gap: 6px;
-      padding: 5px 0;
-      border-bottom: 1px solid #e8f0f7;
-      align-items: start;
+    .week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
+    .week-nav h2 { flex: 1; margin: 0; font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+    .week-nav button {
+      background: var(--blue-light); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--blue); font-size: 1rem; cursor: pointer; padding: 4px 14px; font-weight: 700;
     }
+    .week-nav button:hover { background: var(--blue-mid); }
+    .day-row { display: grid; grid-template-columns: 90px 1fr; gap: 6px; padding: 6px 0; border-bottom: 1px solid #e8f0f7; align-items: start; }
     .day-row:last-child { border-bottom: none; }
-    .day-name {
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: #666;
-      padding-top: 2px;
-    }
-    .day-row.today .day-name { color: #005fa8; }
-    .day-row.today {
-      background: #e8f4fc;
-      border-radius: 6px;
-      padding: 5px 6px;
-      margin: 0 -6px;
-    }
+    .day-name { font-size: 0.82rem; font-weight: 700; color: #666; padding-top: 2px; }
+    .day-row.today .day-name { color: var(--blue); }
+    .day-row.today { background: var(--blue-light); border-radius: 6px; padding: 6px 8px; margin: 0 -8px; }
     .events { display: flex; flex-direction: column; gap: 3px; }
     .event {
-      font-size: 0.8rem;
-      background: #e8f4fc;
-      border-left: 3px solid #0093d0;
-      border-radius: 4px;
-      padding: 3px 7px;
-      display: flex;
-      justify-content: space-between;
-      color: #333;
+      font-size: 0.8rem; background: var(--blue-light); border-left: 3px solid var(--blue-accent);
+      border-radius: 4px; padding: 3px 7px; display: flex; justify-content: space-between; color: #333;
     }
-    .day-row.today .event {
-      background: #cce4f7;
-      border-left-color: #005fa8;
-    }
-    .event .time { color: #005fa8; font-size: 0.75rem; white-space: nowrap; margin-left: 8px; font-weight: 600; }
+    .day-row.today .event { background: var(--blue-mid); border-left-color: var(--blue); }
+    .event .time { color: var(--blue); font-size: 0.75rem; white-space: nowrap; margin-left: 8px; font-weight: 600; }
     .presence-tag {
-      font-size: 0.75rem;
-      background: #e8f4fc;
-      border-left: 3px solid #0093d0;
-      border-radius: 4px;
-      padding: 2px 7px;
-      color: #005fa8;
-      margin-bottom: 3px;
+      font-size: 0.75rem; background: var(--blue-light); border-left: 3px solid var(--blue-accent);
+      border-radius: 4px; padding: 2px 7px; color: var(--blue); margin-bottom: 3px;
     }
-    .presence-tag.vacation {
-      background: #fff3cd;
-      border-left-color: #f59e0b;
-      color: #92400e;
-    }
-    .day-row.today .presence-tag {
-      background: #cce4f7;
-      border-left-color: #005fa8;
-    }
-
-    /* Messages */
+    .presence-tag.vacation { background: #fff3cd; border-left-color: #f59e0b; color: #92400e; }
+    .day-row.today .presence-tag { background: var(--blue-mid); border-left-color: var(--blue); }
+    .no-events { font-size: 0.78rem; color: #bbb; font-style: italic; }
     .messages-card {
-      background: #fff;
-      border-radius: 10px;
-      padding: 12px;
-      overflow-y: auto;
-      border: 1px solid #d0e4f0;
+      background: #fff; border-radius: var(--radius); padding: 12px;
+      overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column;
     }
-    .messages-card h2 {
-      font-size: 0.85rem;
-      color: #005fa8;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-    .msg-item {
-      padding: 8px 0;
-      border-bottom: 1px solid #e8f0f7;
-      font-size: 0.82rem;
-      cursor: pointer;
-    }
-    .msg-item:hover { background: #f0f7ff; }
+    .messages-card h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; flex-shrink: 0; }
+    .msg-item { padding: 9px 0; border-bottom: 1px solid #e8f0f7; font-size: 0.82rem; cursor: pointer; }
+    .msg-item:hover { background: #f0f7ff; border-radius: 4px; padding-left: 4px; }
     .msg-item:last-child { border-bottom: none; }
     .msg-item .subject { font-weight: 600; color: #333; }
-    .msg-item.unread .subject { color: #005fa8; }
-    .msg-item.unread { border-left: 3px solid #005fa8; padding-left: 8px; }
+    .msg-item.unread .subject { color: var(--blue); }
+    .msg-item.unread { border-left: 3px solid var(--blue); padding-left: 8px; }
     .msg-item .meta { color: #999; font-size: 0.75rem; margin-top: 3px; }
     .loading { color: #bbb; font-style: italic; font-size: 0.82rem; }
-    .week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
-    .week-nav h2 { flex: 1; margin: 0; font-size: 0.85rem; color: #005fa8; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-    .week-nav button {
-      background: #e8f4fc; border: 1px solid #d0e4f0; border-radius: 6px;
-      color: #005fa8; font-size: 0.9rem; cursor: pointer; padding: 3px 12px; font-weight: 700;
-    }
-    .week-nav button:hover { background: #cce4f7; }
-    /* Message modal */
     #msg-modal-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.5); z-index: 100;
-      align-items: center; justify-content: center;
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 100; align-items: center; justify-content: center; padding: 16px;
     }
     #msg-modal-overlay.open { display: flex; }
     #msg-modal {
-      background: #fff; border-radius: 12px; padding: 20px;
-      width: 600px; max-height: 80vh; overflow-y: auto;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      background: #fff; border-radius: 12px; padding: 20px; width: 100%;
+      max-width: 640px; max-height: 85dvh; overflow-y: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.2);
     }
-    #msg-modal h2 { color: #005fa8; font-size: 1rem; margin-bottom: 8px; }
-    #msg-modal .msg-body { font-size: 0.85rem; color: #333; line-height: 1.6; }
-    #msg-modal .msg-meta { color: #999; font-size: 0.75rem; margin-bottom: 12px; }
-    #msg-modal-close {
-      float: right; background: none; border: none;
-      font-size: 1.2rem; cursor: pointer; color: #999;
+    #msg-modal h2 { color: var(--blue); font-size: 1rem; margin-bottom: 4px; padding-right: 28px; }
+    #msg-modal .msg-meta { color: #999; font-size: 0.75rem; margin-bottom: 14px; }
+    #msg-modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #999; line-height: 1; }
+    .thread-msg { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #e8f0f7; }
+    .thread-msg:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .thread-msg-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .thread-msg-sender { font-weight: 700; font-size: 0.82rem; color: var(--blue); }
+    .thread-msg-date { font-size: 0.72rem; color: #aaa; white-space: nowrap; margin-left: 8px; }
+    .thread-msg-body { font-size: 0.83rem; color: #333; line-height: 1.6; }
+    .thread-msg-body img { max-width: 100%; border-radius: 6px; margin-top: 6px; }
+    .bottom-nav {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid var(--border); z-index: 50;
+    }
+    .bottom-nav button {
+      flex: 1; padding: 12px 0; background: none; border: none; font-size: 0.8rem;
+      color: #888; cursor: pointer; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .bottom-nav button.active { color: var(--blue); }
+    .bottom-nav button span.icon { font-size: 1.3rem; }
+    @media (width: 1024px) and (height: 600px) {
+      body { height: 600px; overflow: hidden; }
+      .main { flex: 1; min-height: 0; }
+    }
+    @media (min-width: 900px) {
+      body { max-width: 1400px; margin: 0 auto; }
+      .main { grid-template-columns: 1fr 320px; }
+      .week-card, .messages-card { min-height: 400px; }
+    }
+    @media (min-width: 600px) and (max-width: 899px) {
+      .main { grid-template-columns: 1fr; }
+      .messages-card { min-height: 250px; }
+    }
+    @media (max-width: 599px) {
+      body { padding: 8px 8px 70px; gap: 8px; }
+      header h1 { font-size: 1rem; }
+      header #clock { font-size: 0.75rem; }
+      .main { grid-template-columns: 1fr; gap: 8px; }
+      .messages-card { display: none; }
+      .messages-card.mobile-active { display: flex; }
+      .left.mobile-hidden { display: none; }
+      .bottom-nav { display: flex; }
+      .day-row { grid-template-columns: 72px 1fr; }
+      .day-name { font-size: 0.78rem; }
+      .tab { padding: 6px 14px; font-size: 0.82rem; }
+      #msg-modal { padding: 14px; }
     }
   </style>
 </head>
@@ -214,13 +140,11 @@
     <h1>📚 Aula</h1>
     <div id="clock"></div>
   </header>
-
   <div id="session-banner" onclick="startLogin()">
     <b>⚠️ Session udløbet</b> — <span id="banner-msg">Klik for at logge ind automatisk</span>
   </div>
-
   <div class="main">
-    <div class="left">
+    <div class="left" id="left-panel">
       <div class="tabs">
         <div class="tab active" onclick="switchTab(0)">Aksel</div>
         <div class="tab" onclick="switchTab(1)">Max</div>
@@ -234,93 +158,82 @@
         <div id="week-content" class="loading" style="overflow-y:auto;flex:1;">Henter...</div>
       </div>
     </div>
-    <div class="messages-card">
+    <div class="messages-card" id="messages-panel">
       <h2>📬 Beskeder</h2>
       <div id="messages" class="loading">Henter...</div>
     </div>
   </div>
-
-  <!-- Message modal -->
+  <nav class="bottom-nav">
+    <button class="active" id="nav-cal" onclick="mobileNav('cal')"><span class="icon">📅</span>Kalender</button>
+    <button id="nav-msg" onclick="mobileNav('msg')"><span class="icon">📬</span>Beskeder</button>
+  </nav>
   <div id="msg-modal-overlay" onclick="closeMsgModal(event)">
     <div id="msg-modal">
       <button id="msg-modal-close" onclick="closeMsgModal()">✕</button>
       <h2 id="msg-modal-subject"></h2>
       <div class="msg-meta" id="msg-modal-meta"></div>
-      <div class="msg-body" id="msg-modal-body"></div>
+      <div id="msg-modal-body"></div>
     </div>
   </div>
-
   <script>
     let API_KEY = '';
-    const CHILDREN = [
-      { name: 'Aksel', id: 5620584 },
-      { name: 'Max',   id: 5620590 }
-    ];
-    let activeTab = 0;
-    let weekOffset = 0;
-    let allEvents = [];
-    let presenceData = {};
+    const CHILDREN = [{ name: 'Aksel', id: 5620584 }, { name: 'Max', id: 5620590 }];
+    let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
 
-    function changeWeek(delta) {
-      weekOffset += delta;
-      loadCalendar();
-      loadPresence();
+    function mobileNav(view) {
+      const isCal = view === 'cal';
+      document.getElementById('left-panel').classList.toggle('mobile-hidden', !isCal);
+      document.getElementById('messages-panel').classList.toggle('mobile-active', !isCall);
+      document.getElementById('nav-cal').classList.toggle('active', isCall);
+      document.getElementById('nav-msg').classList.toggle('active', !isCall);
     }
 
+    function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); }
+
     async function initConfig() {
-      const res = await fetch('/api/config');
-      const data = await res.json();
+      const data = await fetch('/api/config').then(r => r.json());
       API_KEY = data.api_key || '';
     }
 
-    function apiFetch(url, options = {}) {
-      return fetch(url, {
-        ...options,
-        headers: { ...(options.headers || {}), 'x-api-key': API_KEY }
-      });
+    function apiFetch(url, opts = {}) {
+      return fetch(url, { ...opts, headers: { ...(opts.headers || {}), 'x-api-key': API_KEY } });
     }
 
-    // Clock
     function updateClock() {
       const now = new Date();
-      document.getElementById('clock').textContent =
-        now.toLocaleDateString('da-DK', {weekday:'long', day:'numeric', month:'long'}) +
-        '  ' + now.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
+      document.getElementById('clock').textContent = window.innerWidth < 600
+        ? now.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' })
+        : now.toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long' }) +
+          '  ' + now.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' });
     }
     updateClock();
     setInterval(updateClock, 30000);
+    window.addEventListener('resize', updateClock);
 
-    // Week helpers
     function getWeekDays() {
       const now = new Date();
       now.setDate(now.getDate() + weekOffset * 7);
       const day = now.getDay() || 7;
       const mon = new Date(now);
       mon.setDate(now.getDate() - day + 1);
-      const days = [];
-      for (let i = 0; i < 5; i++) {
-        const d = new Date(mon);
-        d.setDate(mon.getDate() + i);
-        days.push(d);
-      }
-      return days;
+      return Array.from({ length: 5 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
     }
 
     function getWeekNr(date) {
       const d = new Date(date);
-      d.setHours(0,0,0,0);
-      d.setDate(d.getDate() + 3 - (d.getDay()+6)%7);
-      const week1 = new Date(d.getFullYear(), 0, 4);
-      return 1 + Math.round(((d-week1)/86400000 - 3 + (week1.getDay()+6)%7)/7);
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+      const w1 = new Date(d.getFullYear(), 0, 4);
+      return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
     }
 
     function isSameDay(a, b) {
-      return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     }
 
     function switchTab(idx) {
       activeTab = idx;
-      document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+      document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
       renderWeek();
     }
 
@@ -328,70 +241,35 @@
       const child = CHILDREN[activeTab];
       const days = getWeekDays();
       const today = new Date();
-      document.getElementById('week-nr').textContent = getWeekNr(today);
-
-      const content = document.getElementById('week-content');
-      const dayNames = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag'];
+      document.getElementById('week-nr').textContent = getWeekNr(days[0]);
+      const mobile = window.innerWidth < 600;
+      const dayNames = mobile ? ['Man', 'Tir', 'Ons', 'Tor', 'Fre'] : ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag'];
       const childPresence = presenceData[child.id] || [];
-
-      content.innerHTML = days.map((day, i) => {
+      document.getElementById('week-content').innerHTML = days.map((day, i) => {
         const isToday = isSameDay(day, today);
         const dateStr = day.toISOString().split('T')[0];
-
-        // Calendar events
-        const dayEvents = allEvents.filter(e => {
-          if (!e.startDateTime) return false;
-          const profiles = e.belongsToProfiles || [];
-          if (!profiles.includes(child.id)) return false;
-          return isSameDay(new Date(e.startDateTime), day);
-        });
-
-        // Presence template for this day
-        const dayTemplate = childPresence.find(t => t.byDate === dateStr);
+        const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles || []).includes(child.id) && isSameDay(new Date(e.startDateTime), day));
+        const tpl = childPresence.find(t => t.byDate === dateStr);
         let presenceHtml = '';
-        if (dayTemplate) {
-          if (dayTemplate.isOnVacation) {
-            presenceHtml = `<div class="presence-tag vacation">🏖️ Ferie/fri</div>`;
-          } else {
-            const entry = dayTemplate.entryTime ? dayTemplate.entryTime.substring(0,5) : null;
-            const exit = dayTemplate.exitTime ? dayTemplate.exitTime.substring(0,5) : null;
-            const exitWith = dayTemplate.exitWith || '';
-            presenceHtml = `<div class="presence-tag">🕐 ${entry || '?'} – ${exit || '?'}${exitWith ? ` · ${exitWith}` : ''}</div>`;
-          }
+        if (tpl) {
+          presenceHtml = tpl.isOnVacation
+            ? `<div class="presence-tag vacation">🏖️ Ferie/fri</div>`
+            : `<div class="presence-tag">🕐 ${(tpl.entryTime || '?').substring(0, 5)} – ${(tpl.exitTime || '?').substring(0, 5)}${tpl.exitWith ? ` · ${tpl.exitWith}` : ''}</div>`;
         }
-
-        const eventsHtml = dayEvents.length
-          ? dayEvents.map(e => {
-              const start = new Date(e.startDateTime);
-              const end = e.endDateTime ? new Date(e.endDateTime) : null;
-              // All-day: starts at midnight and ends at 23:59 or next midnight
-              const duration = end ? (end - start) : 0;
-              const isAllDay = e.isAllDayEvent || duration >= 23 * 3600 * 1000;
-              const timeStr = isAllDay ? '' : start.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'}) +
-                (end ? '–' + end.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'}) : '');
-              return `<div class="event">
-                <span>${e.title || '(ingen titel)'}</span>
-                ${timeStr ? `<span class="time">${timeStr}</span>` : ''}
-              </div>`;
-            }).join('')
-          : '';
-
-        const noContent = !dayEvents.length && !presenceHtml;
-
+        const eventsHtml = dayEvents.map(e => {
+          const s = new Date(e.startDateTime), en = e.endDateTime ? new Date(e.endDateTime) : null;
+          const allDay = e.isAllDayEvent || (en && (en - s) >= 23 * 3600000);
+          const timeStr = allDay ? '' : s.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' }) + (en ? '–' + en.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit' }) : '');
+          return `<div class="event"><span>${e.title || '(ingen titel)'}</span>${timeStr ? `<span class="time">${timeStr}</span>` : ''}</div>`;
+        }).join('');
         return `<div class="day-row ${isToday ? 'today' : ''}">
           <div class="day-name">${dayNames[i]}</div>
-          <div class="events">
-            ${presenceHtml}
-            ${eventsHtml}
-            ${noContent ? '<div class="no-events">Ingen aktiviteter</div>' : ''}
-          </div>
+          <div class="events">${presenceHtml}${eventsHtml}${!dayEvents.length && !presenceHtml ? '<div class="no-events">Ingen aktiviteter</div>' : ''}</div>
         </div>`;
       }).join('');
     }
 
-    // Login via Playwright
     let loginPolling = null;
-
     async function startLogin() {
       const msg = document.getElementById('banner-msg');
       msg.textContent = 'Starter login...';
@@ -399,21 +277,18 @@
         await apiFetch('/api/login/start', { method: 'POST' });
         msg.textContent = '📱 Godkend i MitID-appen på din telefon...';
         pollLoginStatus();
-      } catch(e) {
-        msg.textContent = 'Fejl: ' + e.message;
-      }
+      } catch (e) { msg.textContent = 'Fejl: ' + e.message; }
     }
 
     function pollLoginStatus() {
       clearInterval(loginPolling);
       loginPolling = setInterval(async () => {
-        const res = await apiFetch('/api/login/status');
-        const data = await res.json();
+        const data = await apiFetch('/api/login/status').then(r => r.json());
         const banner = document.getElementById('session-banner');
         const msg = document.getElementById('banner-msg');
         if (data.state === 'show_qr') {
           banner.style.display = 'block';
-          msg.innerHTML = '<b>📷 Scan QR-koden med din MitID-app</b><br/><img style="display:block;width:300px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,' + data.qr_image + '"/>';
+          msg.innerHTML = '<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,' + data.qr_image + '"/>';
         } else if (data.state === 'success') {
           clearInterval(loginPolling);
           msg.textContent = '✅ Login lykkedes! Genindlæser...';
@@ -425,43 +300,36 @@
       }, 3000);
     }
 
-    // Session check
     async function checkSession() {
-      const res = await apiFetch('/api/status');
-      const data = await res.json();
+      const data = await apiFetch('/api/status').then(r => r.json());
       document.getElementById('session-banner').style.display = data.session_valid ? 'none' : 'block';
       return data.session_valid;
     }
 
     async function loadCalendar() {
       const ids = CHILDREN.map(c => c.id).join(',');
+      const days = getWeekDays();
+      const from = days[0].toISOString().split('T')[0], to = days[4].toISOString().split('T')[0];
       try {
-        const res = await apiFetch('/api/calendar?inst_profile_ids=' + ids);
+        const res = await apiFetch(`/api/calendar?inst_profile_ids=${ids}&from_date=${from}&to_date=${to}`);
         if (res.status === 401) return;
         allEvents = await res.json();
         renderWeek();
-      } catch(e) {
-        document.getElementById('week-content').textContent = 'Fejl: ' + e.message;
-      }
+      } catch (e) { document.getElementById('week-content').textContent = 'Fejl: ' + e.message; }
     }
 
     async function loadPresence() {
       const ids = CHILDREN.map(c => c.id).join(',');
       const days = getWeekDays();
-      const from = days[0].toISOString().split('T')[0];
-      const to = days[4].toISOString().split('T')[0];
+      const from = days[0].toISOString().split('T')[0], to = days[4].toISOString().split('T')[0];
       try {
         const res = await apiFetch(`/api/presence?inst_profile_ids=${ids}&from_date=${from}&to_date=${to}`);
         if (res.status !== 200) return;
         const templates = await res.json();
         presenceData = {};
-        for (const t of templates) {
-          presenceData[t.institutionProfile.id] = t.dayTemplates || [];
-        }
+        for (const t of templates) presenceData[t.institutionProfile.id] = t.dayTemplates || [];
         renderWeek();
-      } catch(e) {
-        console.error('Presence error:', e);
-      }
+      } catch (e) { console.error('Presence error:', e); }
     }
 
     async function loadMessages() {
@@ -471,12 +339,12 @@
         if (res.status === 401) { el.textContent = 'Session udløbet'; return; }
         const threads = await res.json();
         if (!threads.length) { el.textContent = 'Ingen beskeder'; return; }
-        el.innerHTML = threads.slice(0, 2).map(t => `
-          <div class="msg-item ${t.read ? '' : 'unread'}" onclick="openMsg(${t.id}, '${(t.subject||'').replace(/'/g,"\\'")}')">
+        el.innerHTML = threads.slice(0, 15).map(t =>
+          `<div class="msg-item ${t.read ? '' : 'unread'}" onclick="openMsg(${t.id}, '${(t.subject || '').replace(/'/g, "\\'")}')">
             <div class="subject">${t.subject || '(ingen emne)'}</div>
             <div class="meta">${t.read ? '✓ Læst' : '● Ulæst'}</div>
           </div>`).join('');
-      } catch(e) { el.textContent = 'Fejl: ' + e.message; }
+      } catch (e) { el.textContent = 'Fejl: ' + e.message; }
     }
 
     async function openMsg(threadId, subject) {
@@ -485,53 +353,50 @@
       document.getElementById('msg-modal-meta').textContent = '';
       document.getElementById('msg-modal-overlay').classList.add('open');
       try {
-        const res = await apiFetch(`/api/messages/${threadId}`);
-        const data = await res.json();
-        const messages = data.messages || [];
-        if (!messages.length) {
-          document.getElementById('msg-modal-body').textContent = 'Ingen indhold';
-          return;
-        }
-        const first = messages.find(m => m.messageType === 'Message') || messages[0];
-        const sender = first.sender?.fullName || 'Ukendt';
-        const date = first.sendDateTime ? new Date(first.sendDateTime).toLocaleString('da-DK', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
-        document.getElementById('msg-modal-meta').textContent = `${sender} · ${date}`;
-        const body = first.text?.html || first.text || '(intet indhold)';
-        document.getElementById('msg-modal-body').innerHTML = body;
-      } catch(e) {
-        document.getElementById('msg-modal-body').textContent = 'Fejl: ' + e.message;
-      }
+        const data = await apiFetch(`/api/messages/${threadId}`).then(r => r.json());
+        const messages = (data.messages || []).filter(m => m.messageType === 'Message' || m.text);
+        if (!messages.length) { document.getElementById('msg-modal-body').textContent = 'Ingen indhold'; return; }
+        document.getElementById('msg-modal-meta').textContent = `${messages.length} besked${messages.length !== 1 ? 'er' : ''} i tråden`;
+        document.getElementById('msg-modal-body').innerHTML = messages.map(m => {
+          const sender = m.sender?.fullName || 'Ukendt';
+          const date = m.sendDateTime ? new Date(m.sendDateTime).toLocaleString('da-DK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+          const body = m.text?.html || m.text || '(intet indhold)';
+          return `<div class="thread-msg">
+            <div class="thread-msg-header">
+              <span class="thread-msg-sender">${sender}</span>
+              <span class="thread-msg-date">${date}</span>
+            </div>
+            <div class="thread-msg-body">${body}</div>
+          </div>`;
+        }).join('');
+      } catch (e) { document.getElementById('msg-modal-body').textContent = 'Fejl: ' + e.message; }
     }
 
     function closeMsgModal(e) {
-      if (!e || e.target === document.getElementById('msg-modal-overlay') || e.target === document.getElementById('msg-modal-close')) {
+      if (!e || e.target === document.getElementById('msg-modal-overlay') || e.target === document.getElementById('msg-modal-close'))
         document.getElementById('msg-modal-overlay').classList.remove('open');
-      }
     }
 
-    let pollTimer = null;
-    let sessionWasExpired = false;
+    function mobileNav(view) {
+      const isCall = view === 'cal';
+      document.getElementById('left-panel').classList.toggle('mobile-hidden', !isCall);
+      document.getElementById('messages-panel').classList.toggle('mobile-active', !isCall);
+      document.getElementById('nav-cal').classList.toggle('active', isCall);
+      document.getElementById('nav-msg').classList.toggle('active', !isCall);
+    }
 
+    let pollTimer = null, sessionWasExpired = false;
     async function loadAll() {
       await initConfig();
       const valid = await checkSession();
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
-        loadCalendar();
-        loadPresence();
-        loadMessages();
+        loadCalendar(); loadPresence(); loadMessages();
         schedulePoll(5 * 60 * 1000);
-      } else {
-        sessionWasExpired = true;
-        schedulePoll(10 * 1000);
-      }
+      } else { sessionWasExpired = true; schedulePoll(10 * 1000); }
     }
-
-    function schedulePoll(ms) {
-      clearTimeout(pollTimer);
-      pollTimer = setTimeout(loadAll, ms);
-    }
-
+    function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer = setTimeout(loadAll, ms); }
+    window.addEventListener('resize', renderWeek);
     loadAll();
   </script>
 </body>

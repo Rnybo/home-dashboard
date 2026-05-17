@@ -96,9 +96,13 @@ class AulaClient:
         data = self._get("messaging.getMessagesForThread", f"&threadId={thread_id}&page={page}")
         return data.get("data", {})
 
-    def get_calendar_events(self, inst_profile_ids: list, days_ahead: int = 14) -> list:
-        start = datetime.datetime.utcnow().strftime("%Y-%m-%d 00:00:00.0000+0000")
-        end = (datetime.datetime.utcnow() + datetime.timedelta(days=days_ahead)).strftime("%Y-%m-%d 00:00:00.0000+0000")
+    def get_calendar_events(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
+        if not from_date:
+            from_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        if not to_date:
+            to_date = (datetime.datetime.now() + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
+        start = f"{from_date} 00:00:00.0000+02:00"
+        end = f"{to_date} 23:59:59.9990+02:00"
         data = self._post("calendar.getEventsByProfileIdsAndResourceIds", {
             "instProfileIds": inst_profile_ids,
             "resourceIds": [],

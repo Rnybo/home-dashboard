@@ -4,7 +4,7 @@ import sys
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from aula_client import AulaClient
@@ -15,7 +15,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 load_dotenv()
 
-app = FastAPI(docs_url=None, redoc_url=None)  # Disable API docs in production
+app = FastAPI(docs_url=None, redoc_url=None)
 client = AulaClient()
 
 API_KEY = os.getenv("API_KEY", "")
@@ -24,11 +24,17 @@ if not API_KEY:
 
 
 def check_api_key(request: Request):
-    if not API_KEY:
-        return  # Dev mode — no key set
-    key = request.headers.get("x-api-key", "")
-    if key != API_KEY:
+    if API_KEY and request.headers.get("x-api-key", "") != API_KEY:
         raise HTTPException(status_code=403, detail="Forbidden")
+
+
+def aula_call(fn):
+    try:
+        return fn()
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session expired")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def on_login_success(phpsessid: str, csrf_token: str):
@@ -40,8 +46,6 @@ playwright_login = AulaPlaywright(on_success=on_login_success)
 
 @app.get("/api/config")
 def config(request: Request):
-    # Only expose API key to requests coming from the same host (dashboard itself)
-    # The key is needed by the frontend to include in subsequent requests
     referer = request.headers.get("referer", "")
     origin = request.headers.get("origin", "")
     host = request.headers.get("host", "")
@@ -50,115 +54,63 @@ def config(request: Request):
     return {"api_key": API_KEY}
 
 
-@app.get("/api/status")
-def status(request: Request):
-    check_api_key(request)
-    valid = client.check_session()
-    return {"session_valid": valid}
+@app.get("/api/status", dependencies=[Depends(check_api_key)])
+def status():
+    return {"session_valid": client.check_session()}
 
 
-@app.post("/api/login/start")
-async def login_start(request: Request):
-    check_api_key(request)
+@app.post("/api/login/start", dependencies=[Depends(check_api_key)])
+async def login_start():
     playwright_login.start_login()
     return {"ok": True, "message": "Login started — check MitID app"}
 
 
-@app.get("/api/login/status")
-def login_status(request: Request):
-    check_api_key(request)
+@app.get("/api/login/status", dependencies=[Depends(check_api_key)])
+def login_status():
     return playwright_login.get_status()
 
 
-@app.get("/api/profile")
-def profile(request: Request):
-    check_api_key(request)
-    try:
-        return client.get_profile()
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/profile", dependencies=[Depends(check_api_key)])
+def profile():
+    return aula_call(client.get_profile)
 
 
-@app.get("/api/messages")
-def messages(request: Request, page: int = 0):
-    check_api_key(request)
-    try:
+@app.get("/api/messages", dependencies=[Depends(check_api_key)])
+def messages(page: int = 0):
+    def fn():
         threads = client.get_threads(page)
         return [{"id": t["id"], "subject": t.get("subject", ""), "read": t.get("read", True)} for t in threads]
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return aula_call(fn)
 
 
-@app.get("/api/messages/{thread_id}")
-def thread(request: Request, thread_id: int):
-    check_api_key(request)
-    try:
-        return client.get_messages_for_thread(thread_id)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/messages/{thread_id}", dependencies=[Depends(check_api_key)])
+def thread(thread_id: int):
+    return aula_call(lambda: client.get_messages_for_thread(thread_id))
 
 
-@app.get("/api/presence")
-def presence(request: Request, inst_profile_ids: str = "", from_date: str = "", to_date: str = ""):
-    check_api_key(request)
-    try:
-        ids = [int(i) for i in inst_profile_ids.split(",") if i]
-        return client.get_presence(ids, from_date or None, to_date or None)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/presence", dependencies=[Depends(check_api_key)])
+def presence(inst_profile_ids: str = "", from_date: str = "", to_date: str = ""):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_presence(ids, from_date or None, to_date or None))
 
 
-@app.get("/api/calendar")
-def calendar(request: Request, inst_profile_ids: str = "", from_date: str = "", to_date: str = ""):
-    check_api_key(request)
-    try:
-        ids = [int(i) for i in inst_profile_ids.split(",") if i]
-        return client.get_calendar_events(ids, from_date or None, to_date or None)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/calendar", dependencies=[Depends(check_api_key)])
+def calendar(inst_profile_ids: str = "", from_date: str = "", to_date: str = ""):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_calendar_events(ids, from_date or None, to_date or None))
 
 
-@app.get("/api/gallery/albums")
-def gallery_albums(request: Request, inst_profile_ids: str = ""):
-    check_api_key(request)
-    try:
-        ids = [int(i) for i in inst_profile_ids.split(",") if i]
-        return client.get_albums(ids)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/gallery/albums", dependencies=[Depends(check_api_key)])
+def gallery_albums(inst_profile_ids: str = ""):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_albums(ids))
 
-@app.get("/api/gallery/albums/{album_id}/media")
-def gallery_album_media(request: Request, album_id: int, inst_profile_ids: str = "", index: int = 0):
-    check_api_key(request)
-    try:
-        ids = [int(i) for i in inst_profile_ids.split(",") if i]
-        return client.get_album_media(album_id, ids, index)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/gallery/tagged")
-def gallery_tagged(request: Request, inst_profile_ids: str = "", index: int = 0):
-    check_api_key(request)
-    try:
-        ids = [int(i) for i in inst_profile_ids.split(",") if i]
-        return client.get_tagged_media(ids, index)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Session expired")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/gallery/albums/{album_id}/media", dependencies=[Depends(check_api_key)])
+def gallery_album_media(album_id: int, inst_profile_ids: str = "", index: int = 0):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_album_media(album_id, ids, index))
+
+
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

@@ -77,11 +77,7 @@ class AulaClient:
 
     def _post(self, method: str, body: dict) -> dict:
         url = f"{API_BASE}{API_VERSION}/?method={method}"
-        headers = {
-            "content-type": "application/json",
-            "csrfp-token": self.session.headers.get("csrfp-token", ""),
-        }
-        resp = self.session.post(url, data=json.dumps(body), headers=headers, verify=True)
+        resp = self.session.post(url, json=body, verify=True)
         resp.raise_for_status()
         return resp.json()
 
@@ -97,12 +93,16 @@ class AulaClient:
         return data.get("data", {})
 
     def get_calendar_events(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
+        today = datetime.date.today()
         if not from_date:
-            from_date = datetime.datetime.now().strftime("%Y-%m-%d")
+            from_date = today.strftime("%Y-%m-%d")
         if not to_date:
-            to_date = (datetime.datetime.now() + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
-        start = f"{from_date} 00:00:00.0000+02:00"
-        end = f"{to_date} 23:59:59.9990+02:00"
+            to_date = (today + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
+        # Use local timezone offset so DST is handled correctly
+        tz_offset = datetime.datetime.now().astimezone().strftime("%z")
+        tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"  # e.g. +02:00
+        start = f"{from_date} 00:00:00.0000{tz_str}"
+        end = f"{to_date} 23:59:59.9990{tz_str}"
         data = self._post("calendar.getEventsByProfileIdsAndResourceIds", {
             "instProfileIds": inst_profile_ids,
             "resourceIds": [],
@@ -121,16 +121,12 @@ class AulaClient:
         data = self._get("gallery.getMedia", f"&albumId={album_id}&index={index}&limit={limit}&sortOn=uploadedAt&orderDirection=desc&filterBy=all{ids_param}")
         return data.get("data", {})
 
-    def get_tagged_media(self, inst_profile_ids: list, index: int = 0, limit: int = 40) -> dict:
-        ids_param = "".join(f"&filterInstProfileIds[]={i}" for i in inst_profile_ids)
-        data = self._get("gallery.getMedia", f"&index={index}&limit={limit}&sortOn=uploadedAt&orderDirection=desc&filterBy=all{ids_param}")
-        return data.get("data", {})
-
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
+        today = datetime.date.today()
         if not from_date:
-            from_date = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+            from_date = today.strftime("%Y-%m-%d")
         if not to_date:
-            to_date = (datetime.datetime.utcnow() + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
+            to_date = (today + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
         ids_param = "".join(f"&filterInstitutionProfileIds[]={i}" for i in inst_profile_ids)
         data = self._get("presence.getPresenceTemplates", f"{ids_param}&fromDate={from_date}&toDate={to_date}")
         return data.get("data", {}).get("presenceWeekTemplates", []) or []

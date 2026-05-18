@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 import os
 import sys
@@ -10,8 +11,6 @@ logger = logging.getLogger("uvicorn.error")
 
 AULA_URL = "https://www.aula.dk"
 MITID_USERNAME = os.getenv("MITID_USERNAME", "")
-MITID_IDENTITY = os.getenv("MITID_IDENTITY", "")
-DEBUG = os.getenv("PLAYWRIGHT_DEBUG", "false").lower() == "true"
 DEBUG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_screenshots")
 
 
@@ -77,157 +76,66 @@ class AulaPlaywright:
                 )
                 page = await context.new_page()
 
-                # Step 1: Navigate to Aula
-                logger.info("Step 1: Navigating to aula.dk...")
+                # 1. Navigate to Aula
                 await page.goto(AULA_URL, wait_until="domcontentloaded")
-                await page.wait_for_timeout(3000)
-                await self._screenshot(page, "01_login_page")
+                await page.wait_for_timeout(1000)
+                await self._screenshot(page, "01_aula")
 
-                # Step 2: Click MitID on Aula login page
-                logger.info("Step 2: Clicking MitID...")
+                # 2. Click MitID on Aula login page
                 await page.locator(".mit-id-logo-container").click(timeout=10000)
                 await page.wait_for_load_state("networkidle")
-                await self._screenshot(page, "02_unilogin_page")
+                await self._screenshot(page, "02_unilogin")
 
-                # Step 3: Click MitID on Unilogin selector
-                logger.info("Step 3: Clicking MitID on Unilogin selector...")
+                # 3. Click MitID on Unilogin selector
                 await page.get_by_role("button", name="Mit").click(timeout=10000)
                 await page.wait_for_load_state("networkidle")
-                await self._screenshot(page, "03_mitid_page")
+                await self._screenshot(page, "03_nemlogin")
 
-                # Step 4: Click Fortsæt til login
-                logger.info("Step 4: Clicking Fortsæt til login...")
-                await page.get_by_role("button", name="FORTSÆT TIL LOGIN").click(timeout=10000)
-                await page.wait_for_timeout(4000)
-                await self._screenshot(page, "04_after_fortsaet")
+                # 4. Click "Continue to login" — triggers mitid/initialize POST and loads Core Client JS
+                await page.wait_for_selector('#mitIDConfirmation', state='visible', timeout=15000)
+                await page.click('#mitIDConfirmation')
+                await self._screenshot(page, "04_confirmation")
 
-                # Step 5: Find and fill username
-                logger.info("Step 5: Filling username...")
-                await page.wait_for_timeout(2000)
-
-                # Log all frames for diagnostics
-                logger.info(f"Frames: {[f.url for f in page.frames]}")
-
-                selectors = [
-                    'input.mitid-core-user__user-id',
-                    'input[autocomplete="username"]',
-                    'input[type="text"]',
-                    'input[name="username"]',
-                    'input[placeholder]',
-                ]
-
-                username_input = None
-                # Search main page
-                for sel in selectors:
-                    try:
-                        el = page.locator(sel).first
-                        if await el.is_visible(timeout=1500):
-                            username_input = el
-                            logger.info(f"Found on main page: {sel}")
-                            break
-                    except Exception:
-                        pass
-
-                # Search all frames
-                if not username_input:
-                    for frame in page.frames:
-                        for sel in selectors:
-                            try:
-                                el = frame.locator(sel).first
-                                if await el.is_visible(timeout=1000):
-                                    username_input = el
-                                    logger.info(f"Found in frame [{frame.url[:80]}]: {sel}")
-                                    break
-                            except Exception:
-                                pass
-                        if username_input:
-                            break
-
-                # Fallback: dump all inputs for diagnosis
-                if not username_input:
-                    await self._screenshot(page, "05_no_input_found")
-                    all_inputs = await page.evaluate("""
-                        () => Array.from(document.querySelectorAll('input')).map(i => ({
-                            type: i.type, name: i.name, placeholder: i.placeholder,
-                            autocomplete: i.autocomplete, visible: i.offsetParent !== null,
-                            cls: i.className
-                        }))
-                    """)
-                    logger.info(f"All inputs on page: {all_inputs}")
-                    raise Exception(f"Could not find username input. Inputs found: {all_inputs}")
-
-                await username_input.click()
+                # 5. Wait for MitID Core Client widget, force-show it, type username, click Continue
+                await page.wait_for_selector('#mitId', state='attached', timeout=30000)
+                await page.evaluate("() => { const el = document.querySelector('#mitId'); if (el) el.style.display = 'block'; }")
+                await page.locator('#username0').type(MITID_USERNAME, delay=50)
                 await page.wait_for_timeout(300)
-                # MitID uses a split character input (username0-9), type char by char
-                await page.keyboard.type(MITID_USERNAME, delay=100)
-                await self._screenshot(page, "05_after_username")
-                await page.keyboard.press('Enter')
+                await self._screenshot(page, "05_username")
+                await page.locator('#loginBtn0').click(force=True)
 
-                # Step 6: Wait for approval screen
-                logger.info("Step 6: Waiting for MitID approval screen...")
-                await page.wait_for_timeout(5000)
-                await self._screenshot(page, "06_approval_screen")
-
-                # Step 7: Capture and show approval screen
-                logger.info("Step 7: Capturing screen for dashboard...")
-                import base64
+                # 6. Show approval screen on dashboard and poll until approved (3 min)
+                await page.wait_for_timeout(3000)
+                await self._screenshot(page, "06_approval")
                 try:
-                    qr_bytes = await page.locator('.mitid-core-section').screenshot(timeout=5000)
+                    qr_bytes = await page.locator('#coreClientParent').screenshot(timeout=5000)
                 except Exception:
                     qr_bytes = await page.screenshot()
                 self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
                 self.state = AulaLoginState.SHOW_QR
-                logger.info("Approval screen shown on dashboard")
+                logger.info("Approval screen shown on dashboard — waiting for user...")
 
-                # Step 8: Poll until approved (3 min)
-                logger.info("Step 8: Waiting for approval (3 min)...")
-                deadline = 180
-                elapsed = 0
+                deadline, elapsed = 180, 0
                 while elapsed < deadline:
                     if "aula.dk" in page.url and "/login" not in page.url:
                         break
-
-                    # Check for identity selector
                     try:
-                        private_visible = await page.evaluate("""
-                            () => Array.from(document.querySelectorAll('*')).some(
-                                el => el.offsetParent !== null && el.textContent.includes('privatperson')
-                            )
-                        """)
-                        if private_visible:
-                            logger.info("Identity selector found, clicking...")
-                            name = MITID_IDENTITY or ""
-                            try:
-                                await page.locator(f'a.list-link:has-text("{name}")').click(timeout=5000)
-                                logger.info(f"Clicked identity: {name}")
-                            except Exception:
-                                await page.locator('a.list-link').first.click(timeout=5000)
-                                logger.info("Clicked first identity")
-                            await page.wait_for_load_state("networkidle")
-                            break
-                    except Exception as e:
-                        logger.info(f"Identity check: {e}")
-
-                    # Refresh QR/approval image
-                    try:
-                        qr_bytes = await page.locator('.mitid-core-section').screenshot(timeout=2000)
+                        qr_bytes = await page.locator('#coreClientParent').screenshot(timeout=2000)
                     except Exception:
                         qr_bytes = await page.screenshot()
                     self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
                     await page.wait_for_timeout(3000)
                     elapsed += 3
 
-                # Wait for final Aula redirect
+                # 7. Wait for final Aula redirect
                 await page.wait_for_load_state("networkidle")
                 if "aula.dk" not in page.url or "login" in page.url:
-                    logger.info(f"Waiting for Aula redirect, current URL: {page.url}")
                     await page.wait_for_url(f"{AULA_URL}/**", timeout=20000)
                     await page.wait_for_load_state("networkidle")
-                await self._screenshot(page, "09_after_approval")
+                await self._screenshot(page, "07_success")
                 logger.info(f"Final URL: {page.url}")
 
-                # Step 9: Extract cookies
-                logger.info("Step 9: Extracting cookies...")
+                # 8. Extract cookies
                 cookies = await context.cookies()
                 logger.info(f"Cookie names: {[c['name'] for c in cookies]}")
                 phpsessid = next((c["value"] for c in cookies if c["name"] == "PHPSESSID"), None)

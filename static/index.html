@@ -395,36 +395,45 @@
 
     function renderOverviewEvents(dates, birthdays) {
       const el = document.getElementById('overview-events');
-      const items = [];
-      for (const d of (dates || [])) {
-        const dt = new Date(d.startDateTime || d.start);
-        const label = dt.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
-        const childIds = d.belongsToProfiles || [];
-        const avatars = childIds.map(id => {
-          const child = CHILDREN.find(c => c.id === id);
-          const url = child?._photoUrl;
-          return url ? `<img src="${url}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
-        }).join('');
-        items.push(`<div class="event-item">
-          <div class="event-date">${label}</div>
-          <div style="flex:1"><div class="event-title">${d.title||'(ingen titel)'}</div>
-          <div class="event-sub">${avatars}${d.institutionName||''}</div></div>
-        </div>`);
-      }
-      for (const b of (birthdays || [])) {
-        const dt = new Date(b.birthday);
-        const label = dt.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
-        const relatedAvatars = (b.relatedChildrenIds||[]).map(id => {
-          const child = CHILDREN.find(c => c.id === id);
-          const url = child?._photoUrl;
-          return url ? `<img src="${url}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
-        }).join('');
-        items.push(`<div class="event-item">
-          <div class="event-date birthday">🎂 ${label}</div>
-          <div style="flex:1"><div class="event-title">${b.name}</div>
-          <div class="event-sub">${relatedAvatars}${b.mainGroupName||''}</div></div>
-        </div>`);
-      }
+
+      // Combine and sort all events by date
+      const all = [
+        ...(dates || []).map(d => ({ type: 'event', date: new Date(d.startDateTime || d.start), data: d })),
+        ...(birthdays || []).map(b => {
+          const raw = new Date(b.birthday);
+          const today = new Date();
+          let date = new Date(today.getFullYear(), raw.getMonth(), raw.getDate());
+          if (date < today && !isSameDay(date, today)) date.setFullYear(today.getFullYear() + 1);
+          return { type: 'birthday', date, data: b };
+        }),
+      ].sort((a, b) => a.date - b.date);
+
+      const items = all.map(({ type, date, data: d }) => {
+        if (type === 'event') {
+          const label = date.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
+          const childIds = d.belongsToProfiles || [];
+          const avatars = CHILDREN.filter(c => childIds.includes(c.id)).map(c =>
+            c._photoUrl ? `<img src="${c._photoUrl}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : ''
+          ).join('');
+          return `<div class="event-item">
+            <div class="event-date">${label}</div>
+            <div style="flex:1"><div class="event-title">${d.title||'(ingen titel)'}</div>
+            <div class="event-sub">${avatars}${d.institutionName||''}</div></div>
+          </div>`;
+        } else {
+          const label = date.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+          const relatedAvatars = (d.relatedChildrenIds||[]).map(id => {
+            const child = CHILDREN.find(c => c.id === id);
+            return child?._photoUrl ? `<img src="${child._photoUrl}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
+          }).join('');
+          return `<div class="event-item">
+            <div class="event-date birthday">🎂 ${label}</div>
+            <div style="flex:1"><div class="event-title">${d.name}</div>
+            <div class="event-sub">${relatedAvatars}${d.mainGroupName||''}</div></div>
+          </div>`;
+        }
+      });
+
       el.innerHTML = items.length ? items.join('') : '<span class="loading">Ingen kommende datoer</span>';
     }
 

@@ -142,23 +142,27 @@ class AulaClient:
     def get_important_dates(self, inst_profile_ids: list, limit: int = 20) -> list:
         data = self._get("calendar.getImportantDates", f"&limit={limit}&include_today=false")
         items = data.get("data", []) or []
-        # Deduplicate — same event appears once per child, key on title+start
-        seen, result = set(), []
+        # Deduplicate — merge belongsToProfiles from duplicates
+        seen, result = {}, []
         for item in items:
             key = item.get("title","") + "|" + item.get("startDateTime","")[:10]
             if key not in seen:
-                seen.add(key)
+                seen[key] = item
                 result.append(item)
+            else:
+                # Merge child IDs from duplicate entry
+                existing = seen[key]
+                merged = list(set((existing.get("belongsToProfiles") or []) + (item.get("belongsToProfiles") or [])))
+                existing["belongsToProfiles"] = merged
         return result
 
     def get_birthdays(self, inst_profile_ids: list) -> list:
-        # Get institution codes from profile first
         try:
             profile = self.get_profile()
             inst_codes = list({
-                r.get("institutionCode")
-                for r in (profile.get("data", {}).get("institutionProfile", {}).get("relations") or [])
-                if r.get("institutionCode")
+                i.get("institutionCode")
+                for i in (profile.get("data", {}).get("institutions") or [])
+                if i.get("institutionCode")
             })
         except Exception:
             inst_codes = []
@@ -167,11 +171,14 @@ class AulaClient:
         today = datetime.date.today()
         end = today + datetime.timedelta(days=30)
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
-        tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"
+        tz_str = f"{tz_offset[:3]}%3A{tz_offset[3:]}"  # URL-encode : as %3A, + as %2B handled by requests
         codes_param = "".join(f"&instCodes[]={c}" for c in inst_codes)
-        data = self._get("calendar.getBirthdayEventsForInstitutions",
-            f"&start={today}T00:00:00.000{tz_str}&end={end}T23:59:59.000{tz_str}{codes_param}")
-        return data.get("data", []) or []
+        url = f"https://www.aula.dk/api/v23/?method=calendar.getBirthdayEventsForInstitutions&start={today}T00:00:00.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}&end={end}T23:59:59.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}{codes_param}"
+        resp = self.session.get(url, verify=True)
+        if resp.status_code == 401:
+            raise PermissionError("Session expired")
+        resp.raise_for_status()
+        return resp.json().get("data", []) or []
 
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
         today = datetime.date.today()

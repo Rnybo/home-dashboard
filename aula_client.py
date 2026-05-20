@@ -138,10 +138,17 @@ class AulaClient:
         data = self._get("posts.getAllPosts", f"&parent=profile&index={index}{ids_param}")
         return data.get("data", {})
 
-    def get_important_dates(self, inst_profile_ids: list, limit: int = 10) -> list:
-        ids_param = "".join(f"&instProfileIds[]={i}" for i in inst_profile_ids)
-        data = self._get("calendar.getImportantDates", f"&limit={limit}&include_today=true{ids_param}")
-        return data.get("data", []) or []
+    def get_important_dates(self, inst_profile_ids: list, limit: int = 20) -> list:
+        data = self._get("calendar.getImportantDates", f"&limit={limit}&include_today=false")
+        items = data.get("data", []) or []
+        # Deduplicate by id (same event appears once per child)
+        seen, result = set(), []
+        for item in items:
+            key = item.get("id") or item.get("title","") + item.get("startDateTime","")
+            if key not in seen:
+                seen.add(key)
+                result.append(item)
+        return result
 
     def get_birthdays(self, inst_profile_ids: list) -> list:
         # Get institution codes from profile first

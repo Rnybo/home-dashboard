@@ -413,40 +413,24 @@
       const el = document.getElementById('gallery-content');
       el.innerHTML = '<div class="loading">Henter albums...</div>';
       try {
-        const [albums, userMedia] = await Promise.all([
-          apiFetch(`/api/gallery/albums?inst_profile_ids=${childIds}`).then(r => r.json()),
-          apiFetch(`/api/gallery/user-media?inst_profile_ids=${childIds}&limit=4`).then(r => r.json()).catch(() => null),
-        ]);
-        renderAlbums(albums, userMedia);
+        const albums = await apiFetch(`/api/gallery/albums?inst_profile_ids=${childIds}`).then(r => r.json());
+        renderAlbums(albums);
       } catch(e) { el.textContent = 'Fejl: ' + e.message; }
     }
 
-    function renderAlbums(albums, userMedia) {
+    function renderAlbums(albums) {
       document.getElementById('gallery-title').textContent = '🖼️ Galleri';
       currentAlbumId = null;
       const el = document.getElementById('gallery-content');
-
-      // Build synthetic "Medier af mine børn" album — pick first item with a usable thumbnail
-      const results = userMedia?.results || [];
-      const userMediaThumb = results.find(m => m.largeThumbnailUrl || m.thumbnailUrl) || results[0];
-      const userMediaCard = `<div class="album-card" onclick="openUserMedia()">
-        ${userMediaThumb
-          ? `<img class="album-thumb" src="${userMediaThumb.largeThumbnailUrl||userMediaThumb.thumbnailUrl||''}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=album-thumb-placeholder>👶</div>'">`
-          : `<div class="album-thumb-placeholder">👶</div>`}
-        <div class="album-info">
-          <div class="album-title">Medier af mine børn</div>
-          <div class="album-date">Tagget med barnet</div>
-        </div>
-      </div>`;
-
-      if (!albums.length && !userMedia) { el.textContent = 'Ingen albums fundet'; return; }
-      el.innerHTML = `<div class="albums-grid">${userMediaCard}${albums.map((a, idx) => {
-        const thumb = a.thumbnailsUrls?.[0];
-        const isVideo = thumb && (thumb.includes('.mov') || thumb.includes('.mp4'));
+      if (!albums.length) { el.textContent = 'Ingen albums fundet'; return; }
+      el.innerHTML = `<div class="albums-grid">${albums.map((a, idx) => {
+        // Pick first non-video thumbnail
+        const thumbs = a.thumbnailsUrls || [];
+        const thumb = thumbs.find(u => !u.match(/\.mov(\?|$)/i)) || thumbs[0];
         const date = a.creationDate ? new Date(a.creationDate).toLocaleDateString('da-DK', {day:'numeric',month:'short',year:'numeric'}) : '';
-        const thumbHtml = thumb && !isVideo
+        const thumbHtml = thumb
           ? `<img class="album-thumb" src="${thumb}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=album-thumb-placeholder>📷</div>'">`
-          : `<div class="album-thumb-placeholder">${isVideo?'🎥':'📷'}</div>`;
+          : `<div class="album-thumb-placeholder">📷</div>`;
         return `<div class="album-card" data-idx="${idx}" onclick="openAlbumByIdx(this)">
           ${thumbHtml}
           <div class="album-info">
@@ -456,18 +440,6 @@
         </div>`;
       }).join('')}</div>`;
       document.getElementById('gallery-content')._albums = albums;
-    }
-
-    async function openUserMedia() {
-      document.getElementById('gallery-title').textContent = 'Medier af mine børn';
-      const el = document.getElementById('gallery-content');
-      el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
-      try {
-        const data = await apiFetch(`/api/gallery/user-media?inst_profile_ids=${childIds}&limit=40`).then(r => r.json());
-        renderMedia(data.results || []);
-      } catch(e) {
-        el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;
-      }
     }
 
     function openAlbumByIdx(el) {
@@ -482,7 +454,11 @@
       const el = document.getElementById('gallery-content');
       el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
       try {
-        const data = await apiFetch(`/api/gallery/albums/${albumId}/media?inst_profile_ids=${childIds}`).then(r => r.json());
+        // Albums with id=null use the user-media endpoint
+        const url = albumId === null
+          ? `/api/gallery/user-media?inst_profile_ids=${childIds}&limit=40`
+          : `/api/gallery/albums/${albumId}/media?inst_profile_ids=${childIds}`;
+        const data = await apiFetch(url).then(r => r.json());
         renderMedia(data.results || []);
       } catch(e) {
         el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;

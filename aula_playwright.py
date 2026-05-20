@@ -3,6 +3,7 @@ import base64
 import logging
 import os
 import sys
+import threading
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
 sys.stdout.reconfigure(line_buffering=True)
@@ -10,13 +11,12 @@ sys.stdout.reconfigure(line_buffering=True)
 logger = logging.getLogger("uvicorn.error")
 
 AULA_URL = "https://www.aula.dk"
-MITID_USERNAME = os.getenv("MITID_USERNAME", "")
 DEBUG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_screenshots")
 
 
 class AulaLoginState:
     IDLE = "idle"
-    WAITING_FOR_MITID = "waiting_for_mitid"
+    RUNNING = "running"
     SHOW_QR = "show_qr"
     SUCCESS = "success"
     FAILED = "failed"
@@ -28,19 +28,27 @@ class AulaPlaywright:
         self.state = AulaLoginState.IDLE
         self.error = None
         self.qr_image = None
+        self._cancel_event = threading.Event()
 
     def get_status(self):
         return {"state": self.state, "error": self.error, "qr_image": self.qr_image}
 
     def start_login(self):
-        if self.state in (AulaLoginState.WAITING_FOR_MITID, AulaLoginState.SHOW_QR):
+        if self.state in (AulaLoginState.RUNNING, AulaLoginState.SHOW_QR):
+            logger.info("Login already in progress — ignoring start_login()")
             return
+        self._cancel_event.clear()
+        self.state = AulaLoginState.RUNNING
+        self.error = None
+        self.qr_image = None
+        t = threading.Thread(target=self._run_in_thread, daemon=True)
+        t.start()
+
+    def cancel(self):
+        self._cancel_event.set()
         self.state = AulaLoginState.IDLE
         self.error = None
         self.qr_image = None
-        import threading
-        t = threading.Thread(target=self._run_in_thread, daemon=True)
-        t.start()
 
     def _run_in_thread(self):
         if sys.platform == "win32":
@@ -63,96 +71,209 @@ class AulaPlaywright:
             logger.info(f"Screenshot failed ({name}): {e}")
 
     async def _do_login(self):
-        self.state = AulaLoginState.WAITING_FOR_MITID
-        logger.info("Starting Playwright login...")
+        # Read env at runtime so dotenv is loaded
+        mitid_username = os.getenv("MITID_USERNAME", "")
+        mitid_identity = os.getenv("MITID_IDENTITY", "")
+        logger.info(f"Starting Playwright login... username='{mitid_username}'")
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(
                     headless=True,
-                    args=["--no-sandbox", "--disable-setuid-sandbox"]
+                    args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
                 )
                 context = await browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+                    viewport={"width": 1280, "height": 900}
                 )
                 page = await context.new_page()
 
-                # 1. Navigate to Aula
+                # Step 1: Navigate to Aula
                 await page.goto(AULA_URL, wait_until="domcontentloaded")
-                await page.wait_for_timeout(1000)
-                await self._screenshot(page, "01_aula")
+                await page.wait_for_timeout(3000)
+                await self._screenshot(page, "01_login_page")
 
-                # 2. Click MitID on Aula login page
+                # Step 2: Click MitID on Aula login page
                 await page.locator(".mit-id-logo-container").click(timeout=10000)
                 await page.wait_for_load_state("networkidle")
-                await self._screenshot(page, "02_unilogin")
+                await self._screenshot(page, "02_unilogin_page")
 
-                # 3. Click MitID on Unilogin selector
+                # Step 3: Click MitID on Unilogin selector
                 await page.get_by_role("button", name="Mit").click(timeout=10000)
                 await page.wait_for_load_state("networkidle")
-                await self._screenshot(page, "03_nemlogin")
+                await self._screenshot(page, "03_mitid_page")
 
-                # 4. Click "Continue to login" — triggers mitid/initialize POST and loads Core Client JS
-                await page.wait_for_selector('#mitIDConfirmation', state='visible', timeout=15000)
-                await page.click('#mitIDConfirmation')
-                await self._screenshot(page, "04_confirmation")
+                # Step 4: Click Fortsæt til login
+                await page.get_by_role("button", name="FORTSÆT TIL LOGIN").click(timeout=10000)
+                await page.wait_for_timeout(4000)
+                await self._screenshot(page, "04_after_fortsaet")
 
-                # 5. Wait for MitID Core Client widget, force-show it, type username, click Continue
-                await page.wait_for_selector('#mitId', state='attached', timeout=30000)
-                await page.evaluate("() => { const el = document.querySelector('#mitId'); if (el) el.style.display = 'block'; }")
-                await page.locator('#username0').type(MITID_USERNAME, delay=50)
+                # Step 5: Find and fill username
+                await page.wait_for_timeout(2000)
+                logger.info(f"Frames: {[f.url for f in page.frames]}")
+
+                selectors = [
+                    'input.mitid-core-user__user-id',
+                    'input[autocomplete="username"]',
+                    'input[type="text"]',
+                    'input[name="username"]',
+                ]
+
+                username_input = None
+                for sel in selectors:
+                    try:
+                        el = page.locator(sel).first
+                        if await el.is_visible(timeout=1500):
+                            username_input = el
+                            logger.info(f"Found input (visible): {sel}")
+                            break
+                    except Exception:
+                        pass
+
+                # Fallback: use JS visibility (offsetParent) instead of Playwright is_visible
+                if not username_input:
+                    js_visible = await page.evaluate("""() => {
+                        const inputs = document.querySelectorAll('input.mitid-core-user__user-id, input[name^="username"]');
+                        for (const i of inputs) { if (i.offsetParent !== null) return i.name || i.id || 'found'; }
+                        return null;
+                    }""")
+                    logger.info(f"JS visible input: {js_visible}")
+                    if js_visible:
+                        username_input = page.locator(f'input[name="{js_visible}"]').first
+                        logger.info(f"Using JS-found input: {js_visible}")
+
+                if not username_input:
+                    await self._screenshot(page, "05_no_input_found")
+                    all_inputs = await page.evaluate("""() => Array.from(document.querySelectorAll('input')).map(i => ({type:i.type,name:i.name,cls:i.className,visible:i.offsetParent!==null}))""")
+                    logger.info(f"All inputs: {all_inputs}")
+                    raise Exception(f"Could not find username input")
+
+                await page.evaluate("""() => {
+                    const input = document.querySelector('input.mitid-core-user__user-id, input[name="username0"]');
+                    if (input) { input.focus(); input.click(); }
+                }""")
                 await page.wait_for_timeout(300)
-                await self._screenshot(page, "05_username")
-                await page.locator('#loginBtn0').click(force=True)
+                await page.keyboard.type(mitid_username, delay=100)
+                await self._screenshot(page, "05_after_username")
+                await page.keyboard.press('Enter')
 
-                # 6. Show approval screen on dashboard and poll until approved (3 min)
-                await page.wait_for_timeout(3000)
-                await self._screenshot(page, "06_approval")
+                # Step 6: Wait for approval screen
+                await page.wait_for_timeout(5000)
+                await self._screenshot(page, "06_approval_screen")
+
                 try:
-                    qr_bytes = await page.locator('#coreClientParent').screenshot(timeout=5000)
+                    qr_bytes = await page.locator('.mitid-core-section').screenshot(timeout=5000)
                 except Exception:
                     qr_bytes = await page.screenshot()
                 self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
                 self.state = AulaLoginState.SHOW_QR
-                logger.info("Approval screen shown on dashboard — waiting for user...")
+                logger.info("Approval screen shown on dashboard")
 
+                # Step 7: Poll until approved (3 min)
                 deadline, elapsed = 180, 0
                 while elapsed < deadline:
-                    if "aula.dk" in page.url and "/login" not in page.url:
+                    if self._cancel_event.is_set():
+                        return
+                    if "aula.dk" in page.url and "/login" not in page.url and "mitid" not in page.url.lower():
                         break
+
+                    # Handle loginoption page — click private person identity
+                    if "loginoption" in page.url:
+                        logger.info("loginoption detected, clicking private identity...")
+                        await self._screenshot(page, "loginoption")
+
+                        # Log all clickable elements to find the right one
+                        elements = await page.evaluate("""() => {
+                            return Array.from(document.querySelectorAll('a, button')).map(el => ({
+                                tag: el.tagName, text: el.textContent.trim().substring(0, 60),
+                                visible: el.offsetParent !== null,
+                                rect: el.getBoundingClientRect()
+                            })).filter(e => e.visible && e.rect.height > 20);
+                        }""")
+                        logger.info(f"Loginoption clickable elements: {elements}")
+
+                        # Click the private person option (first identity, not SYSTEMATIC)
+                        clicked = False
+                        for sel in [
+                            'a:has-text("Rasmus")', 'button:has-text("Rasmus")',
+                            '.list-group-item', 'a.list-link', 'li a', 'li button',
+                            'a[href*="loginoption"]',
+                        ]:
+                            try:
+                                el = page.locator(sel).first
+                                box = await el.bounding_box()
+                                if box and box['height'] > 20 and box['y'] > 100:
+                                    await page.mouse.click(box['x'] + box['width']/2, box['y'] + box['height']/2)
+                                    logger.info(f"Mouse-clicked loginoption '{sel}' at y={box['y']:.0f}")
+                                    clicked = True
+                                    break
+                            except Exception as e:
+                                logger.info(f"loginoption sel '{sel}' failed: {e}")
+                        if not clicked:
+                            logger.warning("Could not click loginoption — trying first visible element below y=200")
+                            first = await page.evaluate("""() => {
+                                const els = Array.from(document.querySelectorAll('a, button'));
+                                const el = els.find(e => e.offsetParent && e.getBoundingClientRect().y > 200);
+                                if (el) { const r = el.getBoundingClientRect(); return {x: r.x+r.width/2, y: r.y+r.height/2}; }
+                                return null;
+                            }""")
+                            if first:
+                                await page.mouse.click(first['x'], first['y'])
+                                logger.info(f"Fallback click at {first}")
+                        await page.wait_for_load_state("networkidle", timeout=15000)
+                        logger.info(f"URL after loginoption click: {page.url}")
+                        break
+
                     try:
-                        qr_bytes = await page.locator('#coreClientParent').screenshot(timeout=2000)
+                        qr_bytes = await page.locator('.mitid-core-section').screenshot(timeout=2000)
                     except Exception:
                         qr_bytes = await page.screenshot()
                     self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
                     await page.wait_for_timeout(3000)
                     elapsed += 3
 
-                # 7. Wait for final Aula redirect
-                await page.wait_for_load_state("networkidle")
+                # Step 8: Final redirect and cookies
+                # After loginoption click, wait for navigation then check URL
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=15000)
+                except Exception:
+                    pass
+                logger.info(f"URL after loginoption: {page.url}")
+
                 if "aula.dk" not in page.url or "login" in page.url:
-                    await page.wait_for_url(f"{AULA_URL}/**", timeout=20000)
-                    await page.wait_for_load_state("networkidle")
-                await self._screenshot(page, "07_success")
+                    try:
+                        await page.wait_for_url(f"{AULA_URL}/**", timeout=30000)
+                    except PlaywrightTimeout:
+                        logger.warning(f"wait_for_url timeout, current URL: {page.url}")
+                    await page.wait_for_load_state("networkidle", timeout=10000)
+                await self._screenshot(page, "09_after_approval")
                 logger.info(f"Final URL: {page.url}")
 
-                # 8. Extract cookies
-                cookies = await context.cookies()
-                logger.info(f"Cookie names: {[c['name'] for c in cookies]}")
-                phpsessid = next((c["value"] for c in cookies if c["name"] == "PHPSESSID"), None)
-                csrf_token = next((c["value"] for c in cookies if c["name"] == "Csrfp-Token"), None)
+                phpsessid, csrf_token = None, None
+                for attempt in range(5):
+                    cookies = await context.cookies()
+                    phpsessid = next((c["value"] for c in cookies if c["name"] == "PHPSESSID"), None)
+                    csrf_token = next((c["value"] for c in cookies if c["name"] == "Csrfp-Token"), None)
+                    if phpsessid and csrf_token:
+                        break
+                    logger.info(f"Cookie attempt {attempt+1}/5: {[c['name'] for c in cookies]}")
+                    await page.wait_for_timeout(2000)
+
                 if not phpsessid or not csrf_token:
-                    raise ValueError(f"Missing cookies. Got: {[c['name'] for c in cookies]}")
+                    raise ValueError(f"Missing cookies: {[c['name'] for c in await context.cookies()]}")
 
                 await browser.close()
                 self.on_success(phpsessid, csrf_token)
                 self.state = AulaLoginState.SUCCESS
+                self.qr_image = None
                 logger.info("Session updated successfully!")
 
         except PlaywrightTimeout as e:
-            self.state = AulaLoginState.FAILED
-            self.error = "Timeout — MitID godkendelse tog for lang tid"
-            logger.error(f"Playwright timeout: {e}")
+            if not self._cancel_event.is_set():
+                self.state = AulaLoginState.FAILED
+                self.error = "Timeout — MitID godkendelse tog for lang tid"
+                logger.error(f"Playwright timeout: {e}")
         except Exception as e:
-            self.state = AulaLoginState.FAILED
-            self.error = str(e)
-            logger.error(f"Playwright login failed: {e}")
+            if not self._cancel_event.is_set():
+                self.state = AulaLoginState.FAILED
+                self.error = str(e)
+                logger.error(f"Playwright login failed: {e}", exc_info=True)

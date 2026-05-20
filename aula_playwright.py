@@ -71,7 +71,6 @@ class AulaPlaywright:
             logger.info(f"Screenshot failed ({name}): {e}")
 
     async def _do_login(self):
-        # Read env at runtime so dotenv is loaded
         mitid_username = os.getenv("MITID_USERNAME", "")
         mitid_identity = os.getenv("MITID_IDENTITY", "")
         logger.info(f"Starting Playwright login... username='{mitid_username}'")
@@ -180,25 +179,17 @@ class AulaPlaywright:
                     if "loginoption" in page.url:
                         logger.info("loginoption detected, clicking private identity...")
                         await self._screenshot(page, "loginoption")
-
-                        # Log all clickable elements to find the right one
-                        elements = await page.evaluate("""() => {
-                            return Array.from(document.querySelectorAll('a, button')).map(el => ({
-                                tag: el.tagName, text: el.textContent.trim().substring(0, 60),
-                                visible: el.offsetParent !== null,
-                                rect: el.getBoundingClientRect()
-                            })).filter(e => e.visible && e.rect.height > 20);
-                        }""")
-                        logger.info(f"Loginoption clickable elements: {elements}")
-
-                        # Click the private person option (first identity, not SYSTEMATIC)
                         clicked = False
+                        # Try to match by identity name from env, fall back to first private option
+                        identity_name = mitid_identity.split()[0] if mitid_identity else ""
                         for sel in [
-                            'a:has-text("Rasmus")', 'button:has-text("Rasmus")',
+                            f'a:has-text("{identity_name}")' if identity_name else None,
+                            'button:has-text("privatperson")',
                             '.list-group-item', 'a.list-link', 'li a', 'li button',
-                            'a[href*="loginoption"]',
                         ]:
                             try:
+                                if not sel:
+                                    continue
                                 el = page.locator(sel).first
                                 box = await el.bounding_box()
                                 if box and box['height'] > 20 and box['y'] > 100:
@@ -206,10 +197,10 @@ class AulaPlaywright:
                                     logger.info(f"Mouse-clicked loginoption '{sel}' at y={box['y']:.0f}")
                                     clicked = True
                                     break
-                            except Exception as e:
-                                logger.info(f"loginoption sel '{sel}' failed: {e}")
+                            except Exception:
+                                pass
                         if not clicked:
-                            logger.warning("Could not click loginoption — trying first visible element below y=200")
+                            # Fallback: first visible link/button below y=200
                             first = await page.evaluate("""() => {
                                 const els = Array.from(document.querySelectorAll('a, button'));
                                 const el = els.find(e => e.offsetParent && e.getBoundingClientRect().y > 200);
@@ -218,9 +209,9 @@ class AulaPlaywright:
                             }""")
                             if first:
                                 await page.mouse.click(first['x'], first['y'])
-                                logger.info(f"Fallback click at {first}")
+                                logger.info(f"loginoption fallback click at {first}")
                         await page.wait_for_load_state("networkidle", timeout=15000)
-                        logger.info(f"URL after loginoption click: {page.url}")
+                        logger.info(f"URL after loginoption: {page.url}")
                         break
 
                     try:

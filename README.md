@@ -1,4 +1,4 @@
-# Aula Dashboard
+# C.F. Aagaards Vej 4 — Family Dashboard
 
 A family dashboard for the Danish school platform Aula, designed for a tablet (e.g. Android tablet or Google Nest Hub 1024×600). Shows weekly schedule, presence times, calendar events, messages, gallery and Google Calendar for the whole family. Features automatic MitID login via Playwright.
 

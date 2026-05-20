@@ -186,6 +186,12 @@
     #lightbox-prev { left: 16px; } #lightbox-next { right: 16px; }
     #lightbox-prev:hover, #lightbox-next:hover { background: rgba(255,255,255,0.3); }
 
+    #gevent-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+    #gevent-modal-overlay.open { display: flex; }
+    #gevent-modal { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 420px; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+    #gevent-modal h2 { color: #222; font-size: 1.05rem; }
+    #gevent-modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #999; }
+
     /* ── Modal (messages) ── */
     #msg-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
       z-index: 100; align-items: center; justify-content: center; padding: 16px; }
@@ -231,7 +237,7 @@
 </head>
 <body>
   <header>
-    <h1>📚 Aula</h1>
+    <h1>🏠 C.F. Aagaards Vej 4, 8270 Højbjerg</h1>
     <div id="clock"></div>
   </header>
   <div id="session-banner">
@@ -275,10 +281,12 @@
       </div>
     </div>
     <div class="messages-card" id="messages-panel-cal">
-      <h2>📬 Beskeder</h2>
-      <div id="messages-cal" class="loading">Henter...</div>
-      <h2 style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">📅 Kommende</h2>
+      <h2>📅 Kommende</h2>
       <div id="upcoming-google-cal" class="loading">Henter...</div>
+      <h2 style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">🏠 Overblik</h2>
+      <div id="sidebar-overview" class="loading">Henter...</div>
+      <h2 style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">📬 Beskeder</h2>
+      <div id="messages-cal" class="loading">Henter...</div>
     </div>
   </div>
 
@@ -316,7 +324,17 @@
     </div>
   </div>
 
-  <!-- Post modal -->
+  <!-- Google Event modal -->
+  <div id="gevent-modal-overlay" onclick="closeGEventModal(event)">
+    <div id="gevent-modal">
+      <button id="gevent-modal-close" onclick="closeGEventModal()">✕</button>
+      <div id="gevent-modal-color" style="width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:middle"></div>
+      <h2 id="gevent-modal-title" style="display:inline;vertical-align:middle"></h2>
+      <div class="msg-meta" id="gevent-modal-when"></div>
+      <div class="msg-meta" id="gevent-modal-owner"></div>
+      <div class="msg-meta" id="gevent-modal-location"></div>
+    </div>
+  </div>
   <div id="post-modal-overlay" onclick="closePostModal(event)">
     <div id="post-modal">
       <button id="post-modal-close" onclick="closePostModal()">✕</button>
@@ -397,8 +415,9 @@
 
     async function loadGoogleCalendar() {
       const days = getWeekDays();
-      const from = days[0].toISOString().split('T')[0];
-      // Fetch 30 days ahead for upcoming panel
+      // Always fetch from today regardless of week offset
+      const today = new Date();
+      const from = today.toISOString().split('T')[0];
       const toDate = new Date(days[6]); toDate.setDate(toDate.getDate() + 23);
       const to = toDate.toISOString().split('T')[0];
       try {
@@ -509,7 +528,23 @@
           </div></div>`;
       }).join('');
       window._cachedPosts = posts;
+      renderSidebarOverview();
       if (currentView !== 'overview') updateBadges();
+    }
+
+    function renderSidebarOverview() {
+      const el = document.getElementById('sidebar-overview');
+      if (!el) return;
+      const posts = (window._cachedPosts || []).slice(0, 3);
+      if (!posts.length) { el.innerHTML = '<span class="loading">Ingen opslag</span>'; return; }
+      el.innerHTML = posts.map(p => {
+        const date = new Date(p.timestamp).toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+        const important = p.isImportant ? '⚠️ ' : '';
+        return `<div class="msg-item" onclick="openPost(${p.id})" style="cursor:pointer">
+          <div class="subject">${important}${p.title||'(ingen titel)'}</div>
+          <div class="meta">${p.ownerProfile?.fullName||''} · ${date}</div>
+        </div>`;
+      }).join('');
     }
 
     function openPost(postId) {
@@ -740,46 +775,61 @@
       const limit = elId === 'messages-cal' ? 3 : 20;
       el.innerHTML=cachedThreads.slice(0,limit).map(t => `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')"><div class="subject">${t.subject||'(ingen emne)'}</div><div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div></div>`).join('');
     }
+    function openGoogleEvent(idx) {
+      const e = _upcomingEvents[idx]; if (!e) return;
+      document.getElementById('gevent-modal-color').style.background = e.color;
+      document.getElementById('gevent-modal-title').textContent = e.title;
+      const d = e._date;
+      let when;
+      if (e.allDay) {
+        const endDate = new Date(e.end + 'T00:00:00'); endDate.setDate(endDate.getDate() - 1);
+        const s = d.toLocaleDateString('da-DK', {weekday:'long', day:'numeric', month:'long'});
+        const en = endDate.toLocaleDateString('da-DK', {weekday:'long', day:'numeric', month:'long'});
+        when = isSameDay(d, endDate) ? s : `${s} – ${en}`;
+      } else {
+        const day = d.toLocaleDateString('da-DK', {weekday:'long', day:'numeric', month:'long'});
+        const t1 = d.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
+        const t2 = new Date(e.end).toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
+        when = `${day}, ${t1}–${t2}`;
+      }
+      document.getElementById('gevent-modal-when').textContent = '🕐 ' + when;
+      document.getElementById('gevent-modal-owner').textContent = e.owner !== 'Helligdag' ? '👤 ' + e.owner : '';
+      document.getElementById('gevent-modal-location').textContent = e.location ? '📍 ' + e.location : '';
+      document.getElementById('gevent-modal-overlay').classList.add('open');
+    }
+    function closeGEventModal(ev) {
+      if (!ev || ev.target === document.getElementById('gevent-modal-overlay') || ev.target === document.getElementById('gevent-modal-close'))
+        document.getElementById('gevent-modal-overlay').classList.remove('open');
+    }
+    let _upcomingEvents = [];
     function renderUpcomingGoogleEvents() {
       const el = document.getElementById('upcoming-google-cal');
       if (!el) return;
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      // Include both timed and all-day, exclude holidays, deduplicate multi-day events
       const seen = new Set();
-      const upcoming = googleEvents
+      _upcomingEvents = googleEvents
         .filter(e => e.owner !== 'Helligdag')
-        .map(e => {
-          const date = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
-          return { ...e, _date: date };
-        })
+        .map(e => ({ ...e, _date: e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start) }))
         .filter(e => e.allDay ? e._date >= today : e._date >= now)
-        .filter(e => {
-          const key = e.title + '|' + e.start;
-          if (seen.has(key)) return false;
-          seen.add(key); return true;
-        })
+        .filter(e => { const k=e.title+'|'+e.start; if(seen.has(k)) return false; seen.add(k); return true; })
         .sort((a,b) => a._date - b._date)
         .slice(0, 5);
-
-      if (!upcoming.length) { el.innerHTML = '<span class="loading">Ingen kommende</span>'; return; }
-      el.innerHTML = upcoming.map(e => {
+      if (!_upcomingEvents.length) { el.innerHTML = '<span class="loading">Ingen kommende</span>'; return; }
+      el.innerHTML = _upcomingEvents.map((e, idx) => {
         const d = e._date;
         const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${e.color};margin-right:5px;flex-shrink:0"></span>`;
         let label;
         if (e.allDay) {
-          // Show date range for multi-day
-          const endDate = new Date(e.end + 'T00:00:00');
-          endDate.setDate(endDate.getDate() - 1); // ICS end is exclusive
-          const startLabel = d.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
-          const endLabel = endDate.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
-          label = isSameDay(d, endDate) ? startLabel : `${startLabel}–${endLabel}`;
+          const endDate = new Date(e.end + 'T00:00:00'); endDate.setDate(endDate.getDate() - 1);
+          const s = d.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+          const en = endDate.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+          label = isSameDay(d, endDate) ? s : `${s}–${en}`;
         } else {
           label = d.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'})
             + ' · ' + d.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
         }
-        return `<div class="msg-item" style="cursor:default">
+        return `<div class="msg-item" onclick="openGoogleEvent(${idx})" style="cursor:pointer">
           <div class="subject" style="display:flex;align-items:center">${dot}${e.title}</div>
           <div class="meta">${label}</div>
         </div>`;

@@ -1,12 +1,21 @@
 # Aula Dashboard
 
-A dashboard for Danish school platform Aula, designed for Google Nest Hub (1024×600). Shows weekly schedule, calendar events and messages for your children. Features automatic MitID login via Playwright.
+A family dashboard for the Danish school platform Aula, designed for a tablet (e.g. Android tablet or Google Nest Hub 1024×600). Shows weekly schedule, presence times, calendar events, messages, gallery and Google Calendar for the whole family. Features automatic MitID login via Playwright.
+
+## Features
+
+- 📅 **Kalender** — Weekly timetable per child with drop-off/pick-up times, Aula events and Google Calendar (Fælles)
+- 🏠 **Overblik** — Latest posts, upcoming dates, birthdays
+- 🖼️ **Galleri** — Photo albums and media from Aula
+- 📬 **Beskeder** — Message threads from Aula
+- 📅 **Google Calendar** — Combined family calendar (Rasmus + Maja + Danish holidays)
+- 🔔 **Notifications** — Badge indicators for unread messages and new posts/albums
+- 🔐 **Auto-login** — Automatic MitID login via Playwright when session expires
 
 ## Prerequisites
 
 - Python 3.12
 - Git
-- A Railway account (railway.app)
 
 ## Local Development
 
@@ -36,10 +45,14 @@ copy .env.example .env
 | Variable | Description |
 |---|---|
 | `API_KEY` | Random secret key to protect the API |
-| `MITID_USERNAME` | Your MitID username (phone number or CPR) |
+| `MITID_USERNAME` | Your MitID username |
 | `MITID_IDENTITY` | Your full name as shown in MitID (e.g. `Rasmus Fogh Nybo`) |
-| `AULA_PHPSESSID` | Optional: existing Aula session cookie (avoids login on first start) |
+| `MITID_USERNAME_2` | Optional: second MitID account username |
+| `MITID_IDENTITY_2` | Optional: second MitID account full name |
+| `AULA_PHPSESSID` | Optional: existing Aula session cookie (skips login on first start) |
 | `AULA_CSRF_TOKEN` | Optional: existing Aula CSRF token |
+| `GOOGLE_CALENDAR_ICS_RASMUS` | Public ICS link for first person's Google Calendar |
+| `GOOGLE_CALENDAR_ICS_MAJA` | Public ICS link for second person's Google Calendar |
 
 Generate a random API key:
 ```bash
@@ -48,14 +61,28 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 ### 5. Start the server
 ```bash
-.\venv312\Scripts\uvicorn main:app --reload
+.\venv312\Scripts\uvicorn main:app --host 127.0.0.1 --port 8080
 ```
 
-Open **http://localhost:8000**
+Open **http://localhost:8080**
+
+## Google Calendar Setup
+
+To get the ICS link for a Google Calendar:
+
+1. Go to [calendar.google.com](https://calendar.google.com)
+2. Click the three dots next to your calendar → **Settings and sharing**
+3. Under **"Access permissions"** → enable **"Make available to public"**
+4. Scroll down to **"Integrate calendar"** → copy the **"Public address in iCal format"**
+
+Danish public holidays are automatically included from:
+```
+https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics
+```
 
 ## Session Login Flow
 
-When the session expires, the dashboard shows a red banner. Click it to start automatic MitID login:
+When the session expires, the dashboard shows a red banner. Click it (or select an account) to start automatic MitID login:
 
 1. Playwright opens a headless browser and navigates to aula.dk
 2. Enters your MitID username automatically
@@ -64,58 +91,42 @@ When the session expires, the dashboard shows a red banner. Click it to start au
 5. Playwright selects your private identity automatically
 6. Dashboard reloads with a fresh session
 
-## Deployment (Railway)
-
-### 1. Push to GitHub
-```bash
-git add .
-git commit -m "your message"
-git push origin main
-```
-
-### 2. Railway setup
-- Connect your GitHub repo in Railway
-- Add environment variables under **Variables**:
-  - `API_KEY`
-  - `MITID_USERNAME`
-  - `MITID_IDENTITY`
-- Railway uses the `Dockerfile` and `railway.json` automatically
-
-### 3. Access
-Your app will be available at your Railway domain (e.g. `https://aulanybo.up.railway.app`)
+Multi-account support: add `MITID_USERNAME_2` / `MITID_IDENTITY_2` (up to `_5`) to enable login buttons for multiple accounts.
 
 ## Project Structure
 
 ```
 aula-dashboard/
-├── main.py              # FastAPI app - API endpoints
-├── aula_client.py       # Aula API wrapper
-├── aula_playwright.py   # Automated MitID login
-├── requirements.txt
-├── Dockerfile
-├── railway.json         # Railway deployment config
+├── main.py              # FastAPI app — all API endpoints
+├── aula_client.py       # Aula API client (sessions, profile, calendar, gallery etc.)
+├── aula_playwright.py   # Automated MitID login via Playwright
+├── requirements.txt     # Python dependencies
+├── .env.example         # Environment variable template
 └── static/
-    └── index.html       # Dashboard UI (optimized for Nest Hub 1024x600)
+    └── index.html       # Dashboard UI (single-page app, no framework)
 ```
 
-## Kids Configuration
+## API Endpoints
 
-The dashboard is currently configured for two children. To change names or profile IDs, edit `static/index.html`:
-
-```javascript
-const CHILDREN = [
-  { name: 'Aksel', id: 5620584 },
-  { name: 'Max',   id: 5620590 }
-];
-```
-
-Profile IDs can be found by calling `/api/profile` while logged in and looking at `data.institutionProfile.relations[].id`.
+| Endpoint | Description |
+|---|---|
+| `GET /api/config` | Returns API key (same-origin only) |
+| `GET /api/status` | Session validity check |
+| `GET /api/profile-config` | Children and institution IDs (dynamic) |
+| `GET /api/calendar` | Aula calendar events |
+| `GET /api/presence` | Drop-off/pick-up times |
+| `GET /api/posts` | Aula posts/announcements |
+| `GET /api/important-dates` | Upcoming school dates |
+| `GET /api/birthdays` | Upcoming birthdays |
+| `GET /api/messages` | Message thread list |
+| `GET /api/messages/{id}` | Full message thread |
+| `GET /api/gallery/albums` | Photo albums |
+| `GET /api/gallery/albums/{id}/media` | Album media |
+| `GET /api/gallery/user-media` | Media featuring your children |
+| `GET /api/google-calendar` | Combined Google Calendar (ICS-based) |
+| `POST /api/login/start` | Start MitID login flow |
+| `GET /api/login/status` | Login flow status + QR code |
 
 ## Debug Mode
 
-Set `PLAYWRIGHT_DEBUG=true` in your `.env` to save screenshots at each login step:
-```
-debug_01_login_page.png
-debug_02_unilogin_page.png
-...
-```
+Set `PLAYWRIGHT_DEBUG=true` in `.env` to save screenshots at each login step to the `debug_screenshots/` folder.

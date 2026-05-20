@@ -366,12 +366,18 @@
           html += `<div class="hour-line full" style="top:${(h-START_H)*hourH}px"></div>`;
           if (h<END_H) html += `<div class="hour-line" style="top:${(h-START_H)*hourH+hourH/2}px;border-top-style:dashed;opacity:.5"></div>`;
         }
-        if (tpl && !tpl.isOnVacation && tpl.entryTime && tpl.exitTime) {
-          const [eh,em]=tpl.entryTime.split(':').map(Number), [xh,xm]=tpl.exitTime.split(':').map(Number);
-          const tp=pct(eh*60+em), hp=pct(xh*60+xm)-tp;
-          const lbl=`${tpl.entryTime.substring(0,5)}–${tpl.exitTime.substring(0,5)}${tpl.exitWith?' · '+tpl.exitWith:''}`;
-          html += `<div class="presence-bar" style="top:${tp}%;height:${hp}%;min-height:14px" title="${lbl}">🕐 ${lbl}</div>`;
-        } else if (tpl?.isOnVacation) {
+        if (tpl && !tpl.isOnVacation && tpl.entryTime) {
+          const [eh,em] = tpl.entryTime.split(':').map(Number);
+          const entryPct = pct(eh*60+em);
+          html += `<div class="presence-bar" style="top:${entryPct}%;height:${hourH*0.4}px;min-height:14px" title="Aflevering ${tpl.entryTime.substring(0,5)}">🏫 ${tpl.entryTime.substring(0,5)}</div>`;
+        }
+        if (tpl && !tpl.isOnVacation && tpl.exitTime) {
+          const [xh,xm] = tpl.exitTime.split(':').map(Number);
+          const exitPct = pct(xh*60+xm);
+          const exitLbl = tpl.exitWith ? `${tpl.exitWith}` : '';
+          html += `<div class="presence-bar" style="top:${exitPct}%;height:${hourH*0.4}px;min-height:14px;background:#e8f7e8;border-left-color:#4caf50;color:#2e7d32" title="Afhentning ${tpl.exitTime.substring(0,5)}${exitLbl?' · '+exitLbl:''}">🏠 ${tpl.exitTime.substring(0,5)}${exitLbl?' · '+exitLbl:''}</div>`;
+        }
+        if (tpl?.isOnVacation) {
           html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
         }
         dayEvents.filter(e => e.isAllDayEvent||(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
@@ -407,17 +413,33 @@
       const el = document.getElementById('gallery-content');
       el.innerHTML = '<div class="loading">Henter albums...</div>';
       try {
-        const albums = await apiFetch(`/api/gallery/albums?inst_profile_ids=${childIds}`).then(r => r.json());
-        renderAlbums(albums);
+        const [albums, userMedia] = await Promise.all([
+          apiFetch(`/api/gallery/albums?inst_profile_ids=${childIds}`).then(r => r.json()),
+          apiFetch(`/api/gallery/user-media?inst_profile_ids=${childIds}&limit=1`).then(r => r.json()).catch(() => null),
+        ]);
+        renderAlbums(albums, userMedia);
       } catch(e) { el.textContent = 'Fejl: ' + e.message; }
     }
 
-    function renderAlbums(albums) {
+    function renderAlbums(albums, userMedia) {
       document.getElementById('gallery-title').textContent = '🖼️ Galleri';
       currentAlbumId = null;
       const el = document.getElementById('gallery-content');
-      if (!albums.length) { el.textContent = 'Ingen albums fundet'; return; }
-      el.innerHTML = `<div class="albums-grid">${albums.map((a, idx) => {
+
+      // Build synthetic "Medier af mine børn" album
+      const userMediaThumb = userMedia?.results?.[0];
+      const userMediaCard = `<div class="album-card" onclick="openUserMedia()">
+        ${userMediaThumb
+          ? `<img class="album-thumb" src="${userMediaThumb.largeThumbnailUrl||userMediaThumb.thumbnailUrl||''}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=album-thumb-placeholder>👶</div>'">`
+          : `<div class="album-thumb-placeholder">👶</div>`}
+        <div class="album-info">
+          <div class="album-title">Medier af mine børn</div>
+          <div class="album-date">Tagget med barnet</div>
+        </div>
+      </div>`;
+
+      if (!albums.length && !userMedia) { el.textContent = 'Ingen albums fundet'; return; }
+      el.innerHTML = `<div class="albums-grid">${userMediaCard}${albums.map((a, idx) => {
         const thumb = a.thumbnailsUrls?.[0];
         const isVideo = thumb && (thumb.includes('.mov') || thumb.includes('.mp4'));
         const date = a.creationDate ? new Date(a.creationDate).toLocaleDateString('da-DK', {day:'numeric',month:'short',year:'numeric'}) : '';
@@ -432,8 +454,19 @@
           </div>
         </div>`;
       }).join('')}</div>`;
-      // Store albums on the element for retrieval by index
       document.getElementById('gallery-content')._albums = albums;
+    }
+
+    async function openUserMedia() {
+      document.getElementById('gallery-title').textContent = 'Medier af mine børn';
+      const el = document.getElementById('gallery-content');
+      el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
+      try {
+        const data = await apiFetch(`/api/gallery/user-media?inst_profile_ids=${childIds}&limit=40`).then(r => r.json());
+        renderMedia(data.results || []);
+      } catch(e) {
+        el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;
+      }
     }
 
     function openAlbumByIdx(el) {
@@ -448,18 +481,8 @@
       const el = document.getElementById('gallery-content');
       el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
       try {
-        let data;
-        if (albumId === null) {
-          data = await apiFetch(`/api/gallery/tagged?inst_profile_ids=${childIds}`).then(r => r.json());
-        } else {
-          data = await apiFetch(`/api/gallery/albums/${albumId}/media?inst_profile_ids=${childIds}`).then(r => r.json());
-        }
-        const results = data.results || [];
-        const album = data.album || {};
-        if (album.description) {
-          document.getElementById('gallery-title').textContent = (title || album.title || 'Album');
-        }
-        renderMedia(results);
+        const data = await apiFetch(`/api/gallery/albums/${albumId}/media?inst_profile_ids=${childIds}`).then(r => r.json());
+        renderMedia(data.results || []);
       } catch(e) {
         el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;
       }

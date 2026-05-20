@@ -168,6 +168,56 @@ def birthdays(inst_profile_ids: str = ""):
     return aula_call(lambda: client.get_birthdays(ids))
 
 
+@app.get("/api/google-calendar", dependencies=[Depends(check_api_key)])
+def google_calendar(from_date: str = "", to_date: str = ""):
+    import datetime, requests as req
+    from icalendar import Calendar
+
+    calendars = [
+        {"url": os.getenv("GOOGLE_CALENDAR_ICS_RASMUS", ""), "name": "Rasmus", "color": "#e53935"},
+        {"url": os.getenv("GOOGLE_CALENDAR_ICS_MAJA",   ""), "name": "Maja",   "color": "#8e24aa"},
+        {"url": "https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", "name": "Helligdag", "color": "#f59e0b"},
+    ]
+    today = datetime.date.today()
+    date_from = datetime.date.fromisoformat(from_date) if from_date else today
+    date_to   = datetime.date.fromisoformat(to_date)   if to_date   else today + datetime.timedelta(days=6)
+
+    events = []
+    for cal in calendars:
+        if not cal["url"]:
+            continue
+        try:
+            r = req.get(cal["url"], timeout=8)
+            r.raise_for_status()
+            gcal = Calendar.from_ical(r.content)
+            import recurring_ical_events
+            components = recurring_ical_events.of(gcal).between(date_from, date_to)
+            for component in components:
+                if component.name != "VEVENT":
+                    continue
+                dtstart = component.get("DTSTART")
+                dtend   = component.get("DTEND")
+                if not dtstart:
+                    continue
+                val = dtstart.dt
+                all_day = not hasattr(val, "hour")
+                start_iso = val.isoformat() if all_day else val.astimezone().isoformat()
+                end_val = dtend.dt if dtend else val
+                end_iso = end_val.isoformat() if all_day else (end_val.astimezone().isoformat() if hasattr(end_val, 'hour') else end_val.isoformat())
+                events.append({
+                    "title":    str(component.get("SUMMARY", "(ingen titel)")),
+                    "start":    start_iso,
+                    "end":      end_iso,
+                    "allDay":   all_day,
+                    "owner":    cal["name"],
+                    "color":    cal["color"],
+                    "location": str(component.get("LOCATION", "")),
+                })
+        except Exception as ex:
+            logging.warning(f"ICS fetch failed for {cal['name']}: {ex}")
+    return events
+
+
 @app.get("/api/gallery/albums", dependencies=[Depends(check_api_key)])
 def gallery_albums(inst_profile_ids: str = ""):
     ids = [int(i) for i in inst_profile_ids.split(",") if i]

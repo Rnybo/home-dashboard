@@ -29,8 +29,12 @@
     .top-nav { display: flex; gap: 6px; flex-shrink: 0; }
     .top-nav-btn { padding: 7px 20px; border-radius: 8px; background: #fff; color: var(--blue);
       cursor: pointer; font-size: 0.88rem; font-weight: 600; border: 2px solid var(--border);
-      transition: all 0.2s; }
+      transition: all 0.2s; position: relative; }
     .top-nav-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .badge { position: absolute; top: -6px; right: -6px; background: #e53935; color: #fff;
+      border-radius: 50%; width: 18px; height: 18px; font-size: 0.65rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .bottom-nav button { position: relative; }
 
     /* ── Views ── */
     .view { display: none; flex: 1; min-height: 0; gap: 10px; }
@@ -55,11 +59,14 @@
       color: var(--blue); font-size: 1rem; cursor: pointer; padding: 4px 14px; font-weight: 700; }
     .week-nav button:hover { background: var(--blue-mid); }
     .timetable-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
-    .timetable { display: grid; grid-template-columns: var(--time-col) repeat(5, 1fr); min-width: 480px; }
+    .timetable { display: grid; grid-template-columns: var(--time-col) repeat(7, 1fr); min-width: 600px; }
+    .day-col.weekend { background: #fafafa; }
+    .day-col.today.weekend { background: #f5faff; }
     .th-spacer { position: sticky; top: 0; background: #fff; z-index: 2; border-bottom: 2px solid var(--border); }
     .day-header { padding: 4px 4px 8px; text-align: center; font-size: 0.78rem; font-weight: 700;
       color: #666; border-bottom: 2px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 2; }
-    .day-header.today { color: var(--blue); }
+    .day-header.weekend { color: #999; }
+    .day-header.weekend .date-num { color: #999; }
     .day-header .date-num { display: block; font-size: 1.1rem; font-weight: 800; color: #333; line-height: 1.2; }
     .day-header.today .date-num { background: var(--blue); color: #fff; border-radius: 50%;
       width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; }
@@ -270,6 +277,8 @@
     <div class="messages-card" id="messages-panel-cal">
       <h2>📬 Beskeder</h2>
       <div id="messages-cal" class="loading">Henter...</div>
+      <h2 style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">📅 Kommende</h2>
+      <div id="upcoming-google-cal" class="loading">Henter...</div>
     </div>
   </div>
 
@@ -327,12 +336,16 @@
     <div id="lightbox-caption"></div>
   </div>
   <script>
-    const START_H = 7, END_H = 17, HOURS = END_H - START_H;
-    const DAY_NAMES = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag'];
+    const START_H = 0, END_H = 24, HOURS = END_H - START_H;
+    const DAY_NAMES = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag','Søndag'];
     let API_KEY = '';
     let CHILDREN = [];
     let INST_PROFILE_IDS = [];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
+    // Tab modes: 'aula' = child tab, 'google' = google calendar tab
+    const GOOGLE_TABS = [
+      { name: 'Fælles', owner: null, color: '#2e7d32' },
+    ];
     let currentView = 'cal';
     let lightboxItems = [], lightboxIdx = 0;
 
@@ -353,6 +366,9 @@
       document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();
       if (view === 'msg') syncMessagesFull();
+      // Clear badges when visiting a view
+      setBadge(view, 0);
+      setSeen(view, Date.now());
     }
 
     function updateClock() {
@@ -366,7 +382,7 @@
     function getWeekDays() {
       const now = new Date(); now.setDate(now.getDate() + weekOffset * 7);
       const day = now.getDay() || 7; const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
-      return Array.from({length:5}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d; });
+      return Array.from({length:7}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d; });
     }
     function getWeekNr(date) {
       const d = new Date(date); d.setHours(0,0,0,0);
@@ -377,28 +393,57 @@
     function isSameDay(a,b) { return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
     function pct(min) { return ((min - START_H*60) / (HOURS*60)) * 100; }
 
-    // ── Profile config ──
+    let googleEvents = [];
+
+    async function loadGoogleCalendar() {
+      const days = getWeekDays();
+      const from = days[0].toISOString().split('T')[0];
+      // Fetch 30 days ahead for upcoming panel
+      const toDate = new Date(days[6]); toDate.setDate(toDate.getDate() + 23);
+      const to = toDate.toISOString().split('T')[0];
+      try {
+        googleEvents = await apiFetch(`/api/google-calendar?from_date=${from}&to_date=${to}`).then(r => r.json());
+      } catch(e) { googleEvents = []; }
+      renderWeek();
+      renderUpcomingGoogleEvents();
+    }
     async function loadProfileConfig() {
       try {
         const cfg = await apiFetch('/api/profile-config').then(r => r.json());
         CHILDREN = cfg.children || [];
         INST_PROFILE_IDS = cfg.inst_profile_ids || [];
         CHILDREN.forEach(c => { c._photoUrl = c.photoUrl; });
-        document.getElementById('child-tabs').innerHTML = CHILDREN.map((c, i) =>
-          `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">
-            ${c.photoUrl ? `<img src="${c.photoUrl}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
-            ${c.name}
-          </div>`
-        ).join('');
+        document.getElementById('child-tabs').innerHTML = [
+          ...CHILDREN.map((c, i) =>
+            `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">
+              ${c.photoUrl ? `<img src="${c.photoUrl}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
+              ${c.name}
+            </div>`
+          ),
+          ...GOOGLE_TABS.map((g, i) =>
+            `<div class="tab" onclick="switchGoogleTab(${i})" style="border-left:3px solid ${g.color}">
+              <span style="color:${g.color}">📅</span> ${g.name}
+            </div>`
+          ),
+        ].join('');
       } catch(e) {}
     }
 
+    let activeGoogleTab = -1; // -1 = aula tab active, >=0 = google tab index
+
     function switchTab(idx) {
       activeTab = idx;
+      activeGoogleTab = -1;
       document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
       renderWeek();
     }
-    function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); }
+    function switchGoogleTab(idx) {
+      activeGoogleTab = idx;
+      const allTabs = document.querySelectorAll('#child-tabs .tab');
+      allTabs.forEach((t,i) => t.classList.toggle('active', i === CHILDREN.length + idx));
+      renderWeek();
+    }
+    function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); loadGoogleCalendar(); }
 
     // ── Overview ──
     async function loadOverview() {
@@ -464,6 +509,7 @@
           </div></div>`;
       }).join('');
       window._cachedPosts = posts;
+      if (currentView !== 'overview') updateBadges();
     }
 
     function openPost(postId) {
@@ -491,53 +537,108 @@
     // ── Timetable ──
     function renderWeek() {
       if (!CHILDREN.length) return;
-      const child = CHILDREN[activeTab], days = getWeekDays(), today = new Date();
+      const days = getWeekDays(), today = new Date();
       document.getElementById('week-nr').textContent = getWeekNr(days[0]);
-      const childPresence = presenceData[child.id] || [];
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
       const totalH = HOURS * hourH;
+
+      // Determine active google filter
+      const gTab = activeGoogleTab >= 0 ? GOOGLE_TABS[activeGoogleTab] : null;
+
       let html = `<div class="th-spacer"></div>`;
       days.forEach((day,i) => {
         const isToday = isSameDay(day,today);
-        html += `<div class="day-header ${isToday?'today':''}">${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span></div>`;
+        // Collect all-day events for this day to show in header
+        const dayAllDay = gTab
+          ? googleEvents.filter(e => {
+              if (!e.allDay) return false;
+              const start = new Date(e.start + 'T00:00:00');
+              const end = new Date(e.end + 'T00:00:00');
+              return day >= start && day < end;
+            })
+          : allEvents.filter(e => {
+              if (!e.isAllDayEvent && !(e.endDateTime && (new Date(e.endDateTime) - new Date(e.startDateTime)) >= 23*3600000)) return false;
+              if (!(e.belongsToProfiles||[]).includes(CHILDREN[activeTab]?.id)) return false;
+              return e.startDateTime && isSameDay(new Date(e.startDateTime), day);
+            });
+        const allDayBadges = dayAllDay.map(e => {
+          const color = e.color || 'var(--blue-accent)';
+          const title = e.title || e.summary || '(ingen titel)';
+          return `<div title="${title}" style="font-size:0.6rem;font-weight:700;
+            background:${color};color:#fff;border-radius:3px;
+            padding:1px 5px;margin-top:2px;white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis;max-width:100%">${title}</div>`;
+        }).join('');
+        html += `<div class="day-header ${isToday?'today':''} ${(day.getDay()===0||day.getDay()===6)?'weekend':''}" style="min-height:48px">
+          ${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span>
+          <div style="line-height:1.2">${allDayBadges}</div>
+        </div>`;
       });
       html += `<div class="time-gutter" style="height:${totalH}px;grid-row:2">`;
       for (let h=START_H; h<=END_H; h++) html += `<div class="hour-label" style="top:${(h-START_H)*hourH}px">${String(h).padStart(2,'0')}:00</div>`;
       html += `</div>`;
+
       days.forEach((day,i) => {
         const isToday = isSameDay(day,today), dateStr = day.toISOString().split('T')[0];
-        const tpl = childPresence.find(t => t.byDate===dateStr);
-        const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles||[]).includes(child.id) && isSameDay(new Date(e.startDateTime),day));
-        html += `<div class="day-col ${isToday?'today':''}" style="height:${totalH}px;grid-row:2">`;
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        html += `<div class="day-col ${isToday?'today':''} ${isWeekend?'weekend':''}" style="height:${totalH}px;grid-row:2">`;
         for (let h=START_H; h<=END_H; h++) {
           html += `<div class="hour-line full" style="top:${(h-START_H)*hourH}px"></div>`;
           if (h<END_H) html += `<div class="hour-line" style="top:${(h-START_H)*hourH+hourH/2}px;border-top-style:dashed;opacity:.5"></div>`;
         }
-        if (tpl && !tpl.isOnVacation && tpl.entryTime) {
-          const [eh,em]=tpl.entryTime.split(':').map(Number);
-          html += `<div class="presence-bar" style="top:${pct(eh*60+em)}%;height:${hourH*0.4}px;min-height:14px">🧒🎒 ${tpl.entryTime.substring(0,5)}</div>`;
-        }
-        if (tpl && !tpl.isOnVacation && tpl.exitTime) {
-          const [xh,xm]=tpl.exitTime.split(':').map(Number), lbl=tpl.exitWith||'';
-          html += `<div class="presence-bar" style="top:${pct(xh*60+xm)}%;height:${hourH*0.4}px;min-height:14px;background:#e8f7e8;border-left-color:#4caf50;color:#2e7d32">🏠 ${tpl.exitTime.substring(0,5)}${lbl?' · '+lbl:''}</div>`;
-        }
-        if (tpl?.isOnVacation) html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
-        dayEvents.filter(e => e.isAllDayEvent||(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
-          .forEach((e,idx) => { html += `<div class="cal-event allday" style="top:${idx*18}px;height:16px;font-size:.65rem"><span class="ev-title">${e.title||'(ingen titel)'}</span></div>`; });
-        dayEvents.filter(e => !e.isAllDayEvent&&!(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
-          .forEach(e => {
-            const s=new Date(e.startDateTime), en=e.endDateTime?new Date(e.endDateTime):new Date(s.getTime()+3600000);
+
+        if (gTab) {
+          // ── Google Calendar tab ──
+          const filtered = googleEvents.filter(e => {
+            const d = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
+            if (!isSameDay(d, day)) return false;
+            return gTab.owner === null || e.owner === gTab.owner;
+          });
+          filtered.filter(e => !e.allDay).forEach(e => {
+            const color = e.color;
+            const s=new Date(e.start), en=new Date(e.end);
             const cS=Math.max(s.getHours()*60+s.getMinutes(),START_H*60), cE=Math.min(en.getHours()*60+en.getMinutes(),END_H*60); if(cS>=cE) return;
             const ts=s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-            html += `<div class="cal-event" style="top:${pct(cS)}%;height:${Math.max(pct(cE)-pct(cS),3)}%;min-height:20px">
-              <span class="ev-title">${e.title||'(ingen titel)'}</span><span class="ev-time">${ts}</span></div>`;
+            html += `<div class="cal-event" style="top:${pct(cS)}%;height:${Math.max(pct(cE)-pct(cS),3)}%;min-height:20px;background:${color}" title="${e.owner}: ${e.title} · ${ts}">
+              <span class="ev-title">${e.title}</span><span class="ev-time">${ts}</span></div>`;
           });
+        } else {
+          // ── Aula child tab ──
+          const child = CHILDREN[activeTab];
+          const childPresence = presenceData[child.id] || [];
+          const tpl = childPresence.find(t => t.byDate===dateStr);
+          const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles||[]).includes(child.id) && isSameDay(new Date(e.startDateTime),day));
+
+          if (tpl && !tpl.isOnVacation && tpl.entryTime) {
+            const [eh,em]=tpl.entryTime.split(':').map(Number);
+            html += `<div class="presence-bar" style="top:${pct(eh*60+em)}%;height:${hourH*0.4}px;min-height:14px">🧒🎒 ${tpl.entryTime.substring(0,5)}</div>`;
+          }
+          if (tpl && !tpl.isOnVacation && tpl.exitTime) {
+            const [xh,xm]=tpl.exitTime.split(':').map(Number), lbl=tpl.exitWith||'';
+            html += `<div class="presence-bar" style="top:${pct(xh*60+xm)}%;height:${hourH*0.4}px;min-height:14px;background:#e8f7e8;border-left-color:#4caf50;color:#2e7d32">🏠 ${tpl.exitTime.substring(0,5)}${lbl?' · '+lbl:''}</div>`;
+          }
+          if (tpl?.isOnVacation) html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
+
+          dayEvents.filter(e => !e.isAllDayEvent && !(e.endDateTime && (new Date(e.endDateTime) - new Date(e.startDateTime)) >= 23*3600000))
+            .forEach(e => {
+              const s=new Date(e.startDateTime), en=e.endDateTime?new Date(e.endDateTime):new Date(s.getTime()+3600000);
+              const cS=Math.max(s.getHours()*60+s.getMinutes(),START_H*60), cE=Math.min(en.getHours()*60+en.getMinutes(),END_H*60); if(cS>=cE) return;
+              const ts=s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+              html += `<div class="cal-event" style="top:${pct(cS)}%;height:${Math.max(pct(cE)-pct(cS),3)}%;min-height:20px">
+                <span class="ev-title">${e.title||'(ingen titel)'}</span><span class="ev-time">${ts}</span></div>`;
+            });
+        }
+
         if (isToday) { const nm=new Date().getHours()*60+new Date().getMinutes(); if(nm>=START_H*60&&nm<=END_H*60) html+=`<div class="now-line" style="top:${pct(nm)}%"></div>`; }
         html += `</div>`;
       });
       document.getElementById('timetable').innerHTML = html;
-      const wrap = document.querySelector('.timetable-wrap'), now = new Date();
-      wrap.scrollTop = (days.some(d=>isSameDay(d,now)) ? Math.max(0,now.getHours()-1) : START_H - START_H) * hourH;
+      const wrap = document.querySelector('.timetable-wrap');
+      const now = new Date();
+      // Scroll to show 1 hour before now, and limit visible height to 10 hours
+      const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
+      wrap.style.maxHeight = (hourH * 10) + 'px';
+      wrap.scrollTop = scrollToHour * hourH;
     }
 
     // ── Gallery ──
@@ -564,6 +665,13 @@
           <div class="album-info"><div class="album-title">${a.title||'Album'}</div><div class="album-date">${date}</div></div></div>`;
       }).join('')}</div>`;
       document.getElementById('gallery-content')._albums = albums;
+      // Badge — count albums newer than last seen
+      if (currentView !== 'gallery') {
+        const seen = getSeen();
+        const seenGallery = seen.gallery || 0;
+        const newAlbums = albums.filter(a => a.creationDate && new Date(a.creationDate) > new Date(seenGallery)).length;
+        setBadge('gallery', newAlbums);
+      }
     }
     function openAlbumByIdx(el) {
       const a = (document.getElementById('gallery-content')._albums||[])[parseInt(el.dataset.idx)];
@@ -601,16 +709,81 @@
       if (e.key==='ArrowRight') lightboxNav(1); if (e.key==='ArrowLeft') lightboxNav(-1); if (e.key==='Escape') closeLightbox();
     });
 
+    // ── Notifications / Badges ──
+    const SEEN_KEY = 'aula_seen';
+    function getSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY)||'{}'); } catch { return {}; } }
+    function setSeen(key, val) { const s=getSeen(); s[key]=val; localStorage.setItem(SEEN_KEY, JSON.stringify(s)); }
+    function setBadge(viewId, count) {
+      const idx = VIEWS.indexOf(viewId);
+      [document.querySelectorAll('.top-nav-btn'), document.querySelectorAll('.bottom-nav button')].forEach(btns => {
+        if (!btns[idx]) return;
+        btns[idx].querySelector('.badge')?.remove();
+        if (count > 0) { const b=document.createElement('span'); b.className='badge'; b.textContent=count>9?'9+':count; btns[idx].appendChild(b); }
+      });
+    }
+    function updateBadges() {
+      const seen = getSeen();
+      setBadge('msg', cachedThreads.filter(t => !t.read).length);
+      const newPosts = (window._cachedPosts||[]).filter(p => new Date(p.timestamp) > new Date(seen.overview||0)).length;
+      setBadge('overview', newPosts);
+    }
+
     // ── Messages ──
     let cachedThreads = [];
     async function loadMessages() {
-      try { const res=await apiFetch('/api/messages'); if(res.status===401) return; cachedThreads=await res.json(); renderMessages('messages-cal'); } catch(e) {}
+      try { const res=await apiFetch('/api/messages'); if(res.status===401) return; cachedThreads=await res.json(); renderMessages('messages-cal'); updateBadges(); } catch(e) {}
     }
     function syncMessagesFull() { renderMessages('messages-full'); }
     function renderMessages(elId) {
       const el=document.getElementById(elId);
       if (!cachedThreads.length) { el.textContent='Ingen beskeder'; return; }
-      el.innerHTML=cachedThreads.slice(0,20).map(t => `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')"><div class="subject">${t.subject||'(ingen emne)'}</div><div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div></div>`).join('');
+      const limit = elId === 'messages-cal' ? 3 : 20;
+      el.innerHTML=cachedThreads.slice(0,limit).map(t => `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')"><div class="subject">${t.subject||'(ingen emne)'}</div><div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div></div>`).join('');
+    }
+    function renderUpcomingGoogleEvents() {
+      const el = document.getElementById('upcoming-google-cal');
+      if (!el) return;
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Include both timed and all-day, exclude holidays, deduplicate multi-day events
+      const seen = new Set();
+      const upcoming = googleEvents
+        .filter(e => e.owner !== 'Helligdag')
+        .map(e => {
+          const date = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
+          return { ...e, _date: date };
+        })
+        .filter(e => e.allDay ? e._date >= today : e._date >= now)
+        .filter(e => {
+          const key = e.title + '|' + e.start;
+          if (seen.has(key)) return false;
+          seen.add(key); return true;
+        })
+        .sort((a,b) => a._date - b._date)
+        .slice(0, 5);
+
+      if (!upcoming.length) { el.innerHTML = '<span class="loading">Ingen kommende</span>'; return; }
+      el.innerHTML = upcoming.map(e => {
+        const d = e._date;
+        const dot = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${e.color};margin-right:5px;flex-shrink:0"></span>`;
+        let label;
+        if (e.allDay) {
+          // Show date range for multi-day
+          const endDate = new Date(e.end + 'T00:00:00');
+          endDate.setDate(endDate.getDate() - 1); // ICS end is exclusive
+          const startLabel = d.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+          const endLabel = endDate.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+          label = isSameDay(d, endDate) ? startLabel : `${startLabel}–${endLabel}`;
+        } else {
+          label = d.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'})
+            + ' · ' + d.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
+        }
+        return `<div class="msg-item" style="cursor:default">
+          <div class="subject" style="display:flex;align-items:center">${dot}${e.title}</div>
+          <div class="meta">${label}</div>
+        </div>`;
+      }).join('');
     }
     async function openMsg(threadId, subject) {
       document.getElementById('msg-modal-subject').textContent=subject;
@@ -670,11 +843,11 @@
 
     // ── Data loaders ──
     async function loadCalendar() {
-      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[4].toISOString().split('T')[0];
+      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
       try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); renderWeek(); } catch(e) {}
     }
     async function loadPresence() {
-      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[4].toISOString().split('T')[0];
+      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
       try {
         const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
         if(res.status!==200) return; presenceData={};
@@ -691,7 +864,7 @@
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
         await loadProfileConfig();
-        loadCalendar(); loadPresence(); loadMessages(); loadOverview();
+        loadCalendar(); loadPresence(); loadMessages(); loadOverview(); loadGoogleCalendar();
         schedulePoll(5*60*1000);
       } else { sessionWasExpired=true; schedulePoll(10*1000); }
     }

@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from aula_client import AulaClient
+from aula_playwright import AulaPlaywright
 import os
 import logging
 
@@ -18,6 +19,7 @@ load_dotenv()
 
 app = FastAPI(docs_url=None, redoc_url=None)
 client = AulaClient()
+playwright_login = AulaPlaywright(on_success=client.update_credentials)
 
 API_KEY = os.getenv("API_KEY", "")
 if not API_KEY:
@@ -71,14 +73,33 @@ def status():
     return {"session_valid": client.check_session()}
 
 
+@app.get("/api/login/accounts", dependencies=[Depends(check_api_key)])
+def login_accounts():
+    accounts = []
+    for suffix in ["", "_2", "_3", "_4", "_5"]:
+        identity = os.getenv(f"MITID_IDENTITY{suffix}", "")
+        username = os.getenv(f"MITID_USERNAME{suffix}", "")
+        if username:
+            name = identity.split()[0] if identity else username
+            accounts.append({"index": len(accounts), "name": name})
+    return accounts
+
+
 @app.post("/api/login/start", dependencies=[Depends(check_api_key)])
-async def login_start():
-    return {"ok": False, "message": "Playwright not available on Android — update session.json manually"}
+async def login_start(account_index: int = 0):
+    playwright_login.start_login(account_index=account_index)
+    return {"ok": True}
 
 
 @app.get("/api/login/status", dependencies=[Depends(check_api_key)])
 def login_status():
-    return {"state": "idle", "error": None, "qr_image": None}
+    return playwright_login.get_status()
+
+
+@app.post("/api/login/cancel", dependencies=[Depends(check_api_key)])
+async def login_cancel():
+    playwright_login.cancel()
+    return {"ok": True}
 
 
 @app.get("/api/profile", dependencies=[Depends(check_api_key)])

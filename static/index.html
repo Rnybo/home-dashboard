@@ -18,9 +18,12 @@
     header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; }
     header #clock { font-size: 0.95rem; color: #cce4f7; }
     #session-banner { display: none; background: #d9534f; border-radius: var(--radius);
-      padding: 10px 16px; font-size: 0.85rem; cursor: pointer; user-select: none;
+      padding: 10px 16px; font-size: 0.85rem; user-select: none;
       color: #fff; flex-shrink: 0; min-height: 44px; }
-    #session-banner:hover { background: #c9302c; }
+    .login-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);
+      color: #fff; border-radius: 6px; padding: 5px 14px; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; margin-top: 6px; margin-right: 6px; display: inline-block; }
+    .login-btn:hover { background: rgba(255,255,255,0.35); }
 
     /* ── Nav tabs (top) ── */
     .top-nav { display: flex; gap: 6px; flex-shrink: 0; }
@@ -191,8 +194,9 @@
     <h1>📚 Aula</h1>
     <div id="clock"></div>
   </header>
-  <div id="session-banner" onclick="startLogin()">
-    <b>⚠️ Session udløbet</b> — <span id="banner-msg">Klik for at logge ind automatisk</span>
+  <div id="session-banner">
+    <b>⚠️ Session udløbet</b> — <span id="banner-msg">Logger ind...</span>
+    <div id="login-btns"></div>
   </div>
 
   <!-- Top nav (desktop/tablet) -->
@@ -559,10 +563,42 @@
 
     // ── Login ──
     let loginPolling = null;
-    async function startLogin() {
-      const msg = document.getElementById('banner-msg'); msg.textContent = 'Starter login...';
-      try { await apiFetch('/api/login/start', {method:'POST'}); msg.textContent = '📱 Godkend i MitID-appen...'; pollLoginStatus(); }
-      catch(e) { msg.textContent = 'Fejl: ' + e.message; }
+    let loginAccounts = [];
+
+    async function loadLoginAccounts() {
+      try {
+        loginAccounts = await apiFetch('/api/login/accounts').then(r => r.json());
+      } catch(e) { loginAccounts = []; }
+      const btns = document.getElementById('login-btns');
+      if (loginAccounts.length <= 1) {
+        // Single account — show simple click-to-login on whole banner
+        document.getElementById('session-banner').style.cursor = 'pointer';
+        document.getElementById('session-banner').onclick = () => startLogin(0);
+        document.getElementById('banner-msg').textContent = 'Klik for at logge ind automatisk';
+        btns.innerHTML = '';
+      } else {
+        // Multiple accounts — show buttons
+        document.getElementById('session-banner').style.cursor = 'default';
+        document.getElementById('session-banner').onclick = null;
+        document.getElementById('banner-msg').textContent = 'Vælg konto:';
+        btns.innerHTML = loginAccounts.map(a =>
+          `<button class="login-btn" onclick="startLogin(${a.index})">Log ind som ${a.name}</button>`
+        ).join('');
+      }
+    }
+
+    async function startLogin(accountIndex = 0) {
+      const msg = document.getElementById('banner-msg');
+      document.getElementById('login-btns').innerHTML = '';
+      msg.textContent = 'Starter login...';
+      try {
+        await apiFetch(`/api/login/start?account_index=${accountIndex}`, {method:'POST'});
+        msg.textContent = '📱 Godkend i MitID-appen...';
+        pollLoginStatus();
+      } catch(e) {
+        msg.textContent = 'Fejl: ' + e.message;
+        loadLoginAccounts();
+      }
     }
     function pollLoginStatus() {
       clearInterval(loginPolling);
@@ -575,13 +611,17 @@
         } else if (data.state==='success') {
           clearInterval(loginPolling); msg.textContent='✅ Login lykkedes!'; setTimeout(()=>window.location.reload(),1000);
         } else if (data.state==='failed') {
-          clearInterval(loginPolling); msg.textContent='❌ '+(data.error||'Login fejlede')+' — Klik for at prøve igen';
+          clearInterval(loginPolling);
+          msg.textContent='❌ '+(data.error||'Login fejlede');
+          loadLoginAccounts();
         }
       }, 3000);
     }
     async function checkSession() {
       const data = await apiFetch('/api/status').then(r => r.json());
-      document.getElementById('session-banner').style.display = data.session_valid ? 'none' : 'block';
+      const expired = !data.session_valid;
+      document.getElementById('session-banner').style.display = expired ? 'block' : 'none';
+      if (expired) loadLoginAccounts();
       return data.session_valid;
     }
 

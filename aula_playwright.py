@@ -33,7 +33,7 @@ class AulaPlaywright:
     def get_status(self):
         return {"state": self.state, "error": self.error, "qr_image": self.qr_image}
 
-    def start_login(self):
+    def start_login(self, account_index: int = 0):
         if self.state in (AulaLoginState.RUNNING, AulaLoginState.SHOW_QR):
             logger.info("Login already in progress — ignoring start_login()")
             return
@@ -41,6 +41,7 @@ class AulaPlaywright:
         self.state = AulaLoginState.RUNNING
         self.error = None
         self.qr_image = None
+        self._account_index = account_index
         t = threading.Thread(target=self._run_in_thread, daemon=True)
         t.start()
 
@@ -82,7 +83,12 @@ class AulaPlaywright:
             self.state = AulaLoginState.FAILED
             self.error = "MITID_USERNAME not set"
             return
-        logger.info(f"Starting Playwright login with {len(accounts)} account(s)")
+        idx = getattr(self, '_account_index', 0)
+        if idx >= len(accounts):
+            idx = 0
+        mitid_username = accounts[idx]["username"]
+        mitid_identity = accounts[idx]["identity"]
+        logger.info(f"Starting Playwright login with account {idx}: '{mitid_username}'")
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(
@@ -94,10 +100,6 @@ class AulaPlaywright:
                     viewport={"width": 1280, "height": 900}
                 )
                 page = await context.new_page()
-                # Use first account — future: retry with next account on failure
-                mitid_username = accounts[0]["username"]
-                mitid_identity = accounts[0]["identity"]
-                logger.info(f"Trying account: '{mitid_username}'")
 
                 # Step 1: Navigate to Aula
                 await page.goto(AULA_URL, wait_until="domcontentloaded")

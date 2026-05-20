@@ -85,6 +85,39 @@
     .now-line::before { content: ''; position: absolute; left: -4px; top: -4px;
       width: 8px; height: 8px; border-radius: 50%; background: #e53e3e; }
 
+    /* ── Overview (Overblik) ── */
+    #view-overview { flex-direction: column; gap: 10px; overflow-y: auto; }
+    .overview-section { background: #fff; border-radius: var(--radius); padding: 14px; border: 1px solid var(--border); flex-shrink: 0; }
+    .overview-section h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 12px; }
+    .post-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e8f0f7; cursor: pointer; }
+    .post-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .post-item:hover { background: #f5faff; border-radius: 6px; padding-left: 6px; margin-left: -6px; }
+    .post-thumb { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--blue-mid); }
+    .post-thumb-placeholder { width: 72px; height: 72px; border-radius: 8px; flex-shrink: 0; background: var(--blue-mid); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+    .post-body { flex: 1; min-width: 0; }
+    .post-title { font-weight: 700; font-size: 0.88rem; color: #222; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .post-meta { font-size: 0.72rem; color: #999; margin-bottom: 4px; }
+    .post-preview { font-size: 0.78rem; color: #555; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .post-important { background: #fff3cd; border-left: 3px solid #f59e0b; border-radius: 6px; padding: 2px 6px; font-size: 0.7rem; color: #92400e; font-weight: 600; display: inline-block; margin-bottom: 4px; }
+    .event-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #e8f0f7; font-size: 0.82rem; }
+    .event-item:last-child { border-bottom: none; }
+    .event-date { background: var(--blue); color: #fff; border-radius: 6px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .event-date.birthday { background: #e91e8c; }
+    .event-title { flex: 1; font-weight: 600; color: #333; }
+    .event-sub { font-size: 0.72rem; color: #999; }
+
+    /* Post modal */
+    #post-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto; }
+    #post-modal-overlay.open { display: flex; }
+    #post-modal { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 680px; margin: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+    #post-modal h2 { color: var(--blue); font-size: 1.05rem; margin-bottom: 6px; padding-right: 28px; }
+    #post-modal .post-modal-meta { color: #999; font-size: 0.75rem; margin-bottom: 14px; }
+    #post-modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #999; }
+    #post-modal-body { font-size: 0.85rem; color: #333; line-height: 1.6; }
+    #post-modal-body img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+    .post-modal-attachments { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 12px; }
+    .post-modal-attachments img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
+
     /* ── Messages panel ── */
     .messages-card { background: #fff; border-radius: var(--radius); padding: 12px;
       overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column; width: 300px; flex-shrink: 0; }
@@ -201,13 +234,26 @@
 
   <!-- Top nav (desktop/tablet) -->
   <div class="top-nav">
-    <div class="top-nav-btn active" onclick="switchView('cal')">📅 Kalender</div>
+    <div class="top-nav-btn active" onclick="switchView('overview')">🏠 Overblik</div>
+    <div class="top-nav-btn" onclick="switchView('cal')">📅 Kalender</div>
     <div class="top-nav-btn" onclick="switchView('gallery')">🖼️ Galleri</div>
     <div class="top-nav-btn" onclick="switchView('msg')">📬 Beskeder</div>
   </div>
 
+  <!-- Overview view -->
+  <div class="view active" id="view-overview">
+    <div class="overview-section" id="overview-events-section">
+      <h2>📌 Kommende datoer & fødselsdage</h2>
+      <div id="overview-events" class="loading">Henter...</div>
+    </div>
+    <div class="overview-section">
+      <h2>📰 Opslag</h2>
+      <div id="overview-posts" class="loading">Henter...</div>
+    </div>
+  </div>
+
   <!-- Calendar view -->
-  <div class="view active" id="view-cal">
+  <div class="view" id="view-cal">
     <div class="left" id="left-panel">
       <div class="tabs">
         <div class="tab active" onclick="switchTab(0)">Aksel</div>
@@ -248,7 +294,8 @@
 
   <!-- Mobile bottom nav -->
   <nav class="bottom-nav">
-    <button class="active" id="nav-cal" onclick="switchView('cal')"><span class="icon">📅</span>Kalender</button>
+    <button class="active" id="nav-overview" onclick="switchView('overview')"><span class="icon">🏠</span>Overblik</button>
+    <button id="nav-cal" onclick="switchView('cal')"><span class="icon">📅</span>Kalender</button>
     <button id="nav-gallery" onclick="switchView('gallery')"><span class="icon">🖼️</span>Galleri</button>
     <button id="nav-msg" onclick="switchView('msg')"><span class="icon">📬</span>Beskeder</button>
   </nav>
@@ -260,6 +307,17 @@
       <h2 id="msg-modal-subject"></h2>
       <div class="msg-meta" id="msg-modal-meta"></div>
       <div id="msg-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Post modal -->
+  <div id="post-modal-overlay" onclick="closePostModal(event)">
+    <div id="post-modal">
+      <button id="post-modal-close" onclick="closePostModal()">✕</button>
+      <h2 id="post-modal-title"></h2>
+      <div class="post-modal-meta" id="post-modal-meta"></div>
+      <div id="post-modal-body"></div>
+      <div class="post-modal-attachments" id="post-modal-attachments"></div>
     </div>
   </div>
 
@@ -277,7 +335,7 @@
     let API_KEY = '';
     const CHILDREN = [{ name: 'Aksel', id: 5620584 }, { name: 'Max', id: 5620590 }];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
-    let currentView = 'cal';
+    let currentView = 'overview';
     let lightboxItems = [], lightboxIdx = 0;
 
     async function initConfig() {
@@ -287,13 +345,14 @@
       return fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
     }
 
+    const VIEWS = ['overview', 'cal', 'gallery', 'msg'];
     // ── View switching ──
     function switchView(view) {
       currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById('view-' + (view === 'msg' ? 'msg' : view === 'gallery' ? 'gallery' : 'cal')).classList.add('active');
-      document.querySelectorAll('.top-nav-btn').forEach((b,i) => b.classList.toggle('active', ['cal','gallery','msg'][i] === view));
-      document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', ['cal','gallery','msg'][i] === view));
+      document.getElementById('view-' + view).classList.add('active');
+      document.querySelectorAll('.top-nav-btn').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
+      document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();
       if (view === 'msg') syncMessagesFull();
     }
@@ -321,6 +380,92 @@
     }
     function isSameDay(a,b) { return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
     function pct(min) { return ((min - START_H*60) / (HOURS*60)) * 100; }
+
+    // ── Overview ──
+    async function loadOverview() {
+      const instIds = CHILDREN.map(c => c.id).join(',');
+      const [postsData, datesData, bdayData] = await Promise.all([
+        apiFetch(`/api/posts?inst_profile_ids=${instIds}`).then(r => r.json()).catch(() => ({})),
+        apiFetch(`/api/important-dates?inst_profile_ids=${instIds}`).then(r => r.json()).catch(() => []),
+        apiFetch(`/api/birthdays?inst_profile_ids=${instIds}`).then(r => r.json()).catch(() => []),
+      ]);
+      renderOverviewEvents(datesData, bdayData);
+      renderOverviewPosts(postsData.posts || []);
+    }
+
+    function renderOverviewEvents(dates, birthdays) {
+      const el = document.getElementById('overview-events');
+      const items = [];
+      for (const d of (dates || [])) {
+        const dt = new Date(d.startDateTime || d.start);
+        const label = dt.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
+        items.push(`<div class="event-item">
+          <div class="event-date">${label}</div>
+          <div><div class="event-title">${d.title||'(ingen titel)'}</div>
+          <div class="event-sub">${d.ownerProfile?.fullName||''}</div></div>
+        </div>`);
+      }
+      for (const b of (birthdays || [])) {
+        const dt = new Date(b.birthday);
+        const label = dt.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+        items.push(`<div class="event-item">
+          <div class="event-date birthday">🎂 ${label}</div>
+          <div><div class="event-title">${b.name}</div>
+          <div class="event-sub">${b.mainGroupName||''}</div></div>
+        </div>`);
+      }
+      el.innerHTML = items.length ? items.join('') : '<span class="loading">Ingen kommende datoer</span>';
+    }
+
+    function renderOverviewPosts(posts) {
+      const el = document.getElementById('overview-posts');
+      if (!posts.length) { el.innerHTML = '<span class="loading">Ingen opslag</span>'; return; }
+      el.innerHTML = posts.map(p => {
+        const thumb = p.attachments?.[0]?.media?.largeThumbnailUrl || p.attachments?.[0]?.media?.thumbnailUrl || '';
+        const date = new Date(p.timestamp).toLocaleDateString('da-DK', {day:'numeric', month:'short', year:'numeric'});
+        const preview = (p.content?.html||'').replace(/<[^>]+>/g,'').trim().substring(0, 120);
+        const important = p.isImportant ? '<span class="post-important">⚠️ Vigtigt</span>' : '';
+        const thumbHtml = thumb
+          ? `<img class="post-thumb" src="${thumb}" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="post-thumb-placeholder">📰</div>`;
+        return `<div class="post-item" onclick="openPost(${p.id})">
+          ${thumbHtml}
+          <div class="post-body">
+            ${important}
+            <div class="post-title">${p.title||'(ingen titel)'}</div>
+            <div class="post-meta">${p.ownerProfile?.fullName||''} · ${date}${p.commentCount ? ' · 💬 '+p.commentCount : ''}</div>
+            <div class="post-preview">${preview}</div>
+          </div>
+        </div>`;
+      }).join('');
+      window._cachedPosts = posts;
+    }
+
+    function openPost(postId) {
+      const p = (window._cachedPosts||[]).find(x => x.id === postId);
+      if (!p) return;
+      document.getElementById('post-modal-title').textContent = p.title||'(ingen titel)';
+      const date = new Date(p.timestamp).toLocaleString('da-DK', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      document.getElementById('post-modal-meta').textContent = `${p.ownerProfile?.fullName||''} · ${date}`;
+      document.getElementById('post-modal-body').innerHTML = p.content?.html || p.content?.text || '(intet indhold)';
+      const atts = p.attachments?.filter(a => a.media) || [];
+      document.getElementById('post-modal-attachments').innerHTML = atts.map(a => {
+        const url = a.media.largeThumbnailUrl || a.media.thumbnailUrl || '';
+        return url ? `<img src="${url}" loading="lazy" onclick="openLightboxUrl('${a.media.file?.url||url}')">` : '';
+      }).join('');
+      document.getElementById('post-modal-overlay').classList.add('open');
+    }
+
+    function openLightboxUrl(url) {
+      lightboxItems = [{url, thumbUrl: url, isVideo: url.match(/\.(mov|mp4|webm)/i), title:''}];
+      lightboxIdx = 0; showLightboxItem();
+      document.getElementById('lightbox').classList.add('open');
+    }
+
+    function closePostModal(e) {
+      if (!e || e.target===document.getElementById('post-modal-overlay') || e.target===document.getElementById('post-modal-close'))
+        document.getElementById('post-modal-overlay').classList.remove('open');
+    }
 
     // ── Child tabs & photos ──
     function switchTab(idx) {
@@ -650,7 +795,7 @@
       const valid = await checkSession();
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
-        loadChildPhotos(); loadCalendar(); loadPresence(); loadMessages();
+        loadChildPhotos(); loadCalendar(); loadPresence(); loadMessages(); loadOverview();
         schedulePoll(5*60*1000);
       } else { sessionWasExpired=true; schedulePoll(10*1000); }
     }

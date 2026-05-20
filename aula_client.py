@@ -133,6 +133,26 @@ class AulaClient:
         data = self._get("gallery.getMedia", f"&userSpecificAlbum=true&index={index}&limit={limit}&sortOn=uploadedAt&orderDirection=desc&filterBy=all{ids_param}")
         return data.get("data", {})
 
+    def get_posts(self, inst_profile_ids: list, index: int = 0, limit: int = 10) -> dict:
+        ids_param = "".join(f"&institutionProfileIds[]={i}" for i in inst_profile_ids)
+        data = self._get("posts.getAllPosts", f"&parent=profile&index={index}{ids_param}")
+        return data.get("data", {})
+
+    def get_important_dates(self, inst_profile_ids: list, limit: int = 10) -> list:
+        ids_param = "".join(f"&instProfileIds[]={i}" for i in inst_profile_ids)
+        data = self._get("calendar.getImportantDates", f"&limit={limit}&include_today=true{ids_param}")
+        return data.get("data", []) or []
+
+    def get_birthdays(self, inst_profile_ids: list) -> list:
+        today = datetime.date.today()
+        end = today + datetime.timedelta(days=30)
+        tz_offset = datetime.datetime.now().astimezone().strftime("%z")
+        tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"
+        ids_param = "".join(f"&instProfileIds[]={i}" for i in inst_profile_ids)
+        data = self._get("calendar.getBirthdayEventsForInstitutions",
+            f"&start={today}T00:00:00.000{tz_str}&end={end}T23:59:59.000{tz_str}{ids_param}")
+        return data.get("data", []) or []
+
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
         today = datetime.date.today()
         if not from_date:

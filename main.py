@@ -132,6 +132,24 @@ def calendar(inst_profile_ids: str = "", from_date: str = "", to_date: str = "")
     return aula_call(lambda: client.get_calendar_events(ids, from_date or None, to_date or None))
 
 
+@app.get("/api/posts", dependencies=[Depends(check_api_key)])
+def posts(inst_profile_ids: str = "", index: int = 0):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_posts(ids, index))
+
+
+@app.get("/api/important-dates", dependencies=[Depends(check_api_key)])
+def important_dates(inst_profile_ids: str = ""):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_important_dates(ids))
+
+
+@app.get("/api/birthdays", dependencies=[Depends(check_api_key)])
+def birthdays(inst_profile_ids: str = ""):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_birthdays(ids))
+
+
 @app.get("/api/gallery/albums", dependencies=[Depends(check_api_key)])
 def gallery_albums(inst_profile_ids: str = ""):
     ids = [int(i) for i in inst_profile_ids.split(",") if i]

@@ -16,6 +16,7 @@ class AulaClient:
     def __init__(self):
         self.session = requests.Session()
         self.session_valid = False
+        self._profile_cache = None  # cached profile data, invalidated on new credentials
         self._load_credentials()
 
     def _load_credentials(self):
@@ -61,6 +62,7 @@ class AulaClient:
 
     def update_credentials(self, phpsessid: str, csrf_token: str):
         self._apply_credentials(phpsessid, csrf_token)
+        self._profile_cache = None  # invalidate cache on new session
         SESSION_FILE.write_text(json.dumps({
             "PHPSESSID": phpsessid,
             "CSRF_TOKEN": csrf_token
@@ -79,6 +81,8 @@ class AulaClient:
             self.session_valid = resp.status_code == 200 and data.get("status", {}).get("code") == 0
         except Exception:
             self.session_valid = False
+        if not self.session_valid:
+            self._profile_cache = None
         return self.session_valid
 
     def _get(self, method: str, extra_params: str = "") -> dict:
@@ -91,7 +95,21 @@ class AulaClient:
         return resp.json()
 
     def get_profile(self) -> dict:
-        return self._get("profiles.getProfileContext", "&portalrole=guardian")
+        if self._profile_cache is None:
+            self._profile_cache = self._get("profiles.getProfileContext", "&portalrole=guardian")
+        return self._profile_cache
+
+    def _get_institutions(self) -> list:
+        """Return institutions list from cached profile."""
+        return self.get_profile().get("data", {}).get("institutions") or []
+
+    def _get_guardian_profile_ids(self) -> list:
+        """Guardian institutionProfileId per institution."""
+        return [i.get("institutionProfileId") for i in self._get_institutions() if i.get("institutionProfileId")]
+
+    def _get_inst_codes(self) -> list:
+        """Institution codes (e.g. G20341) for all institutions."""
+        return list({i.get("institutionCode") for i in self._get_institutions() if i.get("institutionCode")})
 
     def get_threads(self, page: int = 0) -> list:
         data = self._get("messaging.getThreads", f"&sortOn=date&orderDirection=desc&page={page}")
@@ -135,8 +153,9 @@ class AulaClient:
         return data.get("data", {})
 
     def get_posts(self, inst_profile_ids: list, index: int = 0, limit: int = 10) -> dict:
-        ids_param = "".join(f"&institutionProfileIds[]={i}" for i in inst_profile_ids)
-        data = self._get("posts.getAllPosts", f"&parent=profile&index={index}{ids_param}")
+        all_ids = list(dict.fromkeys(self._get_guardian_profile_ids() + inst_profile_ids))
+        ids_param = "".join(f"&institutionProfileIds[]={i}" for i in all_ids)
+        data = self._get("posts.getAllPosts", f"&parent=profile&index={index}&limit={limit}{ids_param}")
         return data.get("data", {})
 
     def get_important_dates(self, inst_profile_ids: list, limit: int = 20) -> list:
@@ -157,21 +176,12 @@ class AulaClient:
         return result
 
     def get_birthdays(self, inst_profile_ids: list) -> list:
-        try:
-            profile = self.get_profile()
-            inst_codes = list({
-                i.get("institutionCode")
-                for i in (profile.get("data", {}).get("institutions") or [])
-                if i.get("institutionCode")
-            })
-        except Exception:
-            inst_codes = []
+        inst_codes = self._get_inst_codes()
         if not inst_codes:
             return []
         today = datetime.date.today()
         end = today + datetime.timedelta(days=30)
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
-        tz_str = f"{tz_offset[:3]}%3A{tz_offset[3:]}"  # URL-encode : as %3A, + as %2B handled by requests
         codes_param = "".join(f"&instCodes[]={c}" for c in inst_codes)
         url = f"https://www.aula.dk/api/v23/?method=calendar.getBirthdayEventsForInstitutions&start={today}T00:00:00.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}&end={end}T23:59:59.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}{codes_param}"
         resp = self.session.get(url, verify=True)

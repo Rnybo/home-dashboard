@@ -255,10 +255,7 @@
   <!-- Calendar view -->
   <div class="view active" id="view-cal">
     <div class="left" id="left-panel">
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab(0)">Aksel</div>
-        <div class="tab" onclick="switchTab(1)">Max</div>
-      </div>
+      <div class="tabs" id="child-tabs"></div>
       <div class="week-card">
         <div class="week-nav">
           <button onclick="changeWeek(-1)">◀</button>
@@ -333,7 +330,8 @@
     const START_H = 7, END_H = 17, HOURS = END_H - START_H;
     const DAY_NAMES = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag'];
     let API_KEY = '';
-    const CHILDREN = [{ name: 'Aksel', id: 5620584 }, { name: 'Max', id: 5620590 }];
+    let CHILDREN = [];
+    let INST_PROFILE_IDS = [];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
     let currentView = 'cal';
     let lightboxItems = [], lightboxIdx = 0;
@@ -344,9 +342,9 @@
     function apiFetch(url, opts = {}) {
       return fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
     }
+    function getChildIds() { return CHILDREN.map(c => c.id).join(','); }
 
     const VIEWS = ['cal', 'overview', 'gallery', 'msg'];
-    // ── View switching ──
     function switchView(view) {
       currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -357,7 +355,6 @@
       if (view === 'msg') syncMessagesFull();
     }
 
-    // ── Clock ──
     function updateClock() {
       const now = new Date();
       document.getElementById('clock').textContent = window.innerWidth < 600
@@ -366,7 +363,6 @@
     }
     updateClock(); setInterval(updateClock, 30000); window.addEventListener('resize', updateClock);
 
-    // ── Week helpers ──
     function getWeekDays() {
       const now = new Date(); now.setDate(now.getDate() + weekOffset * 7);
       const day = now.getDay() || 7; const mon = new Date(now); mon.setDate(now.getDate() - day + 1);
@@ -381,13 +377,36 @@
     function isSameDay(a,b) { return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
     function pct(min) { return ((min - START_H*60) / (HOURS*60)) * 100; }
 
+    // ── Profile config ──
+    async function loadProfileConfig() {
+      try {
+        const cfg = await apiFetch('/api/profile-config').then(r => r.json());
+        CHILDREN = cfg.children || [];
+        INST_PROFILE_IDS = cfg.inst_profile_ids || [];
+        CHILDREN.forEach(c => { c._photoUrl = c.photoUrl; });
+        document.getElementById('child-tabs').innerHTML = CHILDREN.map((c, i) =>
+          `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">
+            ${c.photoUrl ? `<img src="${c.photoUrl}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
+            ${c.name}
+          </div>`
+        ).join('');
+      } catch(e) {}
+    }
+
+    function switchTab(idx) {
+      activeTab = idx;
+      document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+      renderWeek();
+    }
+    function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); }
+
     // ── Overview ──
     async function loadOverview() {
-      const instIds = CHILDREN.map(c => c.id).join(',');
+      const ids = getChildIds();
       const [postsData, datesData, bdayData] = await Promise.all([
-        apiFetch(`/api/posts?inst_profile_ids=${instIds}`).then(r => r.json()).catch(() => ({})),
-        apiFetch(`/api/important-dates?inst_profile_ids=${instIds}`).then(r => r.json()).catch(() => []),
-        apiFetch(`/api/birthdays?inst_profile_ids=${instIds}`).then(r => r.json()).catch(() => []),
+        apiFetch(`/api/posts?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => ({})),
+        apiFetch(`/api/important-dates?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => []),
+        apiFetch(`/api/birthdays?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => []),
       ]);
       renderOverviewEvents(datesData, bdayData);
       renderOverviewPosts(postsData.posts || []);
@@ -395,8 +414,6 @@
 
     function renderOverviewEvents(dates, birthdays) {
       const el = document.getElementById('overview-events');
-
-      // Combine and sort all events by date
       const all = [
         ...(dates || []).map(d => ({ type: 'event', date: new Date(d.startDateTime || d.start), data: d })),
         ...(birthdays || []).map(b => {
@@ -408,33 +425,26 @@
         }),
       ].sort((a, b) => a.date - b.date);
 
-      const items = all.map(({ type, date, data: d }) => {
+      el.innerHTML = all.length ? all.map(({ type, date, data: d }) => {
         if (type === 'event') {
           const label = date.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
-          const childIds = d.belongsToProfiles || [];
-          const avatars = CHILDREN.filter(c => childIds.includes(c.id)).map(c =>
+          const avatars = CHILDREN.filter(c => (d.belongsToProfiles||[]).includes(c.id)).map(c =>
             c._photoUrl ? `<img src="${c._photoUrl}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : ''
           ).join('');
-          return `<div class="event-item">
-            <div class="event-date">${label}</div>
+          return `<div class="event-item"><div class="event-date">${label}</div>
             <div style="flex:1"><div class="event-title">${d.title||'(ingen titel)'}</div>
-            <div class="event-sub">${avatars}${d.institutionName||''}</div></div>
-          </div>`;
+            <div class="event-sub">${avatars}${d.institutionName||''}</div></div></div>`;
         } else {
           const label = date.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
-          const relatedAvatars = (d.relatedChildrenIds||[]).map(id => {
-            const child = CHILDREN.find(c => c.id === id);
-            return child?._photoUrl ? `<img src="${child._photoUrl}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
+          const avatars = (d.relatedChildrenIds||[]).map(id => {
+            const c = CHILDREN.find(c => c.id === id);
+            return c?._photoUrl ? `<img src="${c._photoUrl}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
           }).join('');
-          return `<div class="event-item">
-            <div class="event-date birthday">🎂 ${label}</div>
+          return `<div class="event-item"><div class="event-date birthday">🎂 ${label}</div>
             <div style="flex:1"><div class="event-title">${d.name}</div>
-            <div class="event-sub">${relatedAvatars}${d.mainGroupName||''}</div></div>
-          </div>`;
+            <div class="event-sub">${avatars}${d.mainGroupName||''}</div></div></div>`;
         }
-      });
-
-      el.innerHTML = items.length ? items.join('') : '<span class="loading">Ingen kommende datoer</span>';
+      }).join('') : '<span class="loading">Ingen kommende datoer</span>';
     }
 
     function renderOverviewPosts(posts) {
@@ -445,25 +455,19 @@
         const date = new Date(p.timestamp).toLocaleDateString('da-DK', {day:'numeric', month:'short', year:'numeric'});
         const preview = (p.content?.html||'').replace(/<[^>]+>/g,'').trim().substring(0, 120);
         const important = p.isImportant ? '<span class="post-important">⚠️ Vigtigt</span>' : '';
-        const thumbHtml = thumb
-          ? `<img class="post-thumb" src="${thumb}" loading="lazy" onerror="this.style.display='none'">`
-          : `<div class="post-thumb-placeholder">📰</div>`;
-        return `<div class="post-item" onclick="openPost(${p.id})">
-          ${thumbHtml}
-          <div class="post-body">
-            ${important}
+        const thumbHtml = thumb ? `<img class="post-thumb" src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : `<div class="post-thumb-placeholder">📰</div>`;
+        return `<div class="post-item" onclick="openPost(${p.id})">${thumbHtml}
+          <div class="post-body">${important}
             <div class="post-title">${p.title||'(ingen titel)'}</div>
             <div class="post-meta">${p.ownerProfile?.fullName||''} · ${date}${p.commentCount ? ' · 💬 '+p.commentCount : ''}</div>
             <div class="post-preview">${preview}</div>
-          </div>
-        </div>`;
+          </div></div>`;
       }).join('');
       window._cachedPosts = posts;
     }
 
     function openPost(postId) {
-      const p = (window._cachedPosts||[]).find(x => x.id === postId);
-      if (!p) return;
+      const p = (window._cachedPosts||[]).find(x => x.id === postId); if (!p) return;
       document.getElementById('post-modal-title').textContent = p.title||'(ingen titel)';
       const date = new Date(p.timestamp).toLocaleString('da-DK', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
       document.getElementById('post-modal-meta').textContent = `${p.ownerProfile?.fullName||''} · ${date}`;
@@ -475,42 +479,18 @@
       }).join('');
       document.getElementById('post-modal-overlay').classList.add('open');
     }
-
     function openLightboxUrl(url) {
       lightboxItems = [{url, thumbUrl: url, isVideo: url.match(/\.(mov|mp4|webm)/i), title:''}];
-      lightboxIdx = 0; showLightboxItem();
-      document.getElementById('lightbox').classList.add('open');
+      lightboxIdx = 0; showLightboxItem(); document.getElementById('lightbox').classList.add('open');
     }
-
     function closePostModal(e) {
       if (!e || e.target===document.getElementById('post-modal-overlay') || e.target===document.getElementById('post-modal-close'))
         document.getElementById('post-modal-overlay').classList.remove('open');
     }
 
-    // ── Child tabs & photos ──
-    function switchTab(idx) {
-      activeTab = idx;
-      document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
-      renderWeek();
-    }
-    function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); }
-    async function loadChildPhotos() {
-      try {
-        const data = await apiFetch('/api/profile').then(r => r.json());
-        const rels = data?.data?.institutionProfile?.relations || [];
-        CHILDREN.forEach((child, i) => {
-          const url = rels.find(r => r.id === child.id)?.profilePicture?.url;
-          if (url) {
-            child._photoUrl = url;
-            document.querySelectorAll('.tab')[i].innerHTML =
-              `<img src="${url}" alt="${child.name}" onerror="this.style.display='none'"> ${child.name}`;
-          }
-        });
-      } catch(e) {}
-    }
-
     // ── Timetable ──
     function renderWeek() {
+      if (!CHILDREN.length) return;
       const child = CHILDREN[activeTab], days = getWeekDays(), today = new Date();
       document.getElementById('week-nr').textContent = getWeekNr(days[0]);
       const childPresence = presenceData[child.id] || [];
@@ -519,8 +499,7 @@
       let html = `<div class="th-spacer"></div>`;
       days.forEach((day,i) => {
         const isToday = isSameDay(day,today);
-        html += `<div class="day-header ${isToday?'today':''}">
-          ${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span></div>`;
+        html += `<div class="day-header ${isToday?'today':''}">${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span></div>`;
       });
       html += `<div class="time-gutter" style="height:${totalH}px;grid-row:2">`;
       for (let h=START_H; h<=END_H; h++) html += `<div class="hour-label" style="top:${(h-START_H)*hourH}px">${String(h).padStart(2,'0')}:00</div>`;
@@ -535,260 +514,156 @@
           if (h<END_H) html += `<div class="hour-line" style="top:${(h-START_H)*hourH+hourH/2}px;border-top-style:dashed;opacity:.5"></div>`;
         }
         if (tpl && !tpl.isOnVacation && tpl.entryTime) {
-          const [eh,em] = tpl.entryTime.split(':').map(Number);
-          const entryPct = pct(eh*60+em);
-          html += `<div class="presence-bar" style="top:${entryPct}%;height:${hourH*0.4}px;min-height:14px" title="Aflevering ${tpl.entryTime.substring(0,5)}">🏫 ${tpl.entryTime.substring(0,5)}</div>`;
+          const [eh,em]=tpl.entryTime.split(':').map(Number);
+          html += `<div class="presence-bar" style="top:${pct(eh*60+em)}%;height:${hourH*0.4}px;min-height:14px">🧒🎒 ${tpl.entryTime.substring(0,5)}</div>`;
         }
         if (tpl && !tpl.isOnVacation && tpl.exitTime) {
-          const [xh,xm] = tpl.exitTime.split(':').map(Number);
-          const exitPct = pct(xh*60+xm);
-          const exitLbl = tpl.exitWith ? `${tpl.exitWith}` : '';
-          html += `<div class="presence-bar" style="top:${exitPct}%;height:${hourH*0.4}px;min-height:14px;background:#e8f7e8;border-left-color:#4caf50;color:#2e7d32" title="Afhentning ${tpl.exitTime.substring(0,5)}${exitLbl?' · '+exitLbl:''}">🏠 ${tpl.exitTime.substring(0,5)}${exitLbl?' · '+exitLbl:''}</div>`;
+          const [xh,xm]=tpl.exitTime.split(':').map(Number), lbl=tpl.exitWith||'';
+          html += `<div class="presence-bar" style="top:${pct(xh*60+xm)}%;height:${hourH*0.4}px;min-height:14px;background:#e8f7e8;border-left-color:#4caf50;color:#2e7d32">🏠 ${tpl.exitTime.substring(0,5)}${lbl?' · '+lbl:''}</div>`;
         }
-        if (tpl?.isOnVacation) {
-          html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
-        }
+        if (tpl?.isOnVacation) html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
         dayEvents.filter(e => e.isAllDayEvent||(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
           .forEach((e,idx) => { html += `<div class="cal-event allday" style="top:${idx*18}px;height:16px;font-size:.65rem"><span class="ev-title">${e.title||'(ingen titel)'}</span></div>`; });
         dayEvents.filter(e => !e.isAllDayEvent&&!(e.endDateTime&&(new Date(e.endDateTime)-new Date(e.startDateTime))>=23*3600000))
           .forEach(e => {
             const s=new Date(e.startDateTime), en=e.endDateTime?new Date(e.endDateTime):new Date(s.getTime()+3600000);
-            const sM=s.getHours()*60+s.getMinutes(), eM=en.getHours()*60+en.getMinutes();
-            const cS=Math.max(sM,START_H*60), cE=Math.min(eM,END_H*60); if(cS>=cE) return;
-            const tp=pct(cS), hp=pct(cE)-tp;
+            const cS=Math.max(s.getHours()*60+s.getMinutes(),START_H*60), cE=Math.min(en.getHours()*60+en.getMinutes(),END_H*60); if(cS>=cE) return;
             const ts=s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-            html += `<div class="cal-event" style="top:${tp}%;height:${Math.max(hp,3)}%;min-height:20px" title="${e.title} · ${ts}">
+            html += `<div class="cal-event" style="top:${pct(cS)}%;height:${Math.max(pct(cE)-pct(cS),3)}%;min-height:20px">
               <span class="ev-title">${e.title||'(ingen titel)'}</span><span class="ev-time">${ts}</span></div>`;
           });
-        if (isToday) {
-          const now=new Date(), nm=now.getHours()*60+now.getMinutes();
-          if(nm>=START_H*60&&nm<=END_H*60) html+=`<div class="now-line" style="top:${pct(nm)}%"></div>`;
-        }
+        if (isToday) { const nm=new Date().getHours()*60+new Date().getMinutes(); if(nm>=START_H*60&&nm<=END_H*60) html+=`<div class="now-line" style="top:${pct(nm)}%"></div>`; }
         html += `</div>`;
       });
       document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap'), now = new Date();
-      const scrollH = days.some(d=>isSameDay(d,now)) ? Math.max(0,now.getHours()-1) : START_H;
-      wrap.scrollTop = (scrollH-START_H)*hourH;
+      wrap.scrollTop = (days.some(d=>isSameDay(d,now)) ? Math.max(0,now.getHours()-1) : START_H - START_H) * hourH;
     }
 
     // ── Gallery ──
     let galleryLoaded = false, currentAlbumId = null;
-    const childIds = CHILDREN.map(c => c.id).join(',');
-
     async function loadGallery() {
       galleryLoaded = true;
       const el = document.getElementById('gallery-content');
       el.innerHTML = '<div class="loading">Henter albums...</div>';
       try {
-        const albums = await apiFetch(`/api/gallery/albums?inst_profile_ids=${childIds}`).then(r => r.json());
+        const albums = await apiFetch(`/api/gallery/albums?inst_profile_ids=${getChildIds()}`).then(r => r.json());
         renderAlbums(albums);
       } catch(e) { el.textContent = 'Fejl: ' + e.message; }
     }
-
     function renderAlbums(albums) {
       document.getElementById('gallery-title').textContent = '🖼️ Galleri';
       currentAlbumId = null;
       const el = document.getElementById('gallery-content');
       if (!albums.length) { el.textContent = 'Ingen albums fundet'; return; }
       el.innerHTML = `<div class="albums-grid">${albums.map((a, idx) => {
-        // Pick first non-video thumbnail
-        const thumbs = a.thumbnailsUrls || [];
-        const thumb = thumbs.find(u => !u.match(/\.mov(\?|$)/i)) || thumbs[0];
+        const thumb = (a.thumbnailsUrls||[]).find(u => !u.match(/\.mov(\?|$)/i)) || (a.thumbnailsUrls||[])[0];
         const date = a.creationDate ? new Date(a.creationDate).toLocaleDateString('da-DK', {day:'numeric',month:'short',year:'numeric'}) : '';
-        const thumbHtml = thumb
-          ? `<img class="album-thumb" src="${thumb}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=album-thumb-placeholder>📷</div>'">`
-          : `<div class="album-thumb-placeholder">📷</div>`;
-        return `<div class="album-card" data-idx="${idx}" onclick="openAlbumByIdx(this)">
-          ${thumbHtml}
-          <div class="album-info">
-            <div class="album-title">${a.title||'Album'}</div>
-            <div class="album-date">${date}</div>
-          </div>
-        </div>`;
+        const thumbHtml = thumb ? `<img class="album-thumb" src="${thumb}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=album-thumb-placeholder>📷</div>'">` : `<div class="album-thumb-placeholder">📷</div>`;
+        return `<div class="album-card" data-idx="${idx}" onclick="openAlbumByIdx(this)">${thumbHtml}
+          <div class="album-info"><div class="album-title">${a.title||'Album'}</div><div class="album-date">${date}</div></div></div>`;
       }).join('')}</div>`;
       document.getElementById('gallery-content')._albums = albums;
     }
-
     function openAlbumByIdx(el) {
-      const albums = document.getElementById('gallery-content')._albums || [];
-      const a = albums[parseInt(el.dataset.idx)];
+      const a = (document.getElementById('gallery-content')._albums||[])[parseInt(el.dataset.idx)];
       if (a) openAlbum(a.id, a.title);
     }
-
     async function openAlbum(albumId, title) {
       currentAlbumId = albumId;
       document.getElementById('gallery-title').textContent = title || 'Album';
       const el = document.getElementById('gallery-content');
       el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><div class="loading">Henter billeder...</div>`;
       try {
-        // Albums with id=null use the user-media endpoint
-        const url = albumId === null
-          ? `/api/gallery/user-media?inst_profile_ids=${childIds}&limit=40`
-          : `/api/gallery/albums/${albumId}/media?inst_profile_ids=${childIds}`;
-        const data = await apiFetch(url).then(r => r.json());
-        renderMedia(data.results || []);
-      } catch(e) {
-        el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`;
-      }
+        const url = albumId === null ? `/api/gallery/user-media?inst_profile_ids=${getChildIds()}&limit=40` : `/api/gallery/albums/${albumId}/media?inst_profile_ids=${getChildIds()}`;
+        renderMedia((await apiFetch(url).then(r => r.json())).results || []);
+      } catch(e) { el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p>Fejl: ${e.message}</p>`; }
     }
-
     function renderMedia(mediaList) {
       const el = document.getElementById('gallery-content');
-      if (!mediaList.length) {
-        el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p class="loading">Ingen medier i dette album</p>`;
-        return;
-      }
-      lightboxItems = mediaList.map(m => ({
-        url: m.file?.url || m.url || '',
-        thumbUrl: m.largeThumbnailUrl || m.mediumThumbnailUrl || m.thumbnailUrl || m.file?.url || '',
-        isVideo: m.mediaType === 'video' || (m.file?.url||'').match(/\.(mov|mp4|webm)/i),
-        title: m.title || m.file?.name || ''
-      }));
+      if (!mediaList.length) { el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button><p class="loading">Ingen medier</p>`; return; }
+      lightboxItems = mediaList.map(m => ({url:m.file?.url||'', thumbUrl:m.largeThumbnailUrl||m.mediumThumbnailUrl||m.thumbnailUrl||m.file?.url||'', isVideo:m.mediaType==='video'||(m.file?.url||'').match(/\.(mov|mp4|webm)/i), title:m.title||m.file?.name||''}));
       el.innerHTML = `<button class="gallery-back" onclick="loadGallery()">← Alle albums</button>
-        <div class="media-grid">${lightboxItems.map((item, idx) => `
-          <div class="media-item" onclick="openLightbox(${idx})">
-            <img src="${item.thumbUrl}" loading="lazy" alt="${item.title}" onerror="this.style.opacity='0'">
-            ${item.isVideo ? '<span class="media-type">▶ Video</span>' : ''}
-          </div>`).join('')}
-        </div>`;
+        <div class="media-grid">${lightboxItems.map((item,idx) => `<div class="media-item" onclick="openLightbox(${idx})"><img src="${item.thumbUrl}" loading="lazy" onerror="this.style.opacity='0'">${item.isVideo?'<span class="media-type">▶ Video</span>':''}</div>`).join('')}</div>`;
     }
 
     // ── Lightbox ──
-    function openLightbox(idx) {
-      lightboxIdx = idx; showLightboxItem();
-      document.getElementById('lightbox').classList.add('open');
-    }
+    function openLightbox(idx) { lightboxIdx=idx; showLightboxItem(); document.getElementById('lightbox').classList.add('open'); }
     function showLightboxItem() {
-      const item = lightboxItems[lightboxIdx];
-      const med = document.getElementById('lightbox-media');
-      if (item.isVideo) {
-        med.innerHTML = `<video src="${item.url}" controls autoplay style="max-width:92vw;max-height:88vh;border-radius:8px"></video>`;
-      } else {
-        med.innerHTML = `<img src="${item.url}" alt="${item.title}" onerror="this.src='${item.thumbUrl}'">`;
-      }
-      document.getElementById('lightbox-caption').textContent = `${lightboxIdx+1} / ${lightboxItems.length}${item.title ? ' · ' + item.title : ''}`;
+      const item=lightboxItems[lightboxIdx], med=document.getElementById('lightbox-media');
+      med.innerHTML = item.isVideo ? `<video src="${item.url}" controls autoplay style="max-width:92vw;max-height:88vh;border-radius:8px"></video>` : `<img src="${item.url}" alt="${item.title}" onerror="this.src='${item.thumbUrl}'">`;
+      document.getElementById('lightbox-caption').textContent = `${lightboxIdx+1} / ${lightboxItems.length}${item.title?' · '+item.title:''}`;
     }
-    function lightboxNav(delta) {
-      lightboxIdx = (lightboxIdx + delta + lightboxItems.length) % lightboxItems.length;
-      showLightboxItem();
-    }
-    function closeLightbox(e) {
-      if (!e || e.target===document.getElementById('lightbox') || e.target===document.getElementById('lightbox-close'))
-        document.getElementById('lightbox').classList.remove('open');
-    }
+    function lightboxNav(delta) { lightboxIdx=(lightboxIdx+delta+lightboxItems.length)%lightboxItems.length; showLightboxItem(); }
+    function closeLightbox(e) { if (!e||e.target===document.getElementById('lightbox')||e.target===document.getElementById('lightbox-close')) document.getElementById('lightbox').classList.remove('open'); }
     document.addEventListener('keydown', e => {
       if (!document.getElementById('lightbox').classList.contains('open')) return;
-      if (e.key==='ArrowRight') lightboxNav(1);
-      if (e.key==='ArrowLeft') lightboxNav(-1);
-      if (e.key==='Escape') closeLightbox();
+      if (e.key==='ArrowRight') lightboxNav(1); if (e.key==='ArrowLeft') lightboxNav(-1); if (e.key==='Escape') closeLightbox();
     });
 
     // ── Messages ──
     let cachedThreads = [];
     async function loadMessages() {
-      try {
-        const res = await apiFetch('/api/messages');
-        if (res.status === 401) return;
-        cachedThreads = await res.json();
-        renderMessages('messages-cal');
-      } catch(e) {}
+      try { const res=await apiFetch('/api/messages'); if(res.status===401) return; cachedThreads=await res.json(); renderMessages('messages-cal'); } catch(e) {}
     }
     function syncMessagesFull() { renderMessages('messages-full'); }
     function renderMessages(elId) {
-      const el = document.getElementById(elId);
-      if (!cachedThreads.length) { el.textContent = 'Ingen beskeder'; return; }
-      el.innerHTML = cachedThreads.slice(0,20).map(t =>
-        `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')">
-          <div class="subject">${t.subject||'(ingen emne)'}</div>
-          <div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div>
-        </div>`).join('');
+      const el=document.getElementById(elId);
+      if (!cachedThreads.length) { el.textContent='Ingen beskeder'; return; }
+      el.innerHTML=cachedThreads.slice(0,20).map(t => `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')"><div class="subject">${t.subject||'(ingen emne)'}</div><div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div></div>`).join('');
     }
     async function openMsg(threadId, subject) {
-      document.getElementById('msg-modal-subject').textContent = subject;
-      document.getElementById('msg-modal-body').textContent = 'Henter...';
-      document.getElementById('msg-modal-meta').textContent = '';
+      document.getElementById('msg-modal-subject').textContent=subject;
+      document.getElementById('msg-modal-body').textContent='Henter...';
+      document.getElementById('msg-modal-meta').textContent='';
       document.getElementById('msg-modal-overlay').classList.add('open');
       try {
-        const data = await apiFetch(`/api/messages/${threadId}`).then(r => r.json());
-        const msgs = (data.messages||[]).filter(m => m.messageType==='Message'||m.text);
-        if (!msgs.length) { document.getElementById('msg-modal-body').textContent = 'Ingen indhold'; return; }
-        document.getElementById('msg-modal-meta').textContent = `${msgs.length} besked${msgs.length!==1?'er':''} i tråden`;
-        document.getElementById('msg-modal-body').innerHTML = msgs.map(m => {
-          const sender = m.sender?.fullName||'Ukendt';
-          const date = m.sendDateTime ? new Date(m.sendDateTime).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
-          return `<div class="thread-msg">
-            <div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div>
-            <div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div>
-          </div>`;
+        const data=await apiFetch(`/api/messages/${threadId}`).then(r=>r.json());
+        const msgs=(data.messages||[]).filter(m=>m.messageType==='Message'||m.text);
+        if (!msgs.length) { document.getElementById('msg-modal-body').textContent='Ingen indhold'; return; }
+        document.getElementById('msg-modal-meta').textContent=`${msgs.length} besked${msgs.length!==1?'er':''} i tråden`;
+        document.getElementById('msg-modal-body').innerHTML=msgs.map(m => {
+          const sender=m.sender?.fullName||'Ukendt', date=m.sendDateTime?new Date(m.sendDateTime).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div></div>`;
         }).join('');
-      } catch(e) { document.getElementById('msg-modal-body').textContent = 'Fejl: ' + e.message; }
+      } catch(e) { document.getElementById('msg-modal-body').textContent='Fejl: '+e.message; }
     }
-    function closeMsgModal(e) {
-      if (!e||e.target===document.getElementById('msg-modal-overlay')||e.target===document.getElementById('msg-modal-close'))
-        document.getElementById('msg-modal-overlay').classList.remove('open');
-    }
+    function closeMsgModal(e) { if (!e||e.target===document.getElementById('msg-modal-overlay')||e.target===document.getElementById('msg-modal-close')) document.getElementById('msg-modal-overlay').classList.remove('open'); }
 
     // ── Login ──
-    let loginPolling = null;
-    let loginAccounts = [];
-
+    let loginPolling=null, loginAccounts=[];
     async function loadLoginAccounts() {
-      try {
-        loginAccounts = await apiFetch('/api/login/accounts').then(r => r.json());
-      } catch(e) { loginAccounts = []; }
-      const btns = document.getElementById('login-btns');
-      if (loginAccounts.length <= 1) {
-        // Single account — show simple click-to-login on whole banner
-        document.getElementById('session-banner').style.cursor = 'pointer';
-        document.getElementById('session-banner').onclick = () => startLogin(0);
-        document.getElementById('banner-msg').textContent = 'Klik for at logge ind automatisk';
-        btns.innerHTML = '';
+      try { loginAccounts=await apiFetch('/api/login/accounts').then(r=>r.json()); } catch(e) { loginAccounts=[]; }
+      const btns=document.getElementById('login-btns');
+      if (loginAccounts.length<=1) {
+        document.getElementById('session-banner').style.cursor='pointer';
+        document.getElementById('session-banner').onclick=()=>startLogin(0);
+        document.getElementById('banner-msg').textContent='Klik for at logge ind automatisk';
+        btns.innerHTML='';
       } else {
-        // Multiple accounts — show buttons
-        document.getElementById('session-banner').style.cursor = 'default';
-        document.getElementById('session-banner').onclick = null;
-        document.getElementById('banner-msg').textContent = 'Vælg konto:';
-        btns.innerHTML = loginAccounts.map(a =>
-          `<button class="login-btn" onclick="startLogin(${a.index})">Log ind som ${a.name}</button>`
-        ).join('');
+        document.getElementById('session-banner').style.cursor='default';
+        document.getElementById('session-banner').onclick=null;
+        document.getElementById('banner-msg').textContent='Vælg konto:';
+        btns.innerHTML=loginAccounts.map(a=>`<button class="login-btn" onclick="startLogin(${a.index})">Log ind som ${a.name}</button>`).join('');
       }
     }
-
-    async function startLogin(accountIndex = 0) {
-      const msg = document.getElementById('banner-msg');
-      document.getElementById('login-btns').innerHTML = '';
-      msg.textContent = 'Starter login...';
-      try {
-        await apiFetch(`/api/login/start?account_index=${accountIndex}`, {method:'POST'});
-        msg.textContent = '📱 Godkend i MitID-appen...';
-        pollLoginStatus();
-      } catch(e) {
-        msg.textContent = 'Fejl: ' + e.message;
-        loadLoginAccounts();
-      }
+    async function startLogin(accountIndex=0) {
+      const msg=document.getElementById('banner-msg'); document.getElementById('login-btns').innerHTML=''; msg.textContent='Starter login...';
+      try { await apiFetch(`/api/login/start?account_index=${accountIndex}`,{method:'POST'}); msg.textContent='📱 Godkend i MitID-appen...'; pollLoginStatus(); }
+      catch(e) { msg.textContent='Fejl: '+e.message; loadLoginAccounts(); }
     }
     function pollLoginStatus() {
       clearInterval(loginPolling);
-      loginPolling = setInterval(async () => {
-        const data = await apiFetch('/api/login/status').then(r => r.json());
-        const msg = document.getElementById('banner-msg');
-        if (data.state==='show_qr') {
-          document.getElementById('session-banner').style.display='block';
-          msg.innerHTML = '<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,'+data.qr_image+'"/>';
-        } else if (data.state==='success') {
-          clearInterval(loginPolling); msg.textContent='✅ Login lykkedes!'; setTimeout(()=>window.location.reload(),1000);
-        } else if (data.state==='failed') {
-          clearInterval(loginPolling);
-          msg.textContent='❌ '+(data.error||'Login fejlede');
-          loadLoginAccounts();
-        }
-      }, 3000);
+      loginPolling=setInterval(async()=>{
+        const data=await apiFetch('/api/login/status').then(r=>r.json()), msg=document.getElementById('banner-msg');
+        if (data.state==='show_qr') { document.getElementById('session-banner').style.display='block'; msg.innerHTML=`<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,${data.qr_image}"/>`; }
+        else if (data.state==='success') { clearInterval(loginPolling); msg.textContent='✅ Login lykkedes!'; setTimeout(()=>window.location.reload(),1000); }
+        else if (data.state==='failed') { clearInterval(loginPolling); msg.textContent='❌ '+(data.error||'Login fejlede'); loadLoginAccounts(); }
+      },3000);
     }
     async function checkSession() {
-      const data = await apiFetch('/api/status').then(r => r.json());
-      const expired = !data.session_valid;
-      document.getElementById('session-banner').style.display = expired ? 'block' : 'none';
+      const data=await apiFetch('/api/status').then(r=>r.json()), expired=!data.session_valid;
+      document.getElementById('session-banner').style.display=expired?'block':'none';
       if (expired) loadLoginAccounts();
       return data.session_valid;
     }
@@ -796,17 +671,14 @@
     // ── Data loaders ──
     async function loadCalendar() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[4].toISOString().split('T')[0];
-      try {
-        const res = await apiFetch(`/api/calendar?inst_profile_ids=${childIds}&from_date=${from}&to_date=${to}`);
-        if (res.status===401) return; allEvents = await res.json(); renderWeek();
-      } catch(e) {}
+      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); renderWeek(); } catch(e) {}
     }
     async function loadPresence() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[4].toISOString().split('T')[0];
       try {
-        const res = await apiFetch(`/api/presence?inst_profile_ids=${childIds}&from_date=${from}&to_date=${to}`);
-        if (res.status!==200) return; presenceData={};
-        for (const t of await res.json()) presenceData[t.institutionProfile.id] = t.dayTemplates||[];
+        const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
+        if(res.status!==200) return; presenceData={};
+        for (const t of await res.json()) presenceData[t.institutionProfile.id]=t.dayTemplates||[];
         renderWeek();
       } catch(e) {}
     }
@@ -815,15 +687,16 @@
     let pollTimer=null, sessionWasExpired=false;
     async function loadAll() {
       await initConfig();
-      const valid = await checkSession();
+      const valid=await checkSession();
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
-        loadChildPhotos(); loadCalendar(); loadPresence(); loadMessages(); loadOverview();
+        await loadProfileConfig();
+        loadCalendar(); loadPresence(); loadMessages(); loadOverview();
         schedulePoll(5*60*1000);
       } else { sessionWasExpired=true; schedulePoll(10*1000); }
     }
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
-    setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); }, 60000);
+    setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
     loadAll();
   </script>
 </body>

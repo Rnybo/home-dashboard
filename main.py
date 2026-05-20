@@ -102,6 +102,24 @@ async def login_cancel():
     return {"ok": True}
 
 
+@app.get("/api/profile-config", dependencies=[Depends(check_api_key)])
+def profile_config():
+    def fn():
+        data = client.get_profile().get("data", {})
+        institutions = data.get("institutions") or []
+        children, inst_profile_ids = [], []
+        for inst in institutions:
+            inst_profile_ids.append(inst.get("institutionProfileId"))
+            for child in inst.get("children") or []:
+                children.append({
+                    "id": child.get("id"),
+                    "name": child.get("name", "").split()[0],  # first name
+                    "photoUrl": child.get("profilePicture", {}).get("url", ""),
+                })
+        return {"children": children, "inst_profile_ids": [i for i in inst_profile_ids if i]}
+    return aula_call(fn)
+
+
 @app.get("/api/profile", dependencies=[Depends(check_api_key)])
 def profile():
     return aula_call(client.get_profile)

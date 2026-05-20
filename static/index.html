@@ -399,19 +399,30 @@
       for (const d of (dates || [])) {
         const dt = new Date(d.startDateTime || d.start);
         const label = dt.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
+        const childIds = d.belongsToProfiles || [];
+        const avatars = childIds.map(id => {
+          const child = CHILDREN.find(c => c.id === id);
+          const url = child?._photoUrl;
+          return url ? `<img src="${url}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
+        }).join('');
         items.push(`<div class="event-item">
           <div class="event-date">${label}</div>
-          <div><div class="event-title">${d.title||'(ingen titel)'}</div>
-          <div class="event-sub">${d.ownerProfile?.fullName||''}</div></div>
+          <div style="flex:1"><div class="event-title">${d.title||'(ingen titel)'}</div>
+          <div class="event-sub">${avatars}${d.institutionName||''}</div></div>
         </div>`);
       }
       for (const b of (birthdays || [])) {
         const dt = new Date(b.birthday);
         const label = dt.toLocaleDateString('da-DK', {day:'numeric', month:'short'});
+        const relatedAvatars = (b.relatedChildrenIds||[]).map(id => {
+          const child = CHILDREN.find(c => c.id === id);
+          const url = child?._photoUrl;
+          return url ? `<img src="${url}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : '';
+        }).join('');
         items.push(`<div class="event-item">
           <div class="event-date birthday">🎂 ${label}</div>
-          <div><div class="event-title">${b.name}</div>
-          <div class="event-sub">${b.mainGroupName||''}</div></div>
+          <div style="flex:1"><div class="event-title">${b.name}</div>
+          <div class="event-sub">${relatedAvatars}${b.mainGroupName||''}</div></div>
         </div>`);
       }
       el.innerHTML = items.length ? items.join('') : '<span class="loading">Ingen kommende datoer</span>';
@@ -480,8 +491,11 @@
         const rels = data?.data?.institutionProfile?.relations || [];
         CHILDREN.forEach((child, i) => {
           const url = rels.find(r => r.id === child.id)?.profilePicture?.url;
-          if (url) document.querySelectorAll('.tab')[i].innerHTML =
-            `<img src="${url}" alt="${child.name}" onerror="this.style.display='none'"> ${child.name}`;
+          if (url) {
+            child._photoUrl = url;
+            document.querySelectorAll('.tab')[i].innerHTML =
+              `<img src="${url}" alt="${child.name}" onerror="this.style.display='none'"> ${child.name}`;
+          }
         });
       } catch(e) {}
     }

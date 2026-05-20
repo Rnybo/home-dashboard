@@ -49,6 +49,7 @@ class AulaClient:
             "PHPSESSID": phpsessid,
             "Csrfp-Token": csrf_token,
             "initialLogin": "true",
+            "profile_change": "16",
         })
 
     def _post(self, method: str, body: dict) -> dict:
@@ -141,10 +142,10 @@ class AulaClient:
     def get_important_dates(self, inst_profile_ids: list, limit: int = 20) -> list:
         data = self._get("calendar.getImportantDates", f"&limit={limit}&include_today=false")
         items = data.get("data", []) or []
-        # Deduplicate by id (same event appears once per child)
+        # Deduplicate — same event appears once per child, key on title+start
         seen, result = set(), []
         for item in items:
-            key = item.get("id") or item.get("title","") + item.get("startDateTime","")
+            key = item.get("title","") + "|" + item.get("startDateTime","")[:10]
             if key not in seen:
                 seen.add(key)
                 result.append(item)

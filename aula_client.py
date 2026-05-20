@@ -144,12 +144,25 @@ class AulaClient:
         return data.get("data", []) or []
 
     def get_birthdays(self, inst_profile_ids: list) -> list:
+        # Get institution codes from profile first
+        try:
+            profile = self.get_profile()
+            inst_codes = list({
+                r.get("institutionCode")
+                for r in (profile.get("data", {}).get("institutionProfile", {}).get("relations") or [])
+                if r.get("institutionCode")
+            })
+        except Exception:
+            inst_codes = []
+        if not inst_codes:
+            return []
         today = datetime.date.today()
         end = today + datetime.timedelta(days=30)
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
         tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"
+        codes_param = "".join(f"&instCodes[]={c}" for c in inst_codes)
         data = self._get("calendar.getBirthdayEventsForInstitutions",
-            f"&start={today}T00:00:00.000{tz_str}&end={end}T23:59:59.000{tz_str}")
+            f"&start={today}T00:00:00.000{tz_str}&end={end}T23:59:59.000{tz_str}{codes_param}")
         return data.get("data", []) or []
 
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:

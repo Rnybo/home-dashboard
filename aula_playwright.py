@@ -71,9 +71,18 @@ class AulaPlaywright:
             logger.info(f"Screenshot failed ({name}): {e}")
 
     async def _do_login(self):
-        mitid_username = os.getenv("MITID_USERNAME", "")
-        mitid_identity = os.getenv("MITID_IDENTITY", "")
-        logger.info(f"Starting Playwright login... username='{mitid_username}'")
+        # Build list of accounts from env — supports MITID_USERNAME, MITID_USERNAME_2, etc.
+        accounts = []
+        for suffix in ["", "_2", "_3", "_4", "_5"]:
+            u = os.getenv(f"MITID_USERNAME{suffix}", "")
+            i = os.getenv(f"MITID_IDENTITY{suffix}", "")
+            if u:
+                accounts.append({"username": u, "identity": i})
+        if not accounts:
+            self.state = AulaLoginState.FAILED
+            self.error = "MITID_USERNAME not set"
+            return
+        logger.info(f"Starting Playwright login with {len(accounts)} account(s)")
         try:
             async with async_playwright() as p:
                 browser = await p.chromium.launch(
@@ -85,6 +94,10 @@ class AulaPlaywright:
                     viewport={"width": 1280, "height": 900}
                 )
                 page = await context.new_page()
+                # Use first account — future: retry with next account on failure
+                mitid_username = accounts[0]["username"]
+                mitid_identity = accounts[0]["identity"]
+                logger.info(f"Trying account: '{mitid_username}'")
 
                 # Step 1: Navigate to Aula
                 await page.goto(AULA_URL, wait_until="domcontentloaded")

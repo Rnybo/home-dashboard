@@ -36,14 +36,27 @@ class AulaClient:
         self._apply_credentials(phpsessid, csrf_token)
 
     def _apply_credentials(self, phpsessid: str, csrf_token: str):
+        self._csrf_token = csrf_token
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0",
-            "csrfp-token": csrf_token,
+            "accept": "application/json, text/plain, */*",
+            "referer": "https://www.aula.dk/portal/",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
         })
         self.session.cookies.update({
             "PHPSESSID": phpsessid,
             "Csrfp-Token": csrf_token,
+            "initialLogin": "true",
         })
+
+    def _post(self, method: str, body: dict) -> dict:
+        url = f"{API_BASE}{API_VERSION}/?method={method}"
+        resp = self.session.post(url, json=body, verify=True,
+            headers={"csrfp-token": self._csrf_token})
+        resp.raise_for_status()
+        return resp.json()
 
     def update_credentials(self, phpsessid: str, csrf_token: str):
         self._apply_credentials(phpsessid, csrf_token)
@@ -57,11 +70,12 @@ class AulaClient:
     def check_session(self) -> bool:
         try:
             resp = self.session.get(
-                f"{API_BASE}{API_VERSION}/?method=profiles.getProfileContext&portalrole=guardian",
+                f"{API_BASE}{API_VERSION}/?method=profiles.getProfilesByLogin",
                 verify=True,
                 allow_redirects=False
             )
-            self.session_valid = resp.status_code == 200 and "data" in resp.json()
+            data = resp.json()
+            self.session_valid = resp.status_code == 200 and data.get("status", {}).get("code") == 0
         except Exception:
             self.session_valid = False
         return self.session_valid
@@ -72,12 +86,6 @@ class AulaClient:
         if resp.status_code == 401:
             self.session_valid = False
             raise PermissionError("Session expired")
-        resp.raise_for_status()
-        return resp.json()
-
-    def _post(self, method: str, body: dict) -> dict:
-        url = f"{API_BASE}{API_VERSION}/?method={method}"
-        resp = self.session.post(url, json=body, verify=True)
         resp.raise_for_status()
         return resp.json()
 
@@ -98,9 +106,8 @@ class AulaClient:
             from_date = today.strftime("%Y-%m-%d")
         if not to_date:
             to_date = (today + datetime.timedelta(days=6)).strftime("%Y-%m-%d")
-        # Use local timezone offset so DST is handled correctly
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
-        tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"  # e.g. +02:00
+        tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"
         start = f"{from_date} 00:00:00.0000{tz_str}"
         end = f"{to_date} 23:59:59.9990{tz_str}"
         data = self._post("calendar.getEventsByProfileIdsAndResourceIds", {
@@ -119,6 +126,11 @@ class AulaClient:
     def get_album_media(self, album_id: int, inst_profile_ids: list = None, index: int = 0, limit: int = 40) -> dict:
         ids_param = "".join(f"&filterInstProfileIds[]={i}" for i in (inst_profile_ids or []))
         data = self._get("gallery.getMedia", f"&albumId={album_id}&index={index}&limit={limit}&sortOn=uploadedAt&orderDirection=desc&filterBy=all{ids_param}")
+        return data.get("data", {})
+
+    def get_user_media(self, inst_profile_ids: list, index: int = 0, limit: int = 12) -> dict:
+        ids_param = "".join(f"&filterInstProfileIds[]={i}" for i in inst_profile_ids)
+        data = self._get("gallery.getMedia", f"&userSpecificAlbum=true&index={index}&limit={limit}&sortOn=uploadedAt&orderDirection=desc&filterBy=all{ids_param}")
         return data.get("data", {})
 
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:

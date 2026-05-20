@@ -4,11 +4,12 @@ import sys
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from aula_client import AulaClient
-from aula_playwright import AulaPlaywright
 import os
 import logging
 
@@ -21,6 +22,24 @@ client = AulaClient()
 API_KEY = os.getenv("API_KEY", "")
 if not API_KEY:
     logging.warning("API_KEY is not set — API is unprotected!")
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path in ("/", "/index.html"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
+app.add_middleware(NoCacheMiddleware)
+
+
+@app.get("/")
+async def index():
+    resp = FileResponse("static/index.html")
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 def check_api_key(request: Request):
@@ -35,13 +54,6 @@ def aula_call(fn):
         raise HTTPException(status_code=401, detail="Session expired")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-def on_login_success(phpsessid: str, csrf_token: str):
-    client.update_credentials(phpsessid, csrf_token)
-
-
-playwright_login = AulaPlaywright(on_success=on_login_success)
 
 
 @app.get("/api/config")
@@ -61,13 +73,12 @@ def status():
 
 @app.post("/api/login/start", dependencies=[Depends(check_api_key)])
 async def login_start():
-    playwright_login.start_login()
-    return {"ok": True, "message": "Login started — check MitID app"}
+    return {"ok": False, "message": "Playwright not available on Android — update session.json manually"}
 
 
 @app.get("/api/login/status", dependencies=[Depends(check_api_key)])
 def login_status():
-    return playwright_login.get_status()
+    return {"state": "idle", "error": None, "qr_image": None}
 
 
 @app.get("/api/profile", dependencies=[Depends(check_api_key)])
@@ -111,6 +122,11 @@ def gallery_album_media(album_id: int, inst_profile_ids: str = "", index: int = 
     ids = [int(i) for i in inst_profile_ids.split(",") if i]
     return aula_call(lambda: client.get_album_media(album_id, ids, index))
 
+
+@app.get("/api/gallery/user-media", dependencies=[Depends(check_api_key)])
+def gallery_user_media(inst_profile_ids: str = "", index: int = 0, limit: int = 12):
+    ids = [int(i) for i in inst_profile_ids.split(",") if i]
+    return aula_call(lambda: client.get_user_media(ids, index, limit))
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

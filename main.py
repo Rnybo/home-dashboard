@@ -236,4 +236,49 @@ def gallery_user_media(inst_profile_ids: str = "", index: int = 0, limit: int = 
     return aula_call(lambda: client.get_user_media(ids, index, limit))
 
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+@app.get("/api/photos/albums", dependencies=[Depends(check_api_key)])
+def photos_albums():
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        import requests as req
+        SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
+        TOKEN_FILE = 'token_photos.json'
+        if not os.path.exists(TOKEN_FILE):
+            raise HTTPException(status_code=503, detail="token_photos.json not found — run google_photos_login.py first")
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            with open(TOKEN_FILE, 'w') as f: f.write(creds.to_json())
+        headers = {'Authorization': f'Bearer {creds.token}'}
+        r = req.get('https://photoslibrary.googleapis.com/v1/albums', headers=headers, params={'pageSize': 50})
+        r.raise_for_status()
+        return r.json().get('albums', [])
+    except HTTPException: raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/photos/albums/{album_id}/media", dependencies=[Depends(check_api_key)])
+def photos_album_media(album_id: str, page_token: str = ""):
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        import requests as req
+        SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
+        TOKEN_FILE = 'token_photos.json'
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            with open(TOKEN_FILE, 'w') as f: f.write(creds.to_json())
+        headers = {'Authorization': f'Bearer {creds.token}', 'Content-Type': 'application/json'}
+        body = {'albumId': album_id, 'pageSize': 50}
+        if page_token: body['pageToken'] = page_token
+        r = req.post('https://photoslibrary.googleapis.com/v1/mediaItems:search', headers=headers, json=body)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+

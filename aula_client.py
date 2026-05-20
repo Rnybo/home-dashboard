@@ -148,9 +148,8 @@ class AulaClient:
         end = today + datetime.timedelta(days=30)
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
         tz_str = f"{tz_offset[:3]}:{tz_offset[3:]}"
-        ids_param = "".join(f"&instProfileIds[]={i}" for i in inst_profile_ids)
         data = self._get("calendar.getBirthdayEventsForInstitutions",
-            f"&start={today}T00:00:00.000{tz_str}&end={end}T23:59:59.000{tz_str}{ids_param}")
+            f"&start={today}T00:00:00.000{tz_str}&end={end}T23:59:59.000{tz_str}")
         return data.get("data", []) or []
 
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:

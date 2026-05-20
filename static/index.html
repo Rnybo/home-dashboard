@@ -234,14 +234,14 @@
 
   <!-- Top nav (desktop/tablet) -->
   <div class="top-nav">
-    <div class="top-nav-btn active" onclick="switchView('overview')">🏠 Overblik</div>
-    <div class="top-nav-btn" onclick="switchView('cal')">📅 Kalender</div>
+    <div class="top-nav-btn active" onclick="switchView('cal')">📅 Kalender</div>
+    <div class="top-nav-btn" onclick="switchView('overview')">🏠 Overblik</div>
     <div class="top-nav-btn" onclick="switchView('gallery')">🖼️ Galleri</div>
     <div class="top-nav-btn" onclick="switchView('msg')">📬 Beskeder</div>
   </div>
 
   <!-- Overview view -->
-  <div class="view active" id="view-overview">
+  <div class="view" id="view-overview">
     <div class="overview-section" id="overview-events-section">
       <h2>📌 Kommende datoer & fødselsdage</h2>
       <div id="overview-events" class="loading">Henter...</div>
@@ -253,7 +253,7 @@
   </div>
 
   <!-- Calendar view -->
-  <div class="view" id="view-cal">
+  <div class="view active" id="view-cal">
     <div class="left" id="left-panel">
       <div class="tabs">
         <div class="tab active" onclick="switchTab(0)">Aksel</div>
@@ -294,8 +294,8 @@
 
   <!-- Mobile bottom nav -->
   <nav class="bottom-nav">
-    <button class="active" id="nav-overview" onclick="switchView('overview')"><span class="icon">🏠</span>Overblik</button>
-    <button id="nav-cal" onclick="switchView('cal')"><span class="icon">📅</span>Kalender</button>
+    <button class="active" id="nav-cal" onclick="switchView('cal')"><span class="icon">📅</span>Kalender</button>
+    <button id="nav-overview" onclick="switchView('overview')"><span class="icon">🏠</span>Overblik</button>
     <button id="nav-gallery" onclick="switchView('gallery')"><span class="icon">🖼️</span>Galleri</button>
     <button id="nav-msg" onclick="switchView('msg')"><span class="icon">📬</span>Beskeder</button>
   </nav>
@@ -335,7 +335,7 @@
     let API_KEY = '';
     const CHILDREN = [{ name: 'Aksel', id: 5620584 }, { name: 'Max', id: 5620590 }];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
-    let currentView = 'overview';
+    let currentView = 'cal';
     let lightboxItems = [], lightboxIdx = 0;
 
     async function initConfig() {
@@ -345,7 +345,7 @@
       return fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
     }
 
-    const VIEWS = ['overview', 'cal', 'gallery', 'msg'];
+    const VIEWS = ['cal', 'overview', 'gallery', 'msg'];
     // ── View switching ──
     function switchView(view) {
       currentView = view;

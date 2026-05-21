@@ -528,6 +528,7 @@
         CHILDREN = cfg.children || [];
         INST_PROFILE_IDS = cfg.inst_profile_ids || [];
         CHILDREN.forEach(c => { c._photoUrl = c.photoUrl; });
+        try{localStorage.setItem('ls_children',JSON.stringify(CHILDREN));localStorage.setItem('ls_inst_ids',JSON.stringify(INST_PROFILE_IDS));}catch(e){}
         document.getElementById('child-tabs').innerHTML = [
           ...CHILDREN.map((c, i) =>
             `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">
@@ -639,6 +640,8 @@
         apiFetch(`/api/important-dates?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => []),
         apiFetch(`/api/birthdays?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => []),
       ]);
+      try{localStorage.setItem('ls_dates',JSON.stringify(datesData));}catch(e){}
+      try{localStorage.setItem('ls_bdays',JSON.stringify(bdayData));}catch(e){}
       renderOverviewEvents(datesData, bdayData);
       renderOverviewPosts(postsData.posts || []);
     }
@@ -694,7 +697,7 @@
             <div class="post-preview">${preview}</div>
           </div></div>`;
       }).join('');
-      window._cachedPosts = posts;
+      window._cachedPosts = posts; try{localStorage.setItem('ls_posts',JSON.stringify(posts));}catch(e){}
       renderSidebarOverview();
       if (currentView !== 'overview') updateBadges();
     }
@@ -989,7 +992,7 @@
     // ── Messages ──
     let cachedThreads = [];
     async function loadMessages() {
-      try { const res=await apiFetch('/api/messages'); if(res.status===401) return; cachedThreads=await res.json(); renderMessages('messages-cal'); updateBadges(); } catch(e) {}
+      try { const res=await apiFetch('/api/messages'); if(res.status===401) return; cachedThreads=await res.json(); try{localStorage.setItem('ls_threads',JSON.stringify(cachedThreads.slice(0,5)));}catch(e){} renderMessages('messages-cal'); updateBadges(); } catch(e) {}
     }
     function syncMessagesFull() { renderMessages('messages-full'); }
     function renderMessages(elId) {
@@ -1064,7 +1067,10 @@
       document.getElementById('msg-modal-meta').textContent='';
       document.getElementById('msg-modal-overlay').classList.add('open');
       try {
-        const data=await apiFetch(`/api/messages/${threadId}`).then(r=>r.json());
+        const cacheKey='ls_msg_'+threadId;
+        let data;
+        try { data=await apiFetch(`/api/messages/${threadId}`).then(r=>r.json()); try{localStorage.setItem(cacheKey,JSON.stringify(data));}catch(e){} }
+        catch(ex) { try{const c=localStorage.getItem(cacheKey);if(c)data=JSON.parse(c);}catch(e){} if(!data){document.getElementById('msg-modal-body').textContent='Kan ikke hente besked (offline)';return;} }
         const msgs=(data.messages||[]).filter(m=>m.messageType==='Message'||m.text);
         if (!msgs.length) { document.getElementById('msg-modal-body').textContent='Ingen indhold'; return; }
         document.getElementById('msg-modal-meta').textContent=`${msgs.length} besked${msgs.length!==1?'er':''} i tråden`;
@@ -1119,7 +1125,7 @@
     // ── Data loaders ──
     async function loadCalendar() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
-      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); renderWeek(); renderTodayWidget(); } catch(e) {}
+      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); try{localStorage.setItem('ls_events',JSON.stringify(allEvents));}catch(e){} renderWeek(); renderTodayWidget(); } catch(e) {}
     }
     async function loadPresence() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
@@ -1127,6 +1133,7 @@
         const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
         if(res.status!==200) return; presenceData={};
         for (const t of await res.json()) presenceData[t.institutionProfile.id]=t.dayTemplates||[];
+        try{localStorage.setItem('ls_presence',JSON.stringify(presenceData));}catch(e){}
         renderWeek(); renderTodayWidget();
       } catch(e) {}
     }
@@ -1142,8 +1149,17 @@
         loadCalendar(); loadPresence(); loadMessages(); loadOverview(); loadGoogleCalendar(); loadWeather(); loadRoutes();
         schedulePoll(5*60*1000);
       } else {
-        // Session expired — keep existing data, only refresh non-Aula sources
         sessionWasExpired = true;
+        // Restore cached Aula data from localStorage
+        try{const c=localStorage.getItem('ls_children');if(c){CHILDREN=JSON.parse(c);INST_PROFILE_IDS=JSON.parse(localStorage.getItem('ls_inst_ids')||'[]');
+          document.getElementById('child-tabs').innerHTML=[...CHILDREN.map((c,i)=>`<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">${c.photoUrl?`<img src="${c.photoUrl}" alt="${c.name}" onerror="this.style.display='none'">`:''}${c.name}</div>`),
+          ...GOOGLE_TABS.map((g,i)=>`<div class="tab" onclick="switchGoogleTab(${i})" style="border-left:3px solid ${g.color}"><span style="color:${g.color}">📅</span> ${g.name}</div>`)].join('');}}catch(e){}
+        try{const e=localStorage.getItem('ls_events');if(e){allEvents=JSON.parse(e);if(!Array.isArray(allEvents))allEvents=[];}}catch(e){}
+        try{const p=localStorage.getItem('ls_presence');if(p){presenceData=JSON.parse(p)||{};}}catch(e){}
+        try{const t=localStorage.getItem('ls_threads');if(t){cachedThreads=JSON.parse(t);if(!Array.isArray(cachedThreads))cachedThreads=[];renderMessages('messages-cal');}}catch(e){}
+        try{const p=localStorage.getItem('ls_posts');if(p){window._cachedPosts=JSON.parse(p);if(!Array.isArray(window._cachedPosts))window._cachedPosts=[];renderSidebarOverview();renderOverviewPosts(window._cachedPosts);}}catch(e){}
+        try{const d=localStorage.getItem('ls_dates');const b=localStorage.getItem('ls_bdays');if(d||b){renderOverviewEvents(d?JSON.parse(d):[],b?JSON.parse(b):[]);}}catch(e){}
+        if(CHILDREN.length){renderWeek();renderTodayWidget();}
         loadGoogleCalendar(); loadWeather(); loadRoutes();
       }
       schedulePoll(5*60*1000);

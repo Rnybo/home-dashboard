@@ -17,12 +17,12 @@
       background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0; }
     header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; }
     header #clock { font-size: 0.95rem; color: #cce4f7; }
-    #session-banner { display: none; background: #d9534f; border-radius: var(--radius);
-      padding: 10px 16px; font-size: 0.85rem; user-select: none;
-      color: #fff; flex-shrink: 0; min-height: 44px; }
-    .login-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5);
-      color: #fff; border-radius: 6px; padding: 5px 14px; font-size: 0.85rem; font-weight: 600;
-      cursor: pointer; margin-top: 6px; margin-right: 6px; display: inline-block; }
+    #session-banner { display: none; background: rgba(0,0,0,0.12); border-radius: var(--radius);
+      padding: 4px 12px; font-size: 0.75rem; user-select: none;
+      color: rgba(255,255,255,0.85); flex-shrink: 0; text-align: right; }
+    .login-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+      color: #fff; border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; margin-left: 8px; display: inline-block; vertical-align: middle; }
     .login-btn:hover { background: rgba(255,255,255,0.35); }
 
     /* ── Nav tabs (top) ── */
@@ -35,6 +35,10 @@
       border-radius: 50%; width: 18px; height: 18px; font-size: 0.65rem; font-weight: 700;
       display: flex; align-items: center; justify-content: center; pointer-events: none; }
     .bottom-nav button { position: relative; }
+    .aula-dd-item { padding: 9px 16px; font-size: 0.85rem; font-weight: 600; color: var(--blue);
+      cursor: pointer; white-space: nowrap; }
+    .aula-dd-item:hover { background: var(--blue-light); }
+    .aula-dd-item.active { background: var(--blue); color: #fff; }
 
     /* ── Views ── */
     .view { display: none; flex: 1; min-height: 0; gap: 10px; }
@@ -113,7 +117,20 @@
     .event-title { flex: 1; font-weight: 600; color: #333; }
     .event-sub { font-size: 0.72rem; color: #999; }
 
-    /* Post modal */
+    /* ── Today widget ── */
+    #today-widget { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+    .today-card { background: #fff; border-radius: var(--radius); padding: 10px 12px;
+      border: 1px solid var(--border); flex: 1; min-width: 140px; }
+    .today-card .tc-name { font-size: 0.7rem; font-weight: 700; color: #999;
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+    .today-card .tc-row { display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; color: #444; margin-bottom: 4px; }
+    .today-card .tc-row:last-child { margin-bottom: 0; }
+    .today-card .tc-time { font-weight: 700; color: #222; min-width: 38px; }
+    .today-card .tc-label { color: #888; font-size: 0.72rem; }
+    .today-card .tc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Post modal */
     #post-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: flex-start; justify-content: center; padding: 16px; overflow-y: auto; }
     #post-modal-overlay.open { display: flex; }
     #post-modal { background: #fff; border-radius: 12px; padding: 20px; width: 100%; max-width: 680px; margin: auto; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
@@ -238,19 +255,29 @@
 <body>
   <header>
     <h1>🏠 C.F. Aagaards Vej 4, 8270 Højbjerg</h1>
-    <div id="clock"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="session-banner">
+        ⚠️ Aula offline — <span id="banner-msg">session udløbet</span>
+        <span id="login-btns"></span>
+      </div>
+      <div id="clock"></div>
+    </div>
   </header>
-  <div id="session-banner">
-    <b>⚠️ Session udløbet</b> — <span id="banner-msg">Logger ind...</span>
-    <div id="login-btns"></div>
-  </div>
+
+  <div id="today-widget"></div>
 
   <!-- Top nav (desktop/tablet) -->
   <div class="top-nav">
     <div class="top-nav-btn active" onclick="switchView('cal')">📅 Kalender</div>
-    <div class="top-nav-btn" onclick="switchView('overview')">🏠 Overblik</div>
-    <div class="top-nav-btn" onclick="switchView('gallery')">🖼️ Galleri</div>
-    <div class="top-nav-btn" onclick="switchView('msg')">📬 Beskeder</div>
+    <div class="top-nav-btn" onclick="toggleAulaMenu(event)" id="aula-nav-btn">📚 Aula ▾
+      <div id="aula-dropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;
+        background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
+        z-index:50;min-width:140px;overflow:hidden">
+        <div class="aula-dd-item" onclick="switchAulaView('overview');event.stopPropagation()">🏠 Overblik</div>
+        <div class="aula-dd-item" onclick="switchAulaView('gallery');event.stopPropagation()">🖼️ Galleri</div>
+        <div class="aula-dd-item" onclick="switchAulaView('msg');event.stopPropagation()">📬 Beskeder</div>
+      </div>
+    </div>
   </div>
 
   <!-- Overview view -->
@@ -375,16 +402,41 @@
     }
     function getChildIds() { return CHILDREN.map(c => c.id).join(','); }
 
+    const AULA_VIEWS = ['overview', 'gallery', 'msg'];
     const VIEWS = ['cal', 'overview', 'gallery', 'msg'];
+
+    function toggleAulaMenu(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('aula-dropdown');
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    }
+    function switchAulaView(view) {
+      document.getElementById('aula-dropdown').style.display = 'none';
+      switchView(view);
+    }
+    document.addEventListener('click', () => {
+      const dd = document.getElementById('aula-dropdown');
+      if (dd) dd.style.display = 'none';
+    });
+
     function switchView(view) {
       currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-' + view).classList.add('active');
-      document.querySelectorAll('.top-nav-btn').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
+      // Top nav — Kalender or Aula active
+      const calBtn = document.querySelector('.top-nav-btn:first-child');
+      const aulaBtn = document.getElementById('aula-nav-btn');
+      if (calBtn) calBtn.classList.toggle('active', view === 'cal');
+      if (aulaBtn) aulaBtn.classList.toggle('active', AULA_VIEWS.includes(view));
+      // Dropdown items active state
+      document.querySelectorAll('.aula-dd-item').forEach(item => {
+        const v = item.getAttribute('onclick').match(/'(\w+)'/)?.[1];
+        item.classList.toggle('active', v === view);
+      });
+      // Bottom nav
       document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();
       if (view === 'msg') syncMessagesFull();
-      // Clear badges when visiting a view
       setBadge(view, 0);
       setSeen(view, Date.now());
     }
@@ -412,6 +464,49 @@
     function pct(min) { return ((min - START_H*60) / (HOURS*60)) * 100; }
 
     let googleEvents = [];
+    let weatherData = [];
+    let routeData = [];
+    const ROUTE_MODE_LABELS = {'cycling-regular':'🚴','foot-walking':'🚶','driving-car':'🚗'};
+    let routeModes = {};
+
+    async function loadRoutes() {
+      try {
+        routeData = await apiFetch('/api/routes').then(r => r.json());
+        routeData.forEach(d => { if (!routeModes[d.name]) routeModes[d.name] = d.default; });
+        renderTodayWidget();
+      } catch(e) { routeData = []; }
+    }
+    function cycleRouteMode(name) {
+      const modes = ['cycling-regular','foot-walking','driving-car'];
+      const cur = routeModes[name] || modes[0];
+      routeModes[name] = modes[(modes.indexOf(cur)+1) % modes.length];
+      renderTodayWidget();
+    }
+
+    // Met.no symbol → emoji mapping
+    const WEATHER_ICONS = {
+      clearsky: '☀️', fair: '🌤️', partlycloudy: '⛅', cloudy: '☁️',
+      rainshowers: '🌦️', rainshowersandthunder: '⛈️', sleetshowers: '🌨️',
+      snowshowers: '❄️', rain: '🌧️', heavyrain: '🌧️', lightrainshowersandthunder: '⛈️',
+      rainandthunder: '⛈️', sleet: '🌨️', snow: '❄️', snowandthunder: '❄️',
+      fog: '🌫️', lightrain: '🌦️', lightrainshowers: '🌦️',
+    };
+    function weatherIcon(symbol) {
+      if (!symbol) return '';
+      const key = symbol.replace(/_day|_night|_polartwilight/g, '').replace(/_/g,'').toLowerCase();
+      for (const [k, v] of Object.entries(WEATHER_ICONS)) if (key.startsWith(k)) return v;
+      return '🌡️';
+    }
+    function windArrow(deg) {
+      // Arrow points in the direction wind is blowing TO (opposite of from)
+      const arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
+      return arrows[Math.round(((deg + 180) % 360) / 45) % 8];
+    }
+
+    async function loadWeather() {
+      try { weatherData = await apiFetch('/api/weather').then(r => r.json()); renderWeek(); }
+      catch(e) { weatherData = []; }
+    }
 
     async function loadGoogleCalendar() {
       const days = getWeekDays();
@@ -425,6 +520,7 @@
       } catch(e) { googleEvents = []; }
       renderWeek();
       renderUpcomingGoogleEvents();
+      renderTodayWidget();
     }
     async function loadProfileConfig() {
       try {
@@ -463,6 +559,77 @@
       renderWeek();
     }
     function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); loadGoogleCalendar(); }
+
+    // ── Today widget ──
+    function renderTodayWidget() {
+      const el = document.getElementById('today-widget');
+      if (!el || !CHILDREN.length) return;
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      let html = '';
+      CHILDREN.forEach(child => {
+        const tpl = (presenceData[child.id]||[]).find(t => t.byDate===todayStr);
+        const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles||[]).includes(child.id) && isSameDay(new Date(e.startDateTime),today));
+        let rows = '';
+        if (tpl?.isOnVacation) {
+          rows += `<div class="tc-row"><span style="font-size:.9rem">🏖️</span><span class="tc-label">Ferie/fri</span></div>`;
+        } else {
+          if (tpl?.entryTime) rows += `<div class="tc-row"><span style="font-size:.9rem">🧒🎒</span><span class="tc-time">${tpl.entryTime.substring(0,5)}</span><span class="tc-label">aflevering</span></div>`;
+          if (tpl?.exitTime) rows += `<div class="tc-row"><span style="font-size:.9rem">🏠</span><span class="tc-time">${tpl.exitTime.substring(0,5)}</span><span class="tc-label">${tpl.exitWith?'hentes af '+tpl.exitWith:'hentning'}</span></div>`;
+        }
+        dayEvents.filter(e => !e.isAllDayEvent).slice(0,2).forEach(e => {
+          const t = new Date(e.startDateTime).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+          rows += `<div class="tc-row"><span style="font-size:.9rem">📌</span><span class="tc-time">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${e.title||''}</span></div>`;
+        });
+        if (!rows) rows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen data</span></div>`;
+        html += `<div class="today-card"><div class="tc-name">${child.name}</div>${rows}</div>`;
+      });
+      const todayGoogle = googleEvents.filter(e => isSameDay(e.allDay?new Date(e.start+'T00:00:00'):new Date(e.start), today));
+      let famRows = todayGoogle.slice(0,4).map(e => {
+        const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+        return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${e.title}</span></div>`;
+      }).join('');
+      if (!famRows) famRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
+      html += `<div class="today-card"><div class="tc-name">Familien</div>${famRows}</div>`;
+
+      // Route cards — only on weekdays
+      const isWeekday = today.getDay() >= 1 && today.getDay() <= 5;
+      if (isWeekday && routeData.length) {
+        // Maja + Rasmus destinations in Familien card extension — add to familien card
+        const adultRoutes = routeData.filter(d => d.name !== 'Kragelundskolen');
+        const kidRoutes = routeData.filter(d => d.name === 'Kragelundskolen');
+
+        // Add adult routes to Familien card (replace it)
+        let famRouteRows = todayGoogle.slice(0,2).map(e => {
+          const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+          return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${e.title}</span></div>`;
+        }).join('');
+        adultRoutes.forEach(dest => {
+          const m = dest.modes[dest.default];
+          const person = dest.name === 'Systematic' ? 'Rasmus' : dest.name === 'Skejby Sygehus' ? 'Maja' : dest.name;
+          if (m) famRouteRows += `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[dest.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${m.distance}km · ${person} → ${dest.name}</span></div>`;
+        });
+        if (!famRouteRows) famRouteRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
+
+        // Replace familien card with extended version
+        html = html.replace(`<div class="today-card"><div class="tc-name">Familien</div>${famRows}</div>`,
+          `<div class="today-card"><div class="tc-name">Familien</div>${famRouteRows}</div>`);
+
+        // Add kid route to each child card
+        if (kidRoutes.length) {
+          const kidRoute = kidRoutes[0];
+          const m = kidRoute.modes[kidRoute.default];
+          if (m) {
+            const kidRow = `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[kidRoute.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${kidRoute.name}</span></div>`;
+            // Append to each child card by rebuilding
+            html = html.replace(/(<div class="today-card"><div class="tc-name">(Aksel|Max)<\/div>)([\s\S]*?)(<\/div>)(?=\s*<div class="today-card">|<div id="today-widget"|$)/g,
+              (match, p1, name, content, p4) => p1 + content + kidRow + p4);
+          }
+        }
+      }
+
+      el.innerHTML = html;
+    }
 
     // ── Overview ──
     async function loadOverview() {
@@ -589,7 +756,8 @@
               if (!e.allDay) return false;
               const start = new Date(e.start + 'T00:00:00');
               const end = new Date(e.end + 'T00:00:00');
-              return day >= start && day < end;
+              const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+              return dayStart >= start && dayStart < end;
             })
           : allEvents.filter(e => {
               if (!e.isAllDayEvent && !(e.endDateTime && (new Date(e.endDateTime) - new Date(e.startDateTime)) >= 23*3600000)) return false;
@@ -604,8 +772,25 @@
             padding:1px 5px;margin-top:2px;white-space:nowrap;
             overflow:hidden;text-overflow:ellipsis;max-width:100%">${title}</div>`;
         }).join('');
+        // Weather — header strip (same style for all days)
+        let weatherStrip = '';
+        if (weatherData.length) {
+          const dayHours = weatherData.filter(w => isSameDay(new Date(w.time), day));
+          if (dayHours.length) {
+            const midday = dayHours.find(w => new Date(w.time).getHours() === 12) || dayHours[Math.floor(dayHours.length/2)];
+            const minT = Math.round(Math.min(...dayHours.map(w => w.temp)));
+            const maxT = Math.round(Math.max(...dayHours.map(w => w.temp)));
+            const avgWind = Math.round(dayHours.reduce((s,w) => s+w.wind, 0) / dayHours.length * 10) / 10;
+            const midWind = midday.wind_dir !== undefined ? windArrow(midday.wind_dir) : '';
+            weatherStrip = `<div style="font-size:0.62rem;color:#555;margin-top:3px;text-align:center;line-height:1.4">
+              ${weatherIcon(midday.symbol)} ${maxT}° <span style="color:#999">(${minT}°)</span><br>
+              <span style="color:#888">${midWind}${avgWind}m/s</span>
+            </div>`;
+          }
+        }
         html += `<div class="day-header ${isToday?'today':''} ${(day.getDay()===0||day.getDay()===6)?'weekend':''}" style="min-height:48px">
           ${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span>
+          ${weatherStrip}
           <div style="line-height:1.2">${allDayBadges}</div>
         </div>`;
       });
@@ -622,8 +807,22 @@
           if (h<END_H) html += `<div class="hour-line" style="top:${(h-START_H)*hourH+hourH/2}px;border-top-style:dashed;opacity:.5"></div>`;
         }
 
+        // Weather — hour-by-hour for today in timetable
+        if (isToday && weatherData.length) {
+          const todayHours = weatherData.filter(w => isSameDay(new Date(w.time), day));
+          todayHours.forEach(w => {
+            const h = new Date(w.time).getHours();
+            if (h < START_H || h >= END_H) return;
+            const icon = weatherIcon(w.symbol);
+            if (!icon) return;
+            const bottom = 100 - pct((h + 1) * 60);
+            html += `<div style="position:absolute;bottom:${bottom}%;right:1px;font-size:0.58rem;color:#aaa;
+              pointer-events:none;z-index:1;white-space:nowrap;line-height:1.2;text-align:right">
+              ${icon}${w.temp}° ${windArrow(w.wind_dir)}${w.wind}</div>`;
+          });
+        }
+
         if (gTab) {
-          // ── Google Calendar tab ──
           const filtered = googleEvents.filter(e => {
             const d = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
             if (!isSameDay(d, day)) return false;
@@ -750,11 +949,35 @@
     function setSeen(key, val) { const s=getSeen(); s[key]=val; localStorage.setItem(SEEN_KEY, JSON.stringify(s)); }
     function setBadge(viewId, count) {
       const idx = VIEWS.indexOf(viewId);
-      [document.querySelectorAll('.top-nav-btn'), document.querySelectorAll('.bottom-nav button')].forEach(btns => {
-        if (!btns[idx]) return;
-        btns[idx].querySelector('.badge')?.remove();
-        if (count > 0) { const b=document.createElement('span'); b.className='badge'; b.textContent=count>9?'9+':count; btns[idx].appendChild(b); }
-      });
+      // Bottom nav badge
+      const botBtns = document.querySelectorAll('.bottom-nav button');
+      if (botBtns[idx]) {
+        botBtns[idx].querySelector('.badge')?.remove();
+        if (count > 0) { const b=document.createElement('span'); b.className='badge'; b.textContent=count>9?'9+':count; botBtns[idx].appendChild(b); }
+      }
+      // Top nav — Aula button gets combined badge for overview+gallery+msg
+      if (AULA_VIEWS.includes(viewId)) {
+        const aulaBtn = document.getElementById('aula-nav-btn');
+        if (!aulaBtn) return;
+        // Store count per view
+        if (!aulaBtn._badges) aulaBtn._badges = {};
+        if (count === 0) delete aulaBtn._badges[viewId];
+        else aulaBtn._badges[viewId] = count;
+        const total = Object.values(aulaBtn._badges).reduce((a,b) => a+b, 0);
+        aulaBtn.querySelector('.badge')?.remove();
+        if (total > 0) { const b=document.createElement('span'); b.className='badge'; b.textContent=total>9?'9+':total; aulaBtn.appendChild(b); }
+        // Update dropdown item dot indicators
+        document.querySelectorAll('.aula-dd-item').forEach(item => {
+          const v = item.getAttribute('onclick').match(/'(\w+)'/)?.[1];
+          item.querySelector('.dd-badge')?.remove();
+          if (v && aulaBtn._badges?.[v] > 0) {
+            const dot = document.createElement('span');
+            dot.className = 'dd-badge';
+            dot.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;background:#e53935;margin-left:6px;vertical-align:middle;flex-shrink:0';
+            item.appendChild(dot);
+          }
+        });
+      }
     }
     function updateBadges() {
       const seen = getSeen();
@@ -861,19 +1084,21 @@
       if (loginAccounts.length<=1) {
         document.getElementById('session-banner').style.cursor='pointer';
         document.getElementById('session-banner').onclick=()=>startLogin(0);
-        document.getElementById('banner-msg').textContent='Klik for at logge ind automatisk';
+        document.getElementById('banner-msg').textContent='klik for at logge ind igen';
         btns.innerHTML='';
       } else {
         document.getElementById('session-banner').style.cursor='default';
         document.getElementById('session-banner').onclick=null;
-        document.getElementById('banner-msg').textContent='Vælg konto:';
-        btns.innerHTML=loginAccounts.map(a=>`<button class="login-btn" onclick="startLogin(${a.index})">Log ind som ${a.name}</button>`).join('');
+        document.getElementById('banner-msg').textContent='';
+        btns.innerHTML=loginAccounts.map(a=>`<button class="login-btn" onclick="startLogin(${a.index})">Login ${a.name}</button>`).join('');
       }
     }
     async function startLogin(accountIndex=0) {
-      const msg=document.getElementById('banner-msg'); document.getElementById('login-btns').innerHTML=''; msg.textContent='Starter login...';
-      try { await apiFetch(`/api/login/start?account_index=${accountIndex}`,{method:'POST'}); msg.textContent='📱 Godkend i MitID-appen...'; pollLoginStatus(); }
-      catch(e) { msg.textContent='Fejl: '+e.message; loadLoginAccounts(); }
+      const msg=document.getElementById('banner-msg');
+      document.getElementById('login-btns').innerHTML='';
+      msg.textContent='starter login...';
+      try { await apiFetch(`/api/login/start?account_index=${accountIndex}`,{method:'POST'}); msg.textContent='godkend i MitID-appen...'; pollLoginStatus(); }
+      catch(e) { msg.textContent='fejl: '+e.message; loadLoginAccounts(); }
     }
     function pollLoginStatus() {
       clearInterval(loginPolling);
@@ -886,7 +1111,7 @@
     }
     async function checkSession() {
       const data=await apiFetch('/api/status').then(r=>r.json()), expired=!data.session_valid;
-      document.getElementById('session-banner').style.display=expired?'block':'none';
+      document.getElementById('session-banner').style.display=expired?'inline-flex':'none';
       if (expired) loadLoginAccounts();
       return data.session_valid;
     }
@@ -894,7 +1119,7 @@
     // ── Data loaders ──
     async function loadCalendar() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
-      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); renderWeek(); } catch(e) {}
+      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); renderWeek(); renderTodayWidget(); } catch(e) {}
     }
     async function loadPresence() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
@@ -902,7 +1127,7 @@
         const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
         if(res.status!==200) return; presenceData={};
         for (const t of await res.json()) presenceData[t.institutionProfile.id]=t.dayTemplates||[];
-        renderWeek();
+        renderWeek(); renderTodayWidget();
       } catch(e) {}
     }
 
@@ -914,9 +1139,14 @@
       if (valid) {
         if (sessionWasExpired) { window.location.reload(); return; }
         await loadProfileConfig();
-        loadCalendar(); loadPresence(); loadMessages(); loadOverview(); loadGoogleCalendar();
+        loadCalendar(); loadPresence(); loadMessages(); loadOverview(); loadGoogleCalendar(); loadWeather(); loadRoutes();
         schedulePoll(5*60*1000);
-      } else { sessionWasExpired=true; schedulePoll(10*1000); }
+      } else {
+        // Session expired — keep existing data, only refresh non-Aula sources
+        sessionWasExpired = true;
+        loadGoogleCalendar(); loadWeather(); loadRoutes();
+      }
+      schedulePoll(5*60*1000);
     }
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
     setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);

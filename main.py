@@ -218,6 +218,93 @@ def google_calendar(from_date: str = "", to_date: str = ""):
     return events
 
 
+@app.get("/api/routes", dependencies=[Depends(check_api_key)])
+def routes():
+    import requests as req
+    api_key = os.getenv("ORS_API_KEY", "")
+    if not api_key or api_key == "din-api-nøgle-her":
+        raise HTTPException(status_code=503, detail="ORS_API_KEY not configured")
+    origin_lat = float(os.getenv("ORS_ORIGIN_LAT", "56.1147"))
+    origin_lon = float(os.getenv("ORS_ORIGIN_LON", "10.2089"))
+    destinations = []
+    for i in range(1, 6):
+        name = os.getenv(f"ORS_DEST_{i}_NAME", "")
+        if not name: break
+        destinations.append({
+            "name": name,
+            "lat": float(os.getenv(f"ORS_DEST_{i}_LAT", "0")),
+            "lon": float(os.getenv(f"ORS_DEST_{i}_LON", "0")),
+            "default": os.getenv(f"ORS_DEST_{i}_DEFAULT", "cycling-regular"),
+        })
+    profiles = ["cycling-regular", "foot-walking", "driving-car"]
+    profile_labels = {"cycling-regular": "🚴", "foot-walking": "🚶", "driving-car": "🚗"}
+    result = []
+    for dest in destinations:
+        dest_result = {"name": dest["name"], "default": dest["default"], "modes": {}}
+        for profile in profiles:
+            try:
+                r = req.post(
+                    f"https://api.openrouteservice.org/v2/directions/{profile}",
+                    headers={"Authorization": api_key, "Content-Type": "application/json"},
+                    json={"coordinates": [[origin_lon, origin_lat], [dest["lon"], dest["lat"]]]},
+                    timeout=6
+                )
+                r.raise_for_status()
+                seg = r.json()["routes"][0]["summary"]
+                dest_result["modes"][profile] = {
+                    "label": profile_labels[profile],
+                    "duration": int(seg["duration"] / 60),  # minutes
+                    "distance": round(seg["distance"] / 1000, 1),  # km
+                }
+            except Exception as ex:
+                logging.warning(f"ORS {profile} to {dest['name']}: {ex}")
+        result.append(dest_result)
+    return result
+
+
+
+@app.get("/api/weather", dependencies=[Depends(check_api_key)])
+def weather():
+    import requests as req, datetime
+    lat = os.getenv("WEATHER_LAT", "56.127")
+    lon = os.getenv("WEATHER_LON", "10.178")
+    try:
+        r = req.get(
+            f"https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={lat}&lon={lon}",
+            headers={"User-Agent": "aula-dashboard/1.0 github.com/Rnybo/aula-dashboard"},
+            timeout=8
+        )
+        r.raise_for_status()
+        series = r.json()["properties"]["timeseries"]
+        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+        result = []
+        seen_hours = set()
+        for entry in series:
+            t = datetime.datetime.fromisoformat(entry["time"])
+            hour = t.replace(minute=0, second=0, microsecond=0)
+            if hour < now - datetime.timedelta(minutes=30): continue
+            if hour in seen_hours: continue
+            seen_hours.add(hour)
+            instant = entry["data"]["instant"]["details"]
+            next1h = entry["data"].get("next_1_hours", {})
+            next6h = entry["data"].get("next_6_hours", {})
+            result.append({
+                "time": hour.isoformat(),
+                "temp": round(instant.get("air_temperature", 0)),
+                "wind": round(instant.get("wind_speed", 0), 1),
+                "wind_dir": round(instant.get("wind_from_direction", 0)),
+                "symbol": next1h.get("summary", {}).get("symbol_code", "")
+                          or next6h.get("summary", {}).get("symbol_code", ""),
+                "precip": next1h.get("details", {}).get("precipitation_amount", 0)
+                          or next6h.get("details", {}).get("precipitation_amount", 0),
+            })
+            if len(result) >= 168: break  # 7 days × 24h
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @app.get("/api/gallery/albums", dependencies=[Depends(check_api_key)])
 def gallery_albums(inst_profile_ids: str = ""):
     ids = [int(i) for i in inst_profile_ids.split(",") if i]

@@ -91,10 +91,29 @@ class AulaPlaywright:
         logger.info(f"Starting Playwright login with account {idx}: '{mitid_username}'")
         try:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(
+                # Find Chromium executable — prefer system Chromium on Android/Termux
+                chromium_paths = [
+                    os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
+                    "/data/data/com.termux/files/usr/bin/chromium-browser",
+                    "/data/data/com.termux/files/usr/bin/chromium",
+                    "/usr/bin/chromium-browser",
+                    "/usr/bin/chromium",
+                ]
+                executable_path = None
+                for path in chromium_paths:
+                    if path and os.path.exists(path):
+                        logger.info(f"Using system Chromium: {path}")
+                        executable_path = path
+                        break
+
+                launch_kwargs = dict(
                     headless=True,
                     args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
                 )
+                if executable_path:
+                    launch_kwargs["executable_path"] = executable_path
+
+                browser = await p.chromium.launch(**launch_kwargs)
                 context = await browser.new_context(
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
                     viewport={"width": 1280, "height": 900}

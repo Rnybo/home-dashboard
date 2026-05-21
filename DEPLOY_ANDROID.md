@@ -38,15 +38,19 @@ cd aula-dashboard
 # Installer Python dependencies
 pip install -r requirements.txt
 
-# Installer Playwright Chromium browser
+# Installer system Chromium (anbefalet på Android/Termux)
+pkg install chromium
+
+# Alternativt: Playwright's egen Chromium (virker måske ikke på arm64)
 playwright install chromium
 ```
 
-Hvis `pip` ikke findes:
-```bash
-pkg install python
-pip install -r requirements.txt
-```
+> **Bemærk:** På Android/Termux bruges system-Chromium automatisk hvis den findes.
+> Serveren søger selv efter Chromium på følgende steder (i prioriteret rækkefølge):
+> 1. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` miljøvariabel
+> 2. `/data/data/com.termux/files/usr/bin/chromium-browser`
+> 3. `/usr/bin/chromium-browser`
+> 4. Playwright's medfølgende Chromium (fallback)
 
 ## Trin 4 — Konfigurer .env
 

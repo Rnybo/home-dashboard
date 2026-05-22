@@ -1125,7 +1125,7 @@
     // ── Data loaders ──
     async function loadCalendar() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
-      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401) return; allEvents=await res.json(); try{localStorage.setItem('ls_events',JSON.stringify(allEvents));}catch(e){} renderWeek(); renderTodayWidget(); } catch(e) {}
+      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401){try{const c=localStorage.getItem('ls_events');if(c){allEvents=JSON.parse(c);if(!Array.isArray(allEvents))allEvents=[];renderWeek();renderTodayWidget();}}catch(e){} return;} allEvents=await res.json(); try{localStorage.setItem('ls_events',JSON.stringify(allEvents));}catch(e){} renderWeek(); renderTodayWidget(); } catch(e) {}
     }
     async function loadPresence() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];

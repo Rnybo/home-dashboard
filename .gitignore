@@ -6,3 +6,5 @@ venv312/
 venv/
 debug_*.png
 debug_screenshots/
+tablet_key
+tablet_key.pub

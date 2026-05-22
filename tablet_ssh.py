@@ -13,8 +13,8 @@ def ssh_run(cmd: str, timeout: int = 180) -> str:
     c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     c.connect(TABLET_IP, port=TABLET_PORT, username=TABLET_USER, pkey=key, timeout=10)
     _, out, err = c.exec_command(cmd, timeout=timeout)
-    stdout = out.read().decode()
-    stderr = err.read().decode()
+    stdout = out.read().decode('utf-8', errors='replace')
+    stderr = err.read().decode('utf-8', errors='replace')
     c.close()
     return stdout + (f"\nSTDERR: {stderr}" if stderr.strip() else "")
 

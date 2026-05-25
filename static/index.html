@@ -1213,7 +1213,7 @@
 
     async function loadLoginAccounts() {
       try { loginAccounts = await apiFetch('/api/login/accounts').then(r => r.json()); } catch(e) { loginAccounts = []; }
-      renderAccountDropdown();
+      // Don't call renderAccountDropdown here — let checkSession control state
     }
 
     function renderAccountDropdown(sessionExpired = false) {
@@ -1271,9 +1271,8 @@
     async function checkSession() {
       const data = await apiFetch('/api/status').then(r => r.json());
       const expired = !data.session_valid;
-      if (!loginAccounts.length) await loadLoginAccounts();
+      await loadLoginAccounts();
       renderAccountDropdown(expired);
-      if (expired) await loadLoginAccounts();
       return data.session_valid;
     }
 

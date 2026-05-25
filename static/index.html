@@ -235,6 +235,36 @@
     .bottom-nav button span.icon { font-size: 1.2rem; }
 
     @media (min-width: 900px) { body { max-width: 1500px; margin: 0 auto; } }
+
+    /* ── Spotify overlay ── */
+    #spotify-overlay { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 300; background: #121212; color: #fff; border-radius: 14px; padding: 10px 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5); min-width: 280px; max-width: 420px;
+      display: none; align-items: center; gap: 12px; }
+    #spotify-overlay.visible { display: flex; }
+    #sp-art { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: #333; }
+    #sp-info { flex: 1; min-width: 0; }
+    #sp-track { font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #sp-artist { font-size: 0.72rem; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #sp-device { font-size: 0.65rem; color: #1db954; margin-top: 1px; }
+    .sp-btn { background: none; border: none; color: #fff; font-size: 1.1rem; cursor: pointer;
+      padding: 4px 6px; border-radius: 6px; line-height: 1; flex-shrink: 0; }
+    .sp-btn:hover { background: rgba(255,255,255,0.1); }
+    .sp-btn.open { font-size: 0.72rem; color: #1db954; border: 1px solid #1db954;
+      padding: 3px 8px; border-radius: 20px; }
+    #sp-progress-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+      background: #333; border-radius: 0 0 14px 14px; overflow: hidden; pointer-events: none; }
+    #sp-progress-fill { height: 100%; background: #1db954; transition: width 1s linear; }
+
+    /* ── Home/Spotify view ── */
+    #view-home { flex-direction: column; gap: 10px; }
+    #spotify-frame { flex: 1; border-radius: var(--radius); overflow: hidden;
+      border: 1px solid var(--border); background: #121212; min-height: 400px; }
+    #spotify-frame iframe { width: 100%; height: 100%; border: none; display: block; }
+    .sp-auth-prompt { display: flex; flex-direction: column; align-items: center;
+      justify-content: center; height: 100%; min-height: 300px; gap: 16px; color: #fff; padding: 24px; }
+    .sp-auth-btn { background: #1db954; color: #000; font-weight: 700; border: none;
+      border-radius: 24px; padding: 12px 28px; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; }
     @media (max-width: 899px) {
       #view-cal { flex-direction: column; }
       .messages-card { width: 100%; max-height: 260px; }
@@ -276,6 +306,13 @@
         <div class="aula-dd-item" onclick="switchAulaView('overview');event.stopPropagation()">🏠 Overblik</div>
         <div class="aula-dd-item" onclick="switchAulaView('gallery');event.stopPropagation()">🖼️ Galleri</div>
         <div class="aula-dd-item" onclick="switchAulaView('msg');event.stopPropagation()">📬 Beskeder</div>
+      </div>
+    </div>
+    <div class="top-nav-btn" onclick="toggleHomeMenu(event)" id="home-nav-btn">🎵 Hjemme ▾
+      <div id="home-dropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;
+        background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
+        z-index:50;min-width:140px;overflow:hidden">
+        <div class="aula-dd-item" onclick="switchHomeView('spotify');event.stopPropagation()">🟢 Spotify</div>
       </div>
     </div>
   </div>
@@ -370,6 +407,36 @@
       <div id="post-modal-body"></div>
       <div class="post-modal-attachments" id="post-modal-attachments"></div>
     </div>
+  </div>
+
+  <!-- Home / Spotify view -->
+  <div class="view" id="view-home">
+    <div id="spotify-frame">
+      <div class="sp-auth-prompt" id="sp-auth-prompt">
+        <div style="font-size:2rem">🟢</div>
+        <div style="font-size:1.1rem;font-weight:700">Spotify</div>
+        <div style="font-size:0.85rem;color:#aaa;text-align:center">Log ind for at styre Spotify fra dashboardet</div>
+        <a class="sp-auth-btn" href="/api/spotify/auth">Forbind Spotify</a>
+      </div>
+      <iframe id="sp-iframe" src="https://open.spotify.com" style="display:none"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"></iframe>
+    </div>
+  </div>
+
+  <!-- Global Spotify now-playing overlay -->
+  <div id="spotify-overlay">
+    <img id="sp-art" src="" alt="">
+    <div id="sp-info">
+      <div id="sp-track">–</div>
+      <div id="sp-artist"></div>
+      <div id="sp-device"></div>
+    </div>
+    <button class="sp-btn" onclick="spotifyControl('previous')" title="Forrige">⏮</button>
+    <button class="sp-btn" id="sp-playpause" onclick="spotifyTogglePlay()" title="Play/Pause">⏸</button>
+    <button class="sp-btn" onclick="spotifyControl('next')" title="Næste">⏭</button>
+    <button class="sp-btn open" onclick="switchHomeView('spotify')">Åbn</button>
+    <div id="sp-progress-bar"><div id="sp-progress-fill" style="width:0%"></div></div>
   </div>
 
   <!-- Lightbox -->
@@ -1164,6 +1231,88 @@
       }
       schedulePoll(5*60*1000);
     }
+    // ── Spotify ──────────────────────────────────────────────────────────────
+    const HOME_VIEWS = ['spotify'];
+    let spState = { playing: false };
+    let spWs = null;
+    let spProgressInterval = null;
+
+    function toggleHomeMenu(e) {
+      e.stopPropagation();
+      document.getElementById('aula-dropdown').style.display = 'none';
+      const dd = document.getElementById('home-dropdown');
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    }
+    function switchHomeView(sub) {
+      document.getElementById('home-dropdown').style.display = 'none';
+      document.getElementById('home-nav-btn').classList.add('active');
+      document.getElementById('aula-nav-btn').classList.remove('active');
+      document.querySelector('.top-nav-btn:first-child').classList.remove('active');
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-home').classList.add('active');
+      // Show Spotify iframe if authed
+      const tokens = spState.trackId || spState.playing;
+      document.getElementById('sp-auth-prompt').style.display = tokens ? 'none' : 'flex';
+      document.getElementById('sp-iframe').style.display = tokens ? 'block' : 'none';
+    }
+
+    function initSpotifyWs() {
+      if (spWs && spWs.readyState < 2) return;
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      spWs = new WebSocket(`${proto}://${location.host}/ws/spotify`);
+      spWs.onmessage = e => { spState = JSON.parse(e.data); renderSpotifyOverlay(); };
+      spWs.onclose = () => setTimeout(initSpotifyWs, 3000);
+    }
+
+    function renderSpotifyOverlay() {
+      const ov = document.getElementById('spotify-overlay');
+      if (!spState.playing && !spState.track) { ov.classList.remove('visible'); return; }
+      ov.classList.add('visible');
+      const art = document.getElementById('sp-art');
+      if (spState.albumArt) { art.src = spState.albumArt; art.style.display = 'block'; }
+      else art.style.display = 'none';
+      document.getElementById('sp-track').textContent = spState.track || '–';
+      document.getElementById('sp-artist').textContent = spState.artist || '';
+      document.getElementById('sp-device').textContent = spState.device ? '▶ ' + spState.device : '';
+      document.getElementById('sp-playpause').textContent = spState.playing ? '⏸' : '▶';
+      updateSpProgress();
+    }
+
+    function updateSpProgress() {
+      clearInterval(spProgressInterval);
+      if (!spState.duration) return;
+      const fill = document.getElementById('sp-progress-fill');
+      let prog = spState.progress || 0;
+      fill.style.width = (prog / spState.duration * 100) + '%';
+      if (spState.playing) {
+        spProgressInterval = setInterval(() => {
+          prog = Math.min(prog + 1000, spState.duration);
+          fill.style.width = (prog / spState.duration * 100) + '%';
+        }, 1000);
+      }
+    }
+
+    async function spotifyControl(action) {
+      await fetch(`/api/spotify/${action}`, { method: 'POST', headers: { 'x-api-key': API_KEY } });
+    }
+    async function spotifyTogglePlay() {
+      await spotifyControl(spState.playing ? 'pause' : 'play');
+    }
+
+    // Close home dropdown on outside click
+    document.addEventListener('click', () => {
+      const dd = document.getElementById('home-dropdown');
+      if (dd) dd.style.display = 'none';
+    });
+
+    // Check if we just came back from Spotify auth
+    if (new URLSearchParams(location.search).get('spotify') === 'connected') {
+      history.replaceState(null, '', '/');
+      switchHomeView('spotify');
+    }
+
+    initSpotifyWs();
+
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
     setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
     loadAll();

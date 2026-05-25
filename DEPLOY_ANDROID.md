@@ -310,3 +310,88 @@ Eller slå "Clear cache on reload" til permanent.
 
 ### Session udløber meget ofte
 Det skyldes at der logges ind fra flere steder (browser + Playwright). Brug kun én login-metode og log ikke ind manuelt på aula.dk mens dashboard kører.
+
+---
+
+## Del 6 — mDNS: Tilgå dashboardet via navn (familiekalender.local)
+
+I stedet for at huske tablet-IP (`192.168.86.250:8000`) kan du tilgå dashboardet og ICS-feeden via et fast navn på dit netværk:
+
+```
+http://familiekalender.local:8000
+http://familiekalender.local:8000/api/custom-events.ics
+```
+
+Virker automatisk på **iPhone, iPad, Mac, Windows og Android** via mDNS — ingen router-opsætning nødvendig.
+
+### Opsætning i Termux (én gang)
+
+```bash
+pkg update
+pkg install -y avahi
+```
+
+Start Avahi mDNS daemon:
+```bash
+avahi-daemon --daemonize
+```
+
+Verificer at det virker — fra en anden enhed på netværket:
+```bash
+ping familiekalender.local
+```
+
+### Auto-start Avahi ved boot (via Termux:Boot)
+
+Opdater boot-scriptet til også at starte Avahi:
+```bash
+cat > ~/.termux/boot/start-aula.sh << 'EOF'
+#!/data/data/com.termux/files/usr/bin/bash
+# Start mDNS (familiekalender.local)
+avahi-daemon --daemonize 2>/dev/null || true
+
+# Start dashboard server
+cd ~/aula-dashboard
+pkill -f uvicorn 2>/dev/null
+sleep 1
+nohup uvicorn main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &
+EOF
+chmod +x ~/.termux/boot/start-aula.sh
+```
+
+### Avahi konfiguration (hostname)
+
+Avahi bruger som standard enhedens Android-hostname. For at sætte det til `familiekalender`:
+
+```bash
+# Sæt hostname i Avahi config
+mkdir -p $PREFIX/etc/avahi
+cat > $PREFIX/etc/avahi/avahi-daemon.conf << 'EOF'
+[server]
+host-name=familiekalender
+domain-name=local
+use-ipv4=yes
+use-ipv6=no
+allow-interfaces=wlan0
+EOF
+```
+
+Genstart Avahi efter konfigurationsændring:
+```bash
+pkill avahi-daemon; avahi-daemon --daemonize
+```
+
+### Tilmeld ICS-feed i kalender-app
+
+**Google Kalender (Android/Web):**
+1. Åbn calendar.google.com
+2. Indstillinger → Andre kalendere → Fra URL
+3. Indsæt: `http://familiekalender.local:8000/api/custom-events.ics`
+4. Tryk "Tilføj kalender"
+
+**Apple Kalender (iPhone/iPad):**
+1. Indstillinger → Kalender → Konti → Tilføj konto → Andet
+2. Vælg "Tilføj abonnementskalender"
+3. Indsæt: `http://familiekalender.local:8000/api/custom-events.ics`
+
+> **Bemærk:** Google og Apple synkroniserer abonnementskalendere ca. hvert 24. time — ikke realtid. Nye events fra dashboardet vises i din telefons kalender inden for én dag.

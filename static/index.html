@@ -24,6 +24,19 @@
       color: #fff; border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; font-weight: 600;
       cursor: pointer; margin-left: 8px; display: inline-block; vertical-align: middle; }
     .login-btn:hover { background: rgba(255,255,255,0.35); }
+    #account-menu-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap; }
+    #account-menu-btn:hover { background: rgba(255,255,255,0.25); }
+    #account-dropdown { display:none; position:absolute; top:100%; right:0; margin-top:4px;
+      background:#fff; border:1px solid var(--border); border-radius:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.12); z-index:200; min-width:160px; overflow:hidden; }
+    #account-dropdown .acc-item { padding:9px 16px; font-size:0.85rem; font-weight:600;
+      color:var(--blue); cursor:pointer; white-space:nowrap; }
+    #account-dropdown .acc-item:hover { background:var(--blue-light); }
+    #account-dropdown .acc-logout { padding:9px 16px; font-size:0.85rem; font-weight:600;
+      color:#e53935; cursor:pointer; border-top:1px solid var(--border); }
+    #account-dropdown .acc-logout:hover { background:#fff5f5; }
 
     /* ── Nav tabs (top) ── */
     .top-nav { display: flex; gap: 6px; flex-shrink: 0; }
@@ -85,16 +98,31 @@
       border-left: 3px solid var(--blue-accent); border-radius: 4px; font-size: 0.65rem;
       color: var(--blue); padding: 2px 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; opacity: 0.7; }
     .presence-bar.vacation { background: #fff3cd; border-left-color: #f59e0b; color: #92400e; }
-    .cal-event { position: absolute; left: 3px; right: 3px; background: var(--blue-accent);
+    .cal-event { position: absolute; left: 3px; background: var(--blue-accent);
       color: #fff; border-radius: 5px; padding: 3px 5px; font-size: 0.7rem; font-weight: 600;
-      overflow: hidden; cursor: default; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      overflow: hidden; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
       display: flex; flex-direction: column; }
+    .cal-event:hover { filter: brightness(1.1); }
     .cal-event .ev-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .cal-event .ev-time { font-size: 0.62rem; opacity: 0.85; font-weight: 400; }
     .cal-event.allday { background: var(--blue-mid); color: var(--blue); border-left: 3px solid var(--blue); }
     .now-line { position: absolute; left: 0; right: 0; border-top: 2px solid #e53e3e; pointer-events: none; z-index: 3; }
     .now-line::before { content: ''; position: absolute; left: -4px; top: -4px;
       width: 8px; height: 8px; border-radius: 50%; background: #e53e3e; }
+
+    /* ── Event info modal ── */
+    #ev-info-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:500; align-items:center; justify-content:center; }
+    #ev-info-overlay.open { display:flex; }
+    #ev-info-modal { background:#fff; border-radius:14px; padding:22px; width:min(380px,92vw); box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+    #ev-info-modal h3 { font-size:1rem; font-weight:700; margin-bottom:8px; padding-right:24px; word-break:break-word; white-space:normal; line-height:1.4; }
+    #ev-info-modal .ev-info-time { font-size:0.82rem; color:#666; margin-bottom:8px; }
+    #ev-info-modal .ev-info-desc { font-size:0.8rem; color:#444; line-height:1.6; max-height:180px; overflow-y:auto; margin:10px 0; padding:8px; background:#f8f9fa; border-radius:6px; white-space:pre-wrap; word-break:break-word; }
+    #ev-info-modal .ev-info-cal { font-size:0.75rem; font-weight:600; display:inline-block; padding:2px 8px; border-radius:10px; color:#fff; margin-bottom:14px; }
+    #ev-info-modal .ev-info-btns { display:flex; gap:8px; margin-top:16px; }
+    #ev-info-modal .ev-info-btns button { flex:1; padding:9px; border-radius:8px; border:none; font-size:0.85rem; font-weight:600; cursor:pointer; }
+    .btn-delete-ev { background:#fee2e2; color:#c62828; }
+    .btn-delete-ev:hover { background:#fca5a5; }
+    .btn-close-ev { background:#f5f5f5; color:#666; }
 
     /* ── Overview (Overblik) ── */
     #view-overview { flex-direction: column; gap: 10px; overflow-y: auto; }
@@ -225,6 +253,23 @@
     .thread-msg-date { font-size: 0.72rem; color: #aaa; margin-left: 8px; }
     .thread-msg-body { font-size: 0.83rem; color: #333; line-height: 1.6; }
     .thread-msg-body img { max-width: 100%; border-radius: 6px; margin-top: 6px; }
+    .parse-event-btn { background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 3px 8px; font-size: 0.72rem; color: var(--blue); cursor: pointer; margin-top: 6px; }
+    .parse-event-btn:hover { background: var(--blue-light); }
+    #event-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4);
+      z-index:400; align-items:center; justify-content:center; }
+    #event-modal-overlay.open { display:flex; }
+    #event-modal { background:#fff; border-radius:14px; padding:24px; width:min(420px,92vw);
+      box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+    #event-modal h3 { font-size:1rem; margin-bottom:16px; color:var(--blue); }
+    #event-modal .field { margin-bottom:12px; }
+    #event-modal .field label { font-size:0.75rem; font-weight:600; color:#555; display:block; margin-bottom:3px; }
+    #event-modal .field input { width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.85rem; }
+    #event-modal .modal-btns { display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+    #event-modal .modal-btns button { flex:1; padding:9px; border-radius:8px; border:none; font-size:0.85rem; font-weight:600; cursor:pointer; }
+    .btn-save-local { background:var(--blue); color:#fff; }
+    .btn-open-gcal { background:#e8f0fe; color:#1a73e8; }
+    .btn-cancel-modal { background:#f5f5f5; color:#666; }
 
     /* ── Mobile ── */
     .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0;
@@ -254,13 +299,20 @@
 </head>
 <body>
   <header>
-    <h1>🏠 C.F. Aagaards Vej 4, 8270 Højbjerg</h1>
+    <h1>🏠 Familieoverblik</h1>
     <div style="display:flex;align-items:center;gap:10px">
-      <div id="session-banner">
-        ⚠️ Aula offline — <span id="banner-msg">session udløbet</span>
-        <span id="login-btns"></span>
+      <div id="session-banner" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.85)">
+        ⚠️ <span id="banner-msg"></span>
+      </div>
+      <div style="position:relative">
+        <button id="account-menu-btn" onclick="toggleAccountMenu(event)">👤 Konti ▾</button>
+        <div id="account-dropdown">
+          <div id="account-items"></div>
+          <div class="acc-logout" onclick="logoutAula()">🚪 Log ud af Aula</div>
+        </div>
       </div>
       <div id="clock"></div>
+      <a href="/settings.html" style="color:#cce4f7;font-size:1.1rem;text-decoration:none" title="Indstillinger">⚙️</a>
     </div>
   </header>
 
@@ -369,6 +421,46 @@
       <div class="post-modal-meta" id="post-modal-meta"></div>
       <div id="post-modal-body"></div>
       <div class="post-modal-attachments" id="post-modal-attachments"></div>
+    </div>
+  </div>
+
+  <!-- Event parse modal -->
+  <div id="event-modal-overlay" onclick="closeEventModal(event)">
+    <div id="event-modal">
+      <h3>📅 Tilføj til kalender</h3>
+      <div id="event-parse-status" style="font-size:0.8rem;color:#888;margin-bottom:12px;padding:8px;background:#f5f5f5;border-radius:6px">Analyserer tekst...</div>
+      <div class="field"><label>Titel</label><input type="text" id="event-title" placeholder="Begivenhedstitel"></div>
+      <div class="field" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="event-allday" onchange="toggleAllDay(this.checked)" style="accent-color:var(--blue)">
+        <label for="event-allday" style="font-size:0.78rem;font-weight:600;color:#555;cursor:pointer">Heldagsarrangement</label>
+      </div>
+      <div id="event-time-fields">
+        <div class="field"><label>Startdato / tidspunkt</label><input type="datetime-local" id="event-start"></div>
+        <div class="field"><label>Slutdato / tidspunkt (valgfri)</label><input type="datetime-local" id="event-end"></div>
+      </div>
+      <div id="event-date-fields" style="display:none">
+        <div class="field"><label>Startdato</label><input type="date" id="event-start-date"></div>
+        <div class="field"><label>Slutdato (valgfri)</label><input type="date" id="event-end-date"></div>
+      </div>
+      <div class="field">
+        <label>Kalender</label>
+        <div id="event-cal-options" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-save-local" onclick="saveEventLocal()">📌 Gem til Familieoverblik</button>
+        <button class="btn-cancel-modal" onclick="closeEventModal()">Annuller</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event info modal -->
+  <div id="ev-info-overlay" onclick="closeEvInfo(event)">
+    <div id="ev-info-modal">
+      <h3 id="ev-info-title"></h3>
+      <div class="ev-info-time" id="ev-info-time"></div>
+      <div class="ev-info-desc" id="ev-info-desc" style="display:none"></div>
+      <span class="ev-info-cal" id="ev-info-cal"></span>
+      <div id="ev-info-btns" class="ev-info-btns"></div>
     </div>
   </div>
 
@@ -513,10 +605,12 @@
       // Always fetch from today regardless of week offset
       const today = new Date();
       const from = today.toISOString().split('T')[0];
-      const toDate = new Date(days[6]); toDate.setDate(toDate.getDate() + 23);
+      const toDate = new Date(today); toDate.setDate(toDate.getDate() + 90);
       const to = toDate.toISOString().split('T')[0];
       try {
         googleEvents = await apiFetch(`/api/google-calendar?from_date=${from}&to_date=${to}`).then(r => r.json());
+        const custom = await apiFetch('/api/custom-events').then(r => r.json()).catch(() => []);
+        custom.forEach(e => googleEvents.push({ ...e, allDay: !e.start.includes('T'), custom: true }));
       } catch(e) { googleEvents = []; }
       renderWeek();
       renderUpcomingGoogleEvents();
@@ -567,54 +661,53 @@
       if (!el || !CHILDREN.length) return;
       const today = new Date();
       const todayStr = today.toISOString().split('T')[0];
+      const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
       let html = '';
       CHILDREN.forEach(child => {
         const tpl = (presenceData[child.id]||[]).find(t => t.byDate===todayStr);
-        const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles||[]).includes(child.id) && isSameDay(new Date(e.startDateTime),today));
+        const dayEvents = allEvents.filter(e => e.start && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), today));
         let rows = '';
         if (tpl?.isOnVacation) {
           rows += `<div class="tc-row"><span style="font-size:.9rem">🏖️</span><span class="tc-label">Ferie/fri</span></div>`;
         } else {
-          if (tpl?.entryTime) rows += `<div class="tc-row"><span style="font-size:.9rem">🧒🎒</span><span class="tc-time">${tpl.entryTime.substring(0,5)}</span><span class="tc-label">aflevering</span></div>`;
-          if (tpl?.exitTime) rows += `<div class="tc-row"><span style="font-size:.9rem">🏠</span><span class="tc-time">${tpl.exitTime.substring(0,5)}</span><span class="tc-label">${tpl.exitWith?'hentes af '+tpl.exitWith:'hentning'}</span></div>`;
+          if (tpl?.entryTime) rows += `<div class="tc-row"><span style="font-size:.9rem">🧒🎒</span><span class="tc-time">${tpl.entryTime.substring(0,5)}</span><span class="tc-label">Aflevering</span></div>`;
+          if (tpl?.exitTime) rows += `<div class="tc-row"><span style="font-size:.9rem">🏠</span><span class="tc-time">${tpl.exitTime.substring(0,5)}</span><span class="tc-label">${tpl.exitWith ? 'Hentes af '+tpl.exitWith : 'Hentning'}</span></div>`;
         }
-        dayEvents.filter(e => !e.isAllDayEvent).slice(0,2).forEach(e => {
-          const t = new Date(e.startDateTime).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-          rows += `<div class="tc-row"><span style="font-size:.9rem">📌</span><span class="tc-time">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${e.title||''}</span></div>`;
+        dayEvents.filter(e => !e.allDay).slice(0,2).forEach(e => {
+          const t = new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+          rows += `<div class="tc-row"><span style="font-size:.9rem">📌</span><span class="tc-time">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${cap(e.title||'')}</span></div>`;
         });
         if (!rows) rows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen data</span></div>`;
-        html += `<div class="today-card"><div class="tc-name">${child.name}</div>${rows}</div>`;
+        html += `<div class="today-card"><div class="tc-name">${child.name} <span style="font-weight:400;color:#bbb;font-size:0.65rem">I dag</span></div>${rows}</div>`;
       });
       const todayGoogle = googleEvents.filter(e => isSameDay(e.allDay?new Date(e.start+'T00:00:00'):new Date(e.start), today));
       let famRows = todayGoogle.slice(0,4).map(e => {
         const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-        return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${e.title}</span></div>`;
+        return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${cap(e.title)}</span></div>`;
       }).join('');
       if (!famRows) famRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
-      html += `<div class="today-card"><div class="tc-name">Familien</div>${famRows}</div>`;
+      const famHeader = `<div class="tc-name">Familien <span style="font-weight:400;color:#bbb;font-size:0.65rem">I dag</span></div>`;
+      html += `<div class="today-card">${famHeader}${famRows}</div>`;
 
       // Route cards — only on weekdays
       const isWeekday = today.getDay() >= 1 && today.getDay() <= 5;
       if (isWeekday && routeData.length) {
-        // Maja + Rasmus destinations in Familien card extension — add to familien card
         const adultRoutes = routeData.filter(d => d.name !== 'Kragelundskolen');
         const kidRoutes = routeData.filter(d => d.name === 'Kragelundskolen');
 
-        // Add adult routes to Familien card (replace it)
         let famRouteRows = todayGoogle.slice(0,2).map(e => {
           const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-          return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${e.title}</span></div>`;
+          return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${cap(e.title)}</span></div>`;
         }).join('');
         adultRoutes.forEach(dest => {
           const m = dest.modes[dest.default];
-          const person = dest.name === 'Systematic' ? 'Rasmus' : dest.name === 'Skejby Sygehus' ? 'Maja' : dest.name;
-          if (m) famRouteRows += `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[dest.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${m.distance}km · ${person} → ${dest.name}</span></div>`;
+          if (m) famRouteRows += `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[dest.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${m.distance}km → ${dest.name}</span></div>`;
         });
         if (!famRouteRows) famRouteRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
 
-        // Replace familien card with extended version
-        html = html.replace(`<div class="today-card"><div class="tc-name">Familien</div>${famRows}</div>`,
-          `<div class="today-card"><div class="tc-name">Familien</div>${famRouteRows}</div>`);
+        // Replace familien card
+        html = html.replace(`<div class="today-card">${famHeader}${famRows}</div>`,
+          `<div class="today-card">${famHeader}${famRouteRows}</div>`);
 
         // Add kid route to each child card
         if (kidRoutes.length) {
@@ -622,9 +715,9 @@
           const m = kidRoute.modes[kidRoute.default];
           if (m) {
             const kidRow = `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[kidRoute.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${kidRoute.name}</span></div>`;
-            // Append to each child card by rebuilding
-            html = html.replace(/(<div class="today-card"><div class="tc-name">(Aksel|Max)<\/div>)([\s\S]*?)(<\/div>)(?=\s*<div class="today-card">|<div id="today-widget"|$)/g,
-              (match, p1, name, content, p4) => p1 + content + kidRow + p4);
+            const childNames = CHILDREN.map(c => c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+            const re = new RegExp(`(<div class="today-card"><div class="tc-name">(${childNames})[\\s\\S]*?<\\/div>)([\\s\\S]*?)(<\\/div>)(?=\\s*<div class="today-card">|$)`, 'g');
+            html = html.replace(re, (match, p1, name, content, p4) => p1 + content + kidRow + p4);
           }
         }
       }
@@ -662,7 +755,7 @@
       el.innerHTML = all.length ? all.map(({ type, date, data: d }) => {
         if (type === 'event') {
           const label = date.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
-          const avatars = CHILDREN.filter(c => (d.belongsToProfiles||[]).includes(c.id)).map(c =>
+          const avatars = CHILDREN.filter(c => (d.profiles||d.belongsToProfiles||[]).includes(c.id)).map(c =>
             c._photoUrl ? `<img src="${c._photoUrl}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #cce4f7;margin-right:2px">` : ''
           ).join('');
           return `<div class="event-item"><div class="event-date">${label}</div>
@@ -723,6 +816,10 @@
       const date = new Date(p.timestamp).toLocaleString('da-DK', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
       document.getElementById('post-modal-meta').textContent = `${p.ownerProfile?.fullName||''} · ${date}`;
       document.getElementById('post-modal-body').innerHTML = p.content?.html || p.content?.text || '(intet indhold)';
+      const plainText = (p.content?.html||p.content?.text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      const btnId = 'parse-btn-' + postId;
+      document.getElementById('post-modal-body').innerHTML += `<div style="margin-top:12px"><button class="parse-event-btn" id="${btnId}">📅 Tilføj til kalender</button></div>`;
+      document.getElementById(btnId).addEventListener('click', e => { e.stopPropagation(); openEventModal(plainText); });
       const atts = p.attachments?.filter(a => a.media) || [];
       document.getElementById('post-modal-attachments').innerHTML = atts.map(a => {
         const url = a.media.largeThumbnailUrl || a.media.thumbnailUrl || '';
@@ -829,22 +926,19 @@
           const filtered = googleEvents.filter(e => {
             const d = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
             if (!isSameDay(d, day)) return false;
+            if (e.custom) {
+              return e.calendar === 'cal-faelles';
+            }
             return gTab.owner === null || e.owner === gTab.owner;
           });
-          filtered.filter(e => !e.allDay).forEach(e => {
-            const color = e.color;
-            const s=new Date(e.start), en=new Date(e.end);
-            const cS=Math.max(s.getHours()*60+s.getMinutes(),START_H*60), cE=Math.min(en.getHours()*60+en.getMinutes(),END_H*60); if(cS>=cE) return;
-            const ts=s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-            html += `<div class="cal-event" style="top:${pct(cS)}%;height:${Math.max(pct(cE)-pct(cS),3)}%;min-height:20px;background:${color}" title="${e.owner}: ${e.title} · ${ts}">
-              <span class="ev-title">${e.title}</span><span class="ev-time">${ts}</span></div>`;
-          });
+          // Google/custom events on google tab
+          const timed = filtered.filter(e => !e.allDay);
+          html += renderCalEvents(timed, pct, false);
         } else {
-          // ── Aula child tab ──
+          // ── Aula child tab — same logic as gTab but filtered by child ──
           const child = CHILDREN[activeTab];
           const childPresence = presenceData[child.id] || [];
           const tpl = childPresence.find(t => t.byDate===dateStr);
-          const dayEvents = allEvents.filter(e => e.startDateTime && (e.belongsToProfiles||[]).includes(child.id) && isSameDay(new Date(e.startDateTime),day));
 
           if (tpl && !tpl.isOnVacation && tpl.entryTime) {
             const [eh,em]=tpl.entryTime.split(':').map(Number);
@@ -854,16 +948,26 @@
             const [xh,xm]=tpl.exitTime.split(':').map(Number), lbl=tpl.exitWith||'';
             html += `<div class="presence-bar" style="top:${pct(xh*60+xm)}%;height:${hourH*0.4}px;min-height:14px;background:#e8f7e8;border-left-color:#4caf50;color:#2e7d32">🏠 ${tpl.exitTime.substring(0,5)}${lbl?' · '+lbl:''}</div>`;
           }
-          if (tpl?.isOnVacation) html += `<div class="presence-bar vacation" style="top:0%;height:100%">🏖️ Ferie/fri</div>`;
-
-          dayEvents.filter(e => !e.isAllDayEvent && !(e.endDateTime && (new Date(e.endDateTime) - new Date(e.startDateTime)) >= 23*3600000))
-            .forEach(e => {
-              const s=new Date(e.startDateTime), en=e.endDateTime?new Date(e.endDateTime):new Date(s.getTime()+3600000);
-              const cS=Math.max(s.getHours()*60+s.getMinutes(),START_H*60), cE=Math.min(en.getHours()*60+en.getMinutes(),END_H*60); if(cS>=cE) return;
-              const ts=s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-              html += `<div class="cal-event" style="top:${pct(cS)}%;height:${Math.max(pct(cE)-pct(cS),3)}%;min-height:20px">
-                <span class="ev-title">${e.title||'(ingen titel)'}</span><span class="ev-time">${ts}</span></div>`;
+          const presenceEvents = [];
+          if (tpl && !tpl.isOnVacation) {
+            const ds = dateStr;
+            if (tpl.entryTime) presenceEvents.push({
+              _presence: true, _label: `🧒🎒 ${tpl.entryTime.substring(0,5)}`, _style: '',
+              start: `${ds}T${tpl.entryTime}`, end: `${ds}T${tpl.entryTime.replace(/(\d+):(\d+)/,(_,h,m)=>String(parseInt(h)*60+parseInt(m)+30).replace(/(\d+)/,n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')))}`,
             });
+            if (tpl.exitTime) presenceEvents.push({
+              _presence: true, _label: `🏠 ${tpl.exitTime.substring(0,5)}${tpl.exitWith?' · '+tpl.exitWith:''}`, _style: 'background:#e8f7e8;border-left:3px solid #4caf50;color:#2e7d32',
+              start: `${ds}T${tpl.exitTime}`, end: null,
+            });
+          }
+
+          // All events for this child — aula + custom + presence — in one layout pass
+          const childEvents = [
+            ...presenceEvents,
+            ...allEvents.filter(e => !e.allDay && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), day)),
+            ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && e.calendar === 'cal-child-' + child.id),
+          ];
+          html += renderCalEvents(childEvents, pct, true);
         }
 
         if (isToday) { const nm=new Date().getHours()*60+new Date().getMinutes(); if(nm>=START_H*60&&nm<=END_H*60) html+=`<div class="now-line" style="top:${pct(nm)}%"></div>`; }
@@ -872,10 +976,12 @@
       document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap');
       const now = new Date();
-      // Scroll to show 1 hour before now, and limit visible height to 10 hours
-      const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
       wrap.style.maxHeight = (hourH * 10) + 'px';
-      wrap.scrollTop = scrollToHour * hourH;
+      if (!wrap.dataset.scrolled) {
+        const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
+        wrap.scrollTop = scrollToHour * hourH;
+        wrap.dataset.scrolled = '1';
+      }
     }
 
     // ── Gallery ──
@@ -1076,36 +1182,83 @@
         document.getElementById('msg-modal-meta').textContent=`${msgs.length} besked${msgs.length!==1?'er':''} i tråden`;
         document.getElementById('msg-modal-body').innerHTML=msgs.map(m => {
           const sender=m.sender?.fullName||'Ukendt', date=m.sendDateTime?new Date(m.sendDateTime).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div></div>`;
+          const mBtnId = 'parse-msg-' + (m.id||Math.random().toString(36).slice(2));
+          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div><button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button></div>`;
         }).join('');
+        // Attach event listeners after render
+        msgs.forEach(m => {
+          const mBtnId = 'parse-msg-' + (m.id||'');
+          const btn = document.getElementById(mBtnId);
+          if (btn) {
+            const txt = (m.text?.html||m.text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+            btn.addEventListener('click', e => { e.stopPropagation(); openEventModal(txt); });
+          }
+        });
       } catch(e) { document.getElementById('msg-modal-body').textContent='Fejl: '+e.message; }
     }
     function closeMsgModal(e) { if (!e||e.target===document.getElementById('msg-modal-overlay')||e.target===document.getElementById('msg-modal-close')) document.getElementById('msg-modal-overlay').classList.remove('open'); }
 
-    // ── Login ──
-    let loginPolling=null, loginAccounts=[];
+    // ── Login / Konto dropdown ──
+    let loginPolling = null, loginAccounts = [];
+
+    function toggleAccountMenu(e) {
+      e.stopPropagation();
+      const dd = document.getElementById('account-dropdown');
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    }
+    document.addEventListener('click', () => {
+      const dd = document.getElementById('account-dropdown');
+      if (dd) dd.style.display = 'none';
+    });
+
     async function loadLoginAccounts() {
-      try { loginAccounts=await apiFetch('/api/login/accounts').then(r=>r.json()); } catch(e) { loginAccounts=[]; }
-      const btns=document.getElementById('login-btns');
-      if (loginAccounts.length<=1) {
-        document.getElementById('session-banner').style.cursor='pointer';
-        document.getElementById('session-banner').onclick=()=>startLogin(0);
-        document.getElementById('banner-msg').textContent='klik for at logge ind igen';
-        btns.innerHTML='';
+      try { loginAccounts = await apiFetch('/api/login/accounts').then(r => r.json()); } catch(e) { loginAccounts = []; }
+      renderAccountDropdown();
+    }
+
+    function renderAccountDropdown(sessionExpired = false) {
+      const items = document.getElementById('account-items');
+      if (!items) return;
+      if (sessionExpired) {
+        items.innerHTML = loginAccounts.map(a =>
+          `<div class="acc-item" data-idx="${a.index}">🔑 Login ${a.name}</div>`
+        ).join('') || '<div class="acc-item" style="color:#aaa">Ingen konti konfigureret</div>';
+        items.querySelectorAll('.acc-item[data-idx]').forEach(el => {
+          el.addEventListener('click', e => { e.stopPropagation(); startLogin(parseInt(el.dataset.idx)); });
+        });
+        document.getElementById('session-banner').style.display = 'inline-block';
+        document.getElementById('banner-msg').textContent = 'Aula offline — vælg konto';
       } else {
-        document.getElementById('session-banner').style.cursor='default';
-        document.getElementById('session-banner').onclick=null;
-        document.getElementById('banner-msg').textContent='';
-        btns.innerHTML=loginAccounts.map(a=>`<button class="login-btn" onclick="startLogin(${a.index})">Login ${a.name}</button>`).join('');
+        items.innerHTML = loginAccounts.map(a =>
+          `<div class="acc-item" style="color:#aaa;cursor:default">✅ ${a.name}</div>`
+        ).join('') || '<div class="acc-item" style="color:#aaa">Ingen konti</div>';
+        document.getElementById('session-banner').style.display = 'none';
       }
     }
-    async function startLogin(accountIndex=0) {
-      const msg=document.getElementById('banner-msg');
-      document.getElementById('login-btns').innerHTML='';
-      msg.textContent='starter login...';
-      try { await apiFetch(`/api/login/start?account_index=${accountIndex}`,{method:'POST'}); msg.textContent='godkend i MitID-appen...'; pollLoginStatus(); }
-      catch(e) { msg.textContent='fejl: '+e.message; loadLoginAccounts(); }
+
+    async function startLogin(accountIndex = 0) {
+      document.getElementById('account-dropdown').style.display = 'none';
+      document.getElementById('session-banner').style.display = 'inline-block';
+      document.getElementById('banner-msg').textContent = 'Logger ind...';
+      try {
+        await apiFetch(`/api/login/start?account_index=${accountIndex}`, { method: 'POST' });
+        document.getElementById('banner-msg').textContent = 'Godkend i MitID-appen...';
+        pollLoginStatus();
+      } catch(e) {
+        document.getElementById('banner-msg').textContent = 'Fejl: ' + e.message;
+      }
     }
+
+    async function logoutAula() {
+      document.getElementById('account-dropdown').style.display = 'none';
+      try {
+        await apiFetch('/api/login/cancel', { method: 'POST' });
+        await apiFetch('/api/logout', { method: 'POST' });
+      } catch(e) {}
+      await loadLoginAccounts();
+      renderAccountDropdown(true);
+    }
+
     function pollLoginStatus() {
       clearInterval(loginPolling);
       loginPolling=setInterval(async()=>{
@@ -1116,16 +1269,41 @@
       },3000);
     }
     async function checkSession() {
-      const data=await apiFetch('/api/status').then(r=>r.json()), expired=!data.session_valid;
-      document.getElementById('session-banner').style.display=expired?'inline-flex':'none';
-      if (expired) loadLoginAccounts();
+      const data = await apiFetch('/api/status').then(r => r.json());
+      const expired = !data.session_valid;
+      if (!loginAccounts.length) await loadLoginAccounts();
+      renderAccountDropdown(expired);
+      if (expired) await loadLoginAccounts();
       return data.session_valid;
     }
 
     // ── Data loaders ──
+    function normalizeAulaEvents(raw) {
+      return raw.map(e => ({
+        title:      e.title || e.description || '(ingen titel)',
+        start:      e.startDateTime,
+        end:        e.endDateTime || null,
+        allDay:     e.isAllDayEvent || (e.endDateTime && (new Date(e.endDateTime) - new Date(e.startDateTime)) >= 23*3600000),
+        color:      'var(--blue-accent)',
+        owner:      (e.belongsToProfiles||[])[0] || null,
+        profiles:   e.belongsToProfiles || [],
+        source:     'aula',
+        id:         e.id || null,
+      }));
+    }
+
     async function loadCalendar() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
-      try { const res=await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`); if(res.status===401){try{const c=localStorage.getItem('ls_events');if(c){allEvents=JSON.parse(c);if(!Array.isArray(allEvents))allEvents=[];renderWeek();renderTodayWidget();}}catch(e){} return;} allEvents=await res.json(); try{localStorage.setItem('ls_events',JSON.stringify(allEvents));}catch(e){} renderWeek(); renderTodayWidget(); } catch(e) {}
+      try {
+        const res = await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
+        if (res.status === 401) {
+          try { const c=localStorage.getItem('ls_events'); if(c){ allEvents=JSON.parse(c); renderWeek(); renderTodayWidget(); } } catch(e) {}
+          return;
+        }
+        allEvents = normalizeAulaEvents(await res.json());
+        try { localStorage.setItem('ls_events', JSON.stringify(allEvents)); } catch(e) {}
+        renderWeek(); renderTodayWidget();
+      } catch(e) {}
     }
     async function loadPresence() {
       const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
@@ -1164,6 +1342,236 @@
       }
       schedulePoll(5*60*1000);
     }
+    // ── Event overlap layout ──────────────────────────────────────────────────
+    function layoutEvents(events) {
+      if (!events.length) return [];
+      // Copy events to avoid mutating shared objects
+      const evs = events.map(e => ({...e}));
+      evs.forEach(e => {
+        e._s = new Date(e.start||e.startDateTime).getTime();
+        e._e = e.end||e.endDateTime ? new Date(e.end||e.endDateTime).getTime() : e._s + 3600000;
+      });
+      const sorted = evs.sort((a,b) => a._s - b._s);
+      const colEnd = [];
+      sorted.forEach(e => {
+        let col = 0;
+        while (col < colEnd.length && colEnd[col] > e._s) col++;
+        e._col = col;
+        colEnd[col] = e._e;
+      });
+      sorted.forEach(e => {
+        const concurrent = sorted.filter(o => o._s < e._e && o._e > e._s);
+        const maxCol = Math.max(...concurrent.map(o => o._col)) + 1;
+        e._left  = (e._col / maxCol) * 100;
+        e._width = 100 / maxCol;
+      });
+      return sorted;
+    }
+
+    function renderCalEvents(events, pctFn, isAula) {
+      let html = '';
+      layoutEvents(events).forEach(e => {
+        const s = new Date(e.start||e.startDateTime);
+        const en = e.end||e.endDateTime ? new Date(e.end||e.endDateTime) : new Date(s.getTime()+3600000);
+        const cS = Math.max(s.getHours()*60+s.getMinutes(), START_H*60);
+        const cE = Math.min(en.getHours()*60+en.getMinutes(), END_H*60);
+        if (cS >= cE) return;
+        const ts = s.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})+'–'+en.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+        const l = (e._left||0).toFixed(1), w = (e._width||100).toFixed(1);
+        const topPct = pctFn(cS), heightPct = Math.max(pctFn(cE)-pctFn(cS), 3);
+
+        // Presence bars render differently — small indicators, not full events
+        if (e._presence) {
+          html += `<div class="presence-bar" style="top:${topPct}%;height:14px;min-height:14px;left:calc(2px + ${l}%);width:calc(${w}% - 4px);right:auto;${e._style}">${e._label}</div>`;
+          return;
+        }
+        const title = e.title||'(ingen titel)';
+        const color = e.color || 'var(--blue-accent)';
+        const id = e.id ? `data-evid="${e.id}"` : '';
+        const isCustom = e.custom ? 'data-custom="1"' : '';
+        const calsAttr = e.calendar ? `data-calendar="${e.calendar}"` : '';
+        const descAttr = e.description ? `data-desc="${e.description.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}"` : '';
+        html += `<div class="cal-event" style="top:${topPct}%;height:${heightPct}%;min-height:20px;background:${color};left:calc(3px + ${l}%);width:calc(${w}% - 6px);right:auto" 
+          ${id} ${isCustom} ${calsAttr} ${descAttr} onclick="openEvInfo(this,event)"
+          data-title="${title.replace(/"/g,'&quot;')}" data-time="${ts}" data-color="${color}">
+          <span class="ev-title">${title}</span><span class="ev-time">${ts}</span></div>`;
+      });
+      return html;
+    }
+
+    function openEvInfo(el, evt) {
+      evt.stopPropagation();
+      const title = el.dataset.title;
+      const time  = el.dataset.time;
+      const color = el.dataset.color;
+      const isCustom = el.dataset.custom === '1';
+      const evId = el.dataset.evid;
+
+      document.getElementById('ev-info-title').textContent = title;
+      document.getElementById('ev-info-time').textContent  = time;
+      const desc = el.dataset.desc || '';
+      const descEl = document.getElementById('ev-info-desc');
+      if (desc) { descEl.textContent = desc; descEl.style.display = 'block'; }
+      else { descEl.textContent = ''; descEl.style.display = 'none'; }
+      const cal = document.getElementById('ev-info-cal');
+      cal.style.background = color; cal.textContent = isCustom ? '📌 Lokal begivenhed' : '📅 Kalender';
+
+      const btns = document.getElementById('ev-info-btns');
+      btns.innerHTML = '';
+
+      if (isCustom && evId) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-delete-ev';
+        delBtn.textContent = '🗑️ Fjern fra kalender';
+        delBtn.onclick = async () => {
+          await apiFetch(`/api/custom-events/${evId}`, { method:'DELETE' });
+          document.getElementById('ev-info-overlay').classList.remove('open');
+          loadGoogleCalendar();
+        };
+        btns.appendChild(delBtn);
+      }
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'btn-close-ev';
+      closeBtn.textContent = 'Luk';
+      closeBtn.onclick = () => document.getElementById('ev-info-overlay').classList.remove('open');
+      btns.appendChild(closeBtn);
+      document.getElementById('ev-info-overlay').classList.add('open');
+    }
+
+    function closeEvInfo(e) {
+      if (!e || e.target === document.getElementById('ev-info-overlay'))
+        document.getElementById('ev-info-overlay').classList.remove('open');
+    }
+    let _eventText = '';
+    async function openEventModal(text) {
+      _eventText = text;
+      document.getElementById('event-title').value = '';
+      document.getElementById('event-start').value = '';
+      document.getElementById('event-end').value = '';
+      document.getElementById('event-start-date').value = '';
+      document.getElementById('event-end-date').value = '';
+      document.getElementById('event-allday').checked = false;
+      toggleAllDay(false);
+      const status = document.getElementById('event-parse-status');
+      status.style.background = '#f0f4ff';
+      status.style.color = '#555';
+      status.textContent = '🔍 Søger efter dato og tidspunkt i teksten...';
+      document.getElementById('event-modal-overlay').classList.add('open');
+
+      // Render calendar options — children + Fælles + Vælg alle
+      const calOpts = document.getElementById('event-cal-options');
+      const cals = [
+        { id: 'cal-faelles', label: 'Fælles', color: '#005fa8' },
+        ...CHILDREN.map(c => ({ id: 'cal-child-' + c.id, label: c.name, color: '#43a047' })),
+      ];
+      calOpts.innerHTML = cals.map(c =>
+        `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer">
+          <input type="checkbox" class="cal-opt" id="${c.id}" style="accent-color:${c.color}">
+          <span style="background:${c.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:0.72rem">${c.label}</span>
+        </label>`
+      ).join('');
+
+      try {
+        const r = await apiFetch('/api/parse-event', { method:'POST',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({text}) });
+        const d = await r.json();
+        if (d.hasDate) {
+          document.getElementById('event-title').value = d.title || '';
+          if (d.allDay) {
+            toggleAllDay(true);
+            document.getElementById('event-allday').checked = true;
+            document.getElementById('event-start-date').value = d.start ? d.start.substring(0,10) : '';
+            document.getElementById('event-end-date').value   = d.end   ? d.end.substring(0,10)   : '';
+          } else {
+            document.getElementById('event-start').value = d.start ? d.start.substring(0,16) : '';
+            document.getElementById('event-end').value   = d.end   ? d.end.substring(0,16)   : '';
+          }
+          status.style.background = '#f0fff4';
+          status.style.color = '#276749';
+          status.textContent = '✅ Dato fundet — ret hvis nødvendigt, vælg kalender og gem';
+        } else {
+          status.style.background = '#fff8e1';
+          status.style.color = '#7c5800';
+          status.textContent = '⚠️ Ingen dato fundet i teksten — udfyld manuelt';
+        }
+      } catch(e) {
+        status.style.background = '#fff0f0';
+        status.style.color = '#c00';
+        status.textContent = '⚠️ Kunne ikke analysere tekst — udfyld manuelt';
+      }
+    }
+
+    function toggleAllDay(allDay) {
+      document.getElementById('event-time-fields').style.display = allDay ? 'none' : 'block';
+      document.getElementById('event-date-fields').style.display = allDay ? 'block' : 'none';
+    }
+
+    function closeEventModal(e) {
+      if (!e || e.target === document.getElementById('event-modal-overlay'))
+        document.getElementById('event-modal-overlay').classList.remove('open');
+    }
+
+    function toggleAllCals(checked) {
+      document.querySelectorAll('.cal-opt').forEach(cb => cb.checked = checked);
+    }
+
+    let _savingEvent = false;
+    async function saveEventLocal() {
+      if (_savingEvent) return;
+      _savingEvent = true;
+      const btn = document.querySelector('#event-modal .btn-save-local');
+      if (btn) { btn.disabled = true; btn.textContent = 'Gemmer...'; }
+      const title = document.getElementById('event-title').value.trim();
+      const allDay = document.getElementById('event-allday').checked;
+      const start = allDay
+        ? document.getElementById('event-start-date').value
+        : document.getElementById('event-start').value;
+      const end = allDay
+        ? document.getElementById('event-end-date').value || null
+        : document.getElementById('event-end').value || null;
+      if (!title || !start) {
+        const s = document.getElementById('event-parse-status');
+        s.textContent = '⚠️ Udfyld titel og startdato'; s.style.background = '#fff0f0'; s.style.color = '#c00';
+        _savingEvent = false; if (btn) { btn.disabled = false; btn.textContent = '📌 Gem til Familieoverblik'; }
+        return;
+      }
+      const selectedCals = [...document.querySelectorAll('.cal-opt:checked')].map(cb => cb.id);
+      if (!selectedCals.length) {
+        const s = document.getElementById('event-parse-status');
+        s.textContent = '⚠️ Vælg mindst én kalender'; s.style.background = '#fff0f0'; s.style.color = '#c00';
+        _savingEvent = false; if (btn) { btn.disabled = false; btn.textContent = '📌 Gem til Familieoverblik'; }
+        return;
+      }
+      const colors = { 'cal-faelles': '#005fa8' };
+      CHILDREN.forEach(c => colors['cal-child-' + c.id] = '#43a047');
+      for (const calId of selectedCals) {
+        await apiFetch('/api/custom-events', { method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ title, start, end, allDay, color: colors[calId] || '#7c3aed',
+            calendar: calId, description: _eventText })
+        });
+      }
+      // Show confirmation
+      const startDate = new Date(allDay ? start + 'T00:00:00' : start);
+      const fmt = startDate.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
+      const time = allDay ? '' : ' kl. ' + startDate.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
+      const status = document.getElementById('event-parse-status');
+      status.style.cssText = 'font-size:1rem;font-weight:700;color:#fff;background:#2e7d32;padding:14px;border-radius:8px;text-align:center;margin-bottom:12px';
+      status.textContent = `✅ Gemt — ${fmt}${time}`;
+      _savingEvent = false;
+      if (btn) { btn.disabled = false; btn.textContent = '📌 Gem til Familieoverblik'; }
+      setTimeout(() => document.getElementById('event-modal-overlay').classList.remove('open'), 1200);
+      loadGoogleCalendar();
+    }
+
+    function openGoogleCal() {
+      const title = encodeURIComponent(document.getElementById('event-title').value.trim());
+      const start = document.getElementById('event-start').value.replace(/[-:T]/g,'').substring(0,15)+'Z';
+      const end   = document.getElementById('event-end').value
+        ? document.getElementById('event-end').value.replace(/[-:T]/g,'').substring(0,15)+'Z' : start;
+      window.open(`https://calendar.google.com/calendar/r/eventedit?text=${title}&dates=${start}/${end}`, '_blank');
+    }
+
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
     setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
     loadAll();

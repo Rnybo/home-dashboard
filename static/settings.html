@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Indstillinger</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --blue: #005fa8; --border: #d0e4f0; --bg: #f0f4f8; --radius: 10px; }
+    body { background: var(--bg); font-family: 'Segoe UI', sans-serif; color: #333; padding: 20px; max-width: 700px; margin: 0 auto; }
+    header { background: var(--blue); border-radius: var(--radius); padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { color: #fff; font-size: 1.1rem; }
+    header a { color: #cce4f7; font-size: 0.85rem; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    .card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 16px; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 0.78rem; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .field input { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.88rem; color: #333; }
+    .field input:focus { outline: none; border-color: var(--blue); }
+    .field .hint { font-size: 0.7rem; color: #aaa; margin-top: 3px; }
+    .row { display: flex; gap: 10px; }
+    .row .field { flex: 1; }
+    .api-key-row { display: flex; gap: 8px; align-items: flex-end; }
+    .api-key-row .field { flex: 1; margin-bottom: 0; }
+    .btn-gen { background: #e8f4fc; border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; font-size: 0.78rem; color: var(--blue); cursor: pointer; white-space: nowrap; font-weight: 600; }
+    .btn-gen:hover { background: #cce4f7; }
+    .entry-group { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; position: relative; }
+    .entry-group .remove-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #ccc; font-size: 1.1rem; cursor: pointer; line-height: 1; }
+    .entry-group .remove-btn:hover { color: #e53935; }
+    .add-btn { background: none; border: 1px dashed var(--border); border-radius: 8px; width: 100%; padding: 10px; color: #aaa; font-size: 0.82rem; cursor: pointer; margin-top: 4px; }
+    .add-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .save-btn { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 12px 32px; font-size: 1rem; font-weight: 700; cursor: pointer; width: 100%; margin-top: 8px; }
+    .save-btn:hover { background: #0074cc; }
+    .save-btn:disabled { background: #aaa; cursor: not-allowed; }
+    .toast { display: none; background: #2e7d32; color: #fff; border-radius: 8px; padding: 12px 20px; text-align: center; margin-top: 12px; font-weight: 600; }
+    .toast.error { background: #c62828; }
+    .toast.visible { display: block; }
+    .section-note { font-size: 0.75rem; color: #aaa; margin-bottom: 12px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚙️ Dashboard Indstillinger</h1>
+    <a href="/">← Tilbage til dashboard</a>
+  </header>
+
+  <div class="card">
+    <h2>🤖 Anthropic API</h2>
+    <p class="section-note">Bruges til automatisk at parse datoer fra Aula-beskeder. Hent din nøgle på <strong>console.anthropic.com</strong>.</p>
+    <div class="field">
+      <label>Anthropic API Nøgle</label>
+      <input type="password" id="anthropic_key" placeholder="sk-ant-...">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔑 API Nøgle</h2>
+    <p class="section-note">Beskytter dashboardet mod uautoriseret adgang på dit netværk. Klik "Generer" for at lave en ny sikker nøgle.</p>
+    <div class="api-key-row">
+      <div class="field">
+        <label>API Nøgle</label>
+        <input type="text" id="api_key" placeholder="Generer eller indtast en nøgle">
+      </div>
+      <button class="btn-gen" onclick="generateApiKey()">🔄 Generer</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>👤 MitID / Aula Konti</h2>
+    <p class="section-note">Tilføj de konti der skal bruges til Aula-login. Brugernavn er dit telefonnummer eller CPR som du logger ind med.</p>
+    <div id="accounts-list"></div>
+    <button class="add-btn" onclick="addAccount()">+ Tilføj konto</button>
+  </div>
+
+  <div class="card">
+    <h2>📅 Google Kalendere</h2>
+    <p class="section-note">Tilføj ICS-links fra Google Kalender eller Apple Kalender (iCloud).</p>
+    <div id="calendars-list"></div>
+    <button class="add-btn" onclick="addCalendar()">+ Tilføj kalender</button>
+    <details style="margin-top:14px">
+      <summary style="font-size:0.78rem;font-weight:600;color:var(--blue);cursor:pointer;user-select:none">📖 Sådan finder du dit ICS-link</summary>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:12px">
+        <div style="background:#f9f9f9;border-radius:8px;padding:12px;border:1px solid var(--border)">
+          <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">🟦 Google Kalender</div>
+          <ol style="font-size:0.75rem;color:#555;line-height:1.8;padding-left:16px">
+            <li>Åbn <strong>calendar.google.com</strong></li>
+            <li>Klik på de tre prikker ud for den kalender du vil tilføje</li>
+            <li>Vælg <strong>Indstillinger og deling</strong></li>
+            <li>Scroll ned til <strong>Integrer kalender</strong></li>
+            <li>Kopiér <strong>Offentlig adresse i iCal-format</strong></li>
+          </ol>
+        </div>
+        <div style="background:#f9f9f9;border-radius:8px;padding:12px;border:1px solid var(--border)">
+          <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">🍎 Apple Kalender (iCloud)</div>
+          <ol style="font-size:0.75rem;color:#555;line-height:1.8;padding-left:16px">
+            <li>Åbn <strong>Kalender</strong>-appen på din iPhone eller iPad</li>
+            <li>Tryk på det blå <strong>ℹ️</strong> ikon ud for den kalender du vil dele</li>
+            <li>Slå <strong>Offentlig kalender</strong> til</li>
+            <li>Tryk <strong>Del link</strong> og kopiér URL'en</li>
+            <li>Erstat <strong>webcal://</strong> med <strong>https://</strong> i URL'en</li>
+          </ol>
+          <div style="font-size:0.72rem;color:#aaa;margin-top:6px">Eksempel: <code style="background:#eee;padding:1px 4px;border-radius:3px">https://p123-caldav.icloud.com/published/2/...</code></div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>🌤️ Vejrplacering</h2>
+    <p class="section-note">Koordinater for din placering. Find dem på <strong>maps.google.com</strong> — søg din adresse, højreklik på huset og klik på koordinaterne øverst i menuen for at kopiere dem.<br>Eksempel: <code style="background:#eee;padding:1px 4px;border-radius:3px">56.1136, 10.1968</code> → Breddegrad: 56.1136, Længdegrad: 10.1968</p>
+    <div class="row">
+      <div class="field">
+        <label>Breddegrad (Latitude)</label>
+        <input type="text" id="weather_lat" placeholder="f.eks. 56.127">
+      </div>
+      <div class="field">
+        <label>Længdegrad (Longitude)</label>
+        <input type="text" id="weather_lon" placeholder="f.eks. 10.178">
+      </div>
+    </div>
+  </div>
+
+  <button class="save-btn" id="save-btn" onclick="saveSettings()">💾 Gem indstillinger</button>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    async function load() {
+      try {
+        const s = await fetch('/api/settings').then(r => r.json());
+        document.getElementById('api_key').value = s.api_key || '';
+        document.getElementById('anthropic_key').value = s.anthropic_key || '';
+        document.getElementById('weather_lat').value = s.weather_lat || '';
+        document.getElementById('weather_lon').value = s.weather_lon || '';
+        const accList = document.getElementById('accounts-list');
+        accList.innerHTML = '';
+        if (s.accounts && s.accounts.length) {
+          s.accounts.forEach(a => addAccount(a.username, a.identity));
+        } else {
+          addAccount();
+        }
+        const calList = document.getElementById('calendars-list');
+        calList.innerHTML = '';
+        if (s.google_calendars && s.google_calendars.length) {
+          s.google_calendars.forEach(c => addCalendar(c.url, c.name));
+        }
+      } catch(e) {
+        showToast('Kunne ikke hente indstillinger: ' + e.message, true);
+      }
+    }
+
+    function generateApiKey() {
+      const arr = new Uint8Array(32);
+      crypto.getRandomValues(arr);
+      document.getElementById('api_key').value = Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    function addAccount(username='', identity='') {
+      const el = document.createElement('div');
+      el.className = 'entry-group';
+      el.innerHTML = `
+        <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>
+        <div class="row">
+          <div class="field">
+            <label>Brugernavn (telefon/CPR)</label>
+            <input type="text" class="acc-username" value="${username}" placeholder="f.eks. 12345678">
+          </div>
+          <div class="field">
+            <label>Fulde navn (som i MitID)</label>
+            <input type="text" class="acc-identity" value="${identity}" placeholder="f.eks. Rasmus Fogh Nybo">
+          </div>
+        </div>`;
+      document.getElementById('accounts-list').appendChild(el);
+    }
+
+    function addCalendar(url='', name='') {
+      const el = document.createElement('div');
+      el.className = 'entry-group';
+      el.innerHTML = `
+        <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>
+        <div class="field">
+          <label>Navn</label>
+          <input type="text" class="cal-name" value="${name}" placeholder="f.eks. Rasmus">
+        </div>
+        <div class="field">
+          <label>ICS URL</label>
+          <input type="text" class="cal-url" value="${url}" placeholder="https://calendar.google.com/calendar/ical/...">
+        </div>`;
+      document.getElementById('calendars-list').appendChild(el);
+    }
+
+    async function saveSettings() {
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      btn.textContent = 'Gemmer...';
+
+      const accounts = [...document.querySelectorAll('#accounts-list .entry-group')].map(el => ({
+        username: el.querySelector('.acc-username').value.trim(),
+        identity: el.querySelector('.acc-identity').value.trim(),
+      })).filter(a => a.username || a.identity);
+
+      const google_calendars = [...document.querySelectorAll('#calendars-list .entry-group')].map(el => ({
+        url:  el.querySelector('.cal-url').value.trim(),
+        name: el.querySelector('.cal-name').value.trim(),
+      })).filter(c => c.url);
+
+      const payload = {
+        api_key:          document.getElementById('api_key').value.trim(),
+        anthropic_key:    document.getElementById('anthropic_key').value.trim(),
+        accounts,
+        google_calendars,
+        weather_lat:      document.getElementById('weather_lat').value.trim(),
+        weather_lon:      document.getElementById('weather_lon').value.trim(),
+      };
+
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast('✅ Indstillinger gemt!');
+          if (data.api_key) document.getElementById('api_key').value = data.api_key;
+        } else {
+          showToast('Fejl: ' + JSON.stringify(data), true);
+        }
+      } catch(e) {
+        showToast('Fejl: ' + e.message, true);
+      }
+      btn.disabled = false;
+      btn.textContent = '💾 Gem indstillinger';
+    }
+
+    function showToast(msg, error=false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast visible' + (error ? ' error' : '');
+      setTimeout(() => t.classList.remove('visible'), 4000);
+    }
+
+    load();
+  </script>
+</body>
+</html>

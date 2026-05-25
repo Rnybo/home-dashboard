@@ -307,7 +307,7 @@
       <div style="position:relative">
         <button id="account-menu-btn" onclick="toggleAccountMenu(event)">👤 Konti ▾</button>
         <div id="account-dropdown">
-          <div id="account-items"></div>
+          <div id="account-items"><div class="acc-item" style="color:#aaa">Indlæser...</div></div>
           <div class="acc-logout" onclick="logoutAula()">🚪 Log ud af Aula</div>
         </div>
       </div>
@@ -1220,9 +1220,10 @@
       const items = document.getElementById('account-items');
       if (!items) return;
       if (sessionExpired) {
-        items.innerHTML = loginAccounts.map(a =>
+        const accs = loginAccounts.length ? loginAccounts : [{index:0, name:'Log ind'}];
+        items.innerHTML = accs.map(a =>
           `<div class="acc-item" data-idx="${a.index}">🔑 Login ${a.name}</div>`
-        ).join('') || '<div class="acc-item" style="color:#aaa">Ingen konti konfigureret</div>';
+        ).join('');
         items.querySelectorAll('.acc-item[data-idx]').forEach(el => {
           el.addEventListener('click', e => { e.stopPropagation(); startLogin(parseInt(el.dataset.idx)); });
         });
@@ -1269,11 +1270,17 @@
       },3000);
     }
     async function checkSession() {
-      const data = await apiFetch('/api/status').then(r => r.json());
-      const expired = !data.session_valid;
-      await loadLoginAccounts();
-      renderAccountDropdown(expired);
-      return data.session_valid;
+      try {
+        const data = await apiFetch('/api/status').then(r => r.json());
+        const expired = !data.session_valid;
+        await loadLoginAccounts();
+        renderAccountDropdown(expired);
+        return data.session_valid;
+      } catch(e) {
+        await loadLoginAccounts();
+        renderAccountDropdown(true);
+        return false;
+      }
     }
 
     // ── Data loaders ──

@@ -860,9 +860,9 @@
               return dayStart >= start && dayStart < end;
             })
           : allEvents.filter(e => {
-              if (!e.isAllDayEvent && !(e.endDateTime && (new Date(e.endDateTime) - new Date(e.startDateTime)) >= 23*3600000)) return false;
-              if (!(e.belongsToProfiles||[]).includes(CHILDREN[activeTab]?.id)) return false;
-              return e.startDateTime && isSameDay(new Date(e.startDateTime), day);
+              if (!e.allDay) return false;
+              if (!(e.profiles||[]).includes(CHILDREN[activeTab]?.id)) return false;
+              return e.start && isSameDay(new Date(e.start.substring(0,10)+'T00:00:00'), day);
             });
         const allDayBadges = dayAllDay.map(e => {
           const color = e.color || 'var(--blue-accent)';

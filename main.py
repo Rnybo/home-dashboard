@@ -48,6 +48,20 @@ API_KEY = os.getenv("API_KEY", "")
 if not API_KEY:
     logging.warning("API_KEY is not set — API is unprotected!")
 
+async def _session_keepalive():
+    """Ping Aula every 6 hours to keep session alive."""
+    while True:
+        await asyncio.sleep(6 * 3600)
+        try:
+            valid = client.check_session()
+            logging.getLogger("keepalive").info(f"Session keepalive: {'OK' if valid else 'EXPIRED'}")
+        except Exception as e:
+            logging.getLogger("keepalive").warning(f"Keepalive failed: {e}")
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(_session_keepalive())
+
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)

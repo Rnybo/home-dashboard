@@ -487,7 +487,13 @@
     let lightboxItems = [], lightboxIdx = 0;
 
     async function initConfig() {
-      API_KEY = (await fetch('/api/config').then(r => r.json())).api_key || '';
+      try {
+        API_KEY = (await fetch('/api/config').then(r => r.json())).api_key || '';
+      } catch(e) {
+        // Retry once after 1 second
+        await new Promise(r => setTimeout(r, 1000));
+        try { API_KEY = (await fetch('/api/config').then(r => r.json())).api_key || ''; } catch(e) {}
+      }
     }
     function apiFetch(url, opts = {}) {
       return fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
@@ -1277,8 +1283,8 @@
         renderAccountDropdown(expired);
         return data.session_valid;
       } catch(e) {
-        await loadLoginAccounts();
-        renderAccountDropdown(true);
+        // Network error — don't change state, keep loading indicator
+        console.warn('checkSession failed:', e);
         return false;
       }
     }

@@ -4,11 +4,10 @@ import sys
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI, HTTPException, Request, Depends, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-import spotify_service as sp
 from dotenv import load_dotenv
 from aula_client import AulaClient
 from aula_playwright import AulaPlaywright
@@ -322,81 +321,6 @@ def gallery_album_media(album_id: int, inst_profile_ids: str = "", index: int = 
 def gallery_user_media(inst_profile_ids: str = "", index: int = 0, limit: int = 12):
     ids = [int(i) for i in inst_profile_ids.split(",") if i]
     return aula_call(lambda: client.get_user_media(ids, index, limit))
-
-
-
-# ── Spotify ────────────────────────────────────────────────────────────────────
-
-@app.on_event("startup")
-async def start_spotify_polling():
-    asyncio.create_task(sp.polling_loop())
-
-
-@app.get("/api/spotify/auth")
-async def spotify_auth():
-    return RedirectResponse(sp.get_auth_url())
-
-
-@app.get("/api/spotify/callback")
-async def spotify_callback(code: str = "", error: str = ""):
-    if error or not code:
-        return {"error": error or "no code"}
-    await sp.exchange_code(code)
-    return RedirectResponse("/?spotify=connected")
-
-
-@app.get("/api/spotify/current")
-async def spotify_current():
-    return sp.get_cached_state()
-
-
-@app.get("/api/spotify/devices")
-async def spotify_devices():
-    return await sp.get_devices()
-
-
-@app.post("/api/spotify/play")
-async def spotify_play():
-    await sp.control("play"); return {"ok": True}
-
-@app.post("/api/spotify/pause")
-async def spotify_pause():
-    await sp.control("pause"); return {"ok": True}
-
-@app.post("/api/spotify/next")
-async def spotify_next():
-    await sp.control("next"); return {"ok": True}
-
-@app.post("/api/spotify/previous")
-async def spotify_previous():
-    await sp.control("previous"); return {"ok": True}
-
-@app.post("/api/spotify/transfer")
-async def spotify_transfer(device_id: str):
-    ok = await sp.transfer_playback(device_id)
-    return {"ok": ok}
-
-
-@app.websocket("/ws/spotify")
-async def spotify_ws(websocket: WebSocket):
-    await websocket.accept()
-    # Send current state immediately on connect
-    try:
-        await websocket.send_json(sp.get_cached_state())
-    except Exception:
-        return
-
-    async def push(state: dict):
-        await websocket.send_json(state)
-
-    sp.subscribe(push)
-    try:
-        while True:
-            await websocket.receive_text()  # keep alive; client can send "ping"
-    except WebSocketDisconnect:
-        pass
-    finally:
-        sp.unsubscribe(push)
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

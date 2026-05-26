@@ -2,9 +2,26 @@
 
 Denne guide beskriver alt hvad der er nødvendigt for at sætte et nyt Android tablet op som et låst Aula-dashboard, samt daglig drift.
 
+## Hurtig installation (anbefalet)
+
+Åbn Termux på tabletten og kør dette ét-linje kommando:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Rnybo/aula-dashboard/main/install.sh | bash
+```
+
+Scriptet installerer og starter automatisk:
+- Alle Python og Node.js afhængigheder
+- Playwright patches til Android
+- Auto-start ved boot (Termux:Boot)
+- Selve serveren
+
+Åbn herefter: **http://familiekalender.local:8000/settings.html** og konfigurér dine oplysninger.
+
 ---
 
-## Forudsætninger
+## Manuel installation (alternativ)
+
 
 **PC (Windows):**
 - Python 3.12+ med `venv312` virtualenv i projektmappen

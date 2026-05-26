@@ -176,6 +176,7 @@
         const s = await fetch('/api/settings').then(r => r.json());
         document.getElementById('api_key').value = s.api_key || '';
         document.getElementById('anthropic_key').value = s.anthropic_key || '';
+        document.getElementById('dashboard_title').value = s.dashboard_title || 'Hjem';
         document.getElementById('weather_lat').value = s.weather_lat || '';
         document.getElementById('weather_lon').value = s.weather_lon || '';
         const accList = document.getElementById('accounts-list');
@@ -262,6 +263,7 @@
       const payload = {
         api_key:          document.getElementById('api_key').value.trim(),
         anthropic_key:    document.getElementById('anthropic_key').value.trim(),
+        dashboard_title:  document.getElementById('dashboard_title').value.trim() || 'Hjem',
         accounts,
         google_calendars,
         weather_lat:      document.getElementById('weather_lat').value.trim(),

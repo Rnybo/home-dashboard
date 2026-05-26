@@ -162,7 +162,7 @@ venv312\Scripts\python.exe tablet_ssh.py "curl -s http://127.0.0.1:8000/api/conf
 
 Dashboardet viser "⚠️ Aula offline" banneret med login-knapper.
 
-**Via dashboard:** Tryk "Login Rasmus" eller "Login Maja" direkte på skærmen → godkend i MitID-appen.
+**Via dashboard:** Tryk login-knap for den ønskede konto direkte på skærmen → godkend i MitID-appen.
 
 **Via PC (hvis dashboard ikke svarer):**
 ```powershell
@@ -195,13 +195,13 @@ venv312\Scripts\python.exe full_sync.py
 venv312\Scripts\python.exe termux_start.py
 ```
 
-### Tilføj Majas rigtige MitID brugernavn
+### Tilføj anden konto
 
-Rediger `.env` på PC:
+Rediger `.env` via settings-siden eller direkte:
 ```
-MITID_USERNAME_2=<majas_mitid_brugernavn>
+MITID_USERNAME_2=<brugernavn>
+MITID_IDENTITY_2=<Fuldt navn>
 ```
-Kør derefter `push_env.py` + `termux_start.py`.
 
 ---
 
@@ -258,38 +258,41 @@ AULA_PHPSESSID=                    # legacy, bruges ikke hvis session.json finde
 AULA_CSRF_TOKEN=                   # legacy
 
 # MitID login (bruges til automatisk session-fornyelse)
-MITID_USERNAME=RasmusNybo          # Rasmus MitID brugernavn
-MITID_IDENTITY=Rasmus Fogh Nybo    # Fuldt navn som det står i MitID
-MITID_USERNAME_2=Maja_Raabjerg     # Maja MitID brugernavn
-MITID_IDENTITY_2=Maja Raabjerg Jensen
+MITID_USERNAME=                    # MitID brugernavn (telefon/CPR)
+MITID_IDENTITY=                    # Fuldt navn som det står i MitID
+MITID_USERNAME_2=                  # Anden konto (valgfri)
+MITID_IDENTITY_2=                  # Fuldt navn anden konto (valgfri)
 
 # API sikkerhed
 API_KEY=                           # Auto-genereret ved første start
 
-# Google Kalender (offentlige ICS links)
-GOOGLE_CALENDAR_ICS_RASMUS=https://calendar.google.com/calendar/ical/...
-GOOGLE_CALENDAR_ICS_MAJA=https://calendar.google.com/calendar/ical/...
+# Google/Apple Kalender (ICS links)
+GOOGLE_CALENDAR_ICS=               # Offentlig ICS URL
+GOOGLE_CALENDAR_NAME=              # Kalender navn
+# GOOGLE_CALENDAR_ICS_2=
+# GOOGLE_CALENDAR_NAME_2=
 
 # Vejr (koordinater for din adresse)
-WEATHER_LAT=56.127
-WEATHER_LON=10.178
+WEATHER_LAT=                       # Find på maps.google.com
+WEATHER_LON=
 
-# Rejsetider (OpenRouteService)
+# Dashboard titel
+DASHBOARD_TITLE=Hjem               # Vises i header
+
+# Rejsetider (OpenRouteService — valgfri)
 ORS_API_KEY=
-ORS_ORIGIN_LAT=56.113586
-ORS_ORIGIN_LON=10.196946
-ORS_DEST_1_NAME=Systematic
-ORS_DEST_1_LAT=56.152004
-ORS_DEST_1_LON=10.176888
+ORS_ORIGIN_LAT=
+ORS_ORIGIN_LON=
+ORS_DEST_1_NAME=
 ORS_DEST_1_DEFAULT=cycling-regular
-ORS_DEST_2_NAME=Skejby Sygehus
-ORS_DEST_2_LAT=56.190518
-ORS_DEST_2_LON=10.173182
-ORS_DEST_2_DEFAULT=cycling-regular
-ORS_DEST_3_NAME=Kragelundskolen
-ORS_DEST_3_LAT=56.115202
-ORS_DEST_3_LON=10.200216
-ORS_DEST_3_DEFAULT=foot-walking
+# ORS_DEST_2_NAME=
+# ORS_DEST_2_LAT=
+# ORS_DEST_2_LON=
+# ORS_DEST_2_DEFAULT=cycling-regular
+# ORS_DEST_3_NAME=
+# ORS_DEST_3_LAT=
+# ORS_DEST_3_LON=
+# ORS_DEST_3_DEFAULT=foot-walking
 ```
 
 ---

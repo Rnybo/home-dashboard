@@ -102,7 +102,7 @@ def config(request: Request):
     host = request.headers.get("host", "")
     if referer and host and host not in referer and host not in origin:
         raise HTTPException(status_code=403, detail="Forbidden")
-    return {"api_key": API_KEY}
+    return {"api_key": API_KEY, "dashboard_title": os.getenv("DASHBOARD_TITLE", "Hjem")}
 
 
 @app.get("/api/status", dependencies=[Depends(check_api_key)])
@@ -587,6 +587,7 @@ def get_settings():
     result = {
         "api_key":    os.getenv("API_KEY", ""),
         "anthropic_key": "***" if os.getenv("ANTHROPIC_API_KEY") else "",
+        "dashboard_title": os.getenv("DASHBOARD_TITLE", "Hjem"),
         "accounts":   [],
         "google_calendars": [],
         "weather_lat": os.getenv("WEATHER_LAT", "56.127"),
@@ -662,6 +663,7 @@ async def save_settings(request: Request):
     # Weather
     if data.get("weather_lat"): set_env("WEATHER_LAT", data["weather_lat"])
     if data.get("weather_lon"): set_env("WEATHER_LON", data["weather_lon"])
+    if data.get("dashboard_title") is not None: set_env("DASHBOARD_TITLE", data.get("dashboard_title", "Hjem"))
     ak = data.get("anthropic_key", "").strip()
     if ak and ak != "***": set_env("ANTHROPIC_API_KEY", ak)
 

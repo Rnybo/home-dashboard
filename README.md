@@ -1,6 +1,6 @@
-# C.F. Aagaards Vej 4 — Family Dashboard
+# Familieoverblik — Family Dashboard
 
-A family dashboard for the Danish school platform Aula, designed for a tablet. Shows weekly schedule, presence times, Google Calendar, weather, commute times, messages, gallery and posts. Features automatic MitID login via Playwright and full offline support via localStorage cache.
+A family dashboard for the Danish school platform Aula, designed for a wall-mounted tablet. Shows weekly schedule, presence times, Google Calendar, weather, commute times, messages, gallery and posts. Features automatic MitID login via Playwright and full offline support via localStorage cache.
 
 ## Features
 
@@ -11,16 +11,20 @@ A family dashboard for the Danish school platform Aula, designed for a tablet. S
 - **Beskeder** — Message threads from Aula
 - **Weather** — Met.no (no API key): temperature, wind, precipitation per hour in timetable; daily max/min/wind in date headers
 - **Commute** — OpenRouteService (free API key): cycling, walking, driving times in Today widget on weekdays
-- **Google Calendar** — ICS-based, no OAuth: Rasmus + Maja + Danish public holidays, recurring events supported
+- **Google/Apple Calendar** — ICS-based, no OAuth: supports multiple calendars, recurring events
 - **Notifications** — Badge indicators for unread messages, new posts, new albums; per-view dot indicators in Aula dropdown
-- **Offline support** — When Aula session expires, all data (calendar, posts, messages, gallery, dates, birthdays) is served from localStorage cache. Non-Aula sources (Google Calendar, weather, commute) continue updating normally. Small inline banner replaces the old full-screen error.
+- **Offline support** — When Aula session expires, all data is served from localStorage cache
+- **Settings page** — Configure everything via browser at `/settings.html` — no terminal needed
 
-## Prerequisites
+## Quick Install (Android/Termux)
 
-- Python 3.12
-- Git
+```bash
+curl -sSL https://raw.githubusercontent.com/Rnybo/aula-dashboard/main/install.sh | sh
+```
 
-## Local Development
+Then open: **http://familiekalender.local:8000/settings.html**
+
+## Local Development (PC/Mac)
 
 ### 1. Clone
 ```bash
@@ -30,95 +34,90 @@ cd aula-dashboard
 
 ### 2. Virtual environment
 ```bash
-py -3.12 -m venv venv312
+py -3.12 -m venv venv
 ```
 
 ### 3. Install dependencies
 ```bash
-.\venv312\Scripts\pip install -r requirements.txt
-.\venv312\Scripts\playwright install chromium
+venv\Scripts\pip install -r requirements.txt
+venv\Scripts\playwright install chromium
 ```
 
-### 4. Configure `.env`
+### 4. Configure
 ```bash
 copy .env.example .env
 ```
+Edit `.env` or use the settings page after starting the server.
 
 | Variable | Description |
 |---|---|
-| `API_KEY` | Random secret key |
-| `MITID_USERNAME` | MitID username |
+| `API_KEY` | Random secret key (auto-generated if empty) |
+| `DASHBOARD_TITLE` | Header title shown on dashboard (default: Hjem) |
+| `MITID_USERNAME` | MitID username (phone/CPR) |
 | `MITID_IDENTITY` | Full name as shown in MitID |
 | `MITID_USERNAME_2` / `MITID_IDENTITY_2` | Optional second account |
-| `AULA_PHPSESSID` / `AULA_CSRF_TOKEN` | Optional existing session cookies |
-| `GOOGLE_CALENDAR_ICS_RASMUS` / `_MAJA` | Public ICS links from Google Calendar |
+| `GOOGLE_CALENDAR_ICS` | Public ICS link from Google/Apple Calendar |
+| `GOOGLE_CALENDAR_NAME` | Display name for calendar |
 | `WEATHER_LAT` / `WEATHER_LON` | Home coordinates for weather |
-| `ORS_API_KEY` | OpenRouteService API key |
+| `ORS_API_KEY` | OpenRouteService API key (optional) |
 | `ORS_ORIGIN_LAT` / `ORS_ORIGIN_LON` | Home coordinates for routing |
 | `ORS_DEST_N_NAME/LAT/LON/DEFAULT` | Destination N (N=1,2,3...) |
-
-Generate API key:
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
+| `ANTHROPIC_API_KEY` | Optional — improves date parsing from messages |
 
 ### 5. Start server
 ```bash
-.\venv312\Scripts\uvicorn main:app --host 127.0.0.1 --port 8080
+start.bat
+```
+Or manually:
+```bash
+venv\Scripts\uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-Open **http://localhost:8080**
+Open **http://familiekalender.local:8000**
 
-## Google Calendar Setup
+## Calendar Setup
 
+**Google Calendar:**
 1. [calendar.google.com](https://calendar.google.com) → three dots → **Settings and sharing**
-2. **Access permissions** → enable **"Make available to public"**
-3. **Integrate calendar** → copy **"Public address in iCal format"**
+2. **Integrate calendar** → copy **"Public address in iCal format"**
+
+**Apple Calendar:**
+1. Calendar app → Edit → Share Calendar → enable Public → copy URL
+2. Replace `webcal://` with `https://`
 
 Danish public holidays are included automatically.
 
 ## Weather Setup
 
-Fetched from [met.no](https://api.met.no) — no API key. Set `WEATHER_LAT`/`WEATHER_LON` to your home address (right-click in Google Maps → "What's here?").
+Fetched from [met.no](https://api.met.no) — no API key needed. Set `WEATHER_LAT`/`WEATHER_LON` (right-click in Google Maps → "What's here?").
 
 ## Commute Setup
 
-1. Sign up at [openrouteservice.org](https://openrouteservice.org/dev/#/login) → get free API key
-2. Find coordinates for each destination via Google Maps
-3. Add `ORS_DEST_N_*` for each destination (N = 1, 2, 3...)
-4. Set `ORS_DEST_N_DEFAULT`: `cycling-regular`, `foot-walking`, or `driving-car`
-
-Commute cards appear in the Today widget on weekdays only.
-
-## Offline / Session Behaviour
-
-When the Aula session expires a small `⚠️ Aula offline` indicator appears in the header with Login buttons. The dashboard continues to show all previously loaded data from localStorage:
-
-- Calendar events and presence times
-- Posts, important dates, birthdays
-- Message thread list (last 5) and individual threads (previously opened)
-- Child tabs and profile info
-
-Google Calendar, weather and commute continue updating normally. On successful login the page reloads automatically.
+1. Sign up at [openrouteservice.org](https://openrouteservice.org/dev/#/login) → free API key
+2. Add `ORS_DEST_N_*` for each destination (N = 1, 2, 3...)
+3. `ORS_DEST_N_DEFAULT`: `cycling-regular`, `foot-walking`, or `driving-car`
 
 ## Project Structure
 
 ```
 aula-dashboard/
-├── main.py              # FastAPI — all API endpoints
-├── aula_client.py       # Aula API client
-├── aula_playwright.py   # MitID login via Playwright
+├── main.py                    # FastAPI — all API endpoints
+├── aula_client.py             # Aula API client
+├── aula_playwright.py         # MitID login via Playwright
+├── install.sh                 # One-click Android/Termux installer
+├── start.bat                  # Windows start script
 ├── requirements.txt
 ├── .env.example
 └── static/
-    └── index.html       # Single-page dashboard UI
+    ├── index.html             # Single-page dashboard UI
+    └── settings.html          # Browser-based configuration
 ```
 
 ## API Endpoints
 
 | Endpoint | Description |
 |---|---|
-| `GET /api/config` | API key (same-origin) |
+| `GET /api/config` | API key + dashboard config |
 | `GET /api/status` | Session check |
 | `GET /api/profile-config` | Children + institution IDs |
 | `GET /api/calendar` | Aula events |
@@ -134,9 +133,9 @@ aula-dashboard/
 | `GET /api/google-calendar` | Combined Google Calendar (ICS) |
 | `GET /api/weather` | Hourly weather from met.no |
 | `GET /api/routes` | Commute times from OpenRouteService |
+| `GET /api/custom-events` | Local calendar events |
+| `GET /api/custom-events.ics` | ICS feed for calendar apps |
 | `POST /api/login/start` | Start MitID login |
 | `GET /api/login/status` | Login status + QR |
-
-## Debug Mode
-
-Set `PLAYWRIGHT_DEBUG=true` in `.env` to save screenshots to `debug_screenshots/`.
+| `GET /api/settings` | Get configuration |
+| `POST /api/settings` | Save configuration |

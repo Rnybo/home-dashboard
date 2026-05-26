@@ -491,11 +491,18 @@
 
     async function initConfig() {
       try {
-        API_KEY = (await fetch('/api/config').then(r => r.json())).api_key || '';
+        const cfg = await fetch('/api/config').then(r => r.json());
+        API_KEY = cfg.api_key || '';
+        document.querySelector('header h1').textContent = '🏠 ' + (cfg.dashboard_title || 'Hjem');
+        document.title = cfg.dashboard_title || 'Familieoverblik';
       } catch(e) {
-        // Retry once after 1 second
         await new Promise(r => setTimeout(r, 1000));
-        try { API_KEY = (await fetch('/api/config').then(r => r.json())).api_key || ''; } catch(e) {}
+        try {
+          const cfg = await fetch('/api/config').then(r => r.json());
+          API_KEY = cfg.api_key || '';
+          document.querySelector('header h1').textContent = '🏠 ' + (cfg.dashboard_title || 'Hjem');
+          document.title = cfg.dashboard_title || 'Familieoverblik';
+        } catch(e) {}
       }
     }
     function apiFetch(url, opts = {}) {

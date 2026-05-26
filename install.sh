@@ -1,7 +1,7 @@
-#!/data/data/com.termux/files/usr/bin/bash
+#!/data/data/com.termux/files/usr/bin/sh
 # =============================================================================
 # Familieoverblik — Install Script til Android/Termux
-# Kør: bash install.sh
+# Kør: sh install.sh
 # =============================================================================
 
 set +e
@@ -25,7 +25,7 @@ echo "=================================================="
 # ── Trin 1: Grundpakker ───────────────────────────────────────────────────────
 step "Installerer Termux-pakker..."
 DEBIAN_FRONTEND=noninteractive pkg update -y >> "$LOG" 2>&1 || true
-DEBIAN_FRONTEND=noninteractive pkg install -y python git openssh nodejs curl >> "$LOG" 2>&1 || warn "Nogle pakker fejlede — fortsætter"
+DEBIAN_FRONTEND=noninteractive pkg install -y bash python git openssh nodejs curl >> "$LOG" 2>&1 || warn "Nogle pakker fejlede — fortsætter"
 ok "Termux-pakker installeret"
 
 # ── Trin 2: Python afhængigheder ──────────────────────────────────────────────

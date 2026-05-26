@@ -907,11 +907,12 @@
           const full  = a.media.file?.url || thumb;
           return `<img src="${thumb}" loading="lazy" onclick="openLightboxUrl('${full}')" style="width:120px;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0">`;
         }
-        // File attachment
-        const fileUrl = a.media?.file?.url || a.file?.url || a.url || '';
-        const name = a.media?.file?.name || a.file?.name || a.name || fileUrl.split('/').pop().split('?')[0] || 'Fil';
+        // File attachment — check both a.file.url and a.media.file.url
+        const fileUrl = a.file?.url || a.media?.file?.url || a.url || '';
+        const name = a.file?.name || a.name || a.media?.file?.name || fileUrl.split('/').pop().split('?')[0] || 'Fil';
         if (!fileUrl) return '';
-        return `<div class="file-card" onclick="openFileModal('${fileUrl}','${name.replace(/'/g,"\\'")}')"><span class="file-icon">${fileIcon(name)}</span><span class="file-name">${name}</span></div>`;
+        const safeName = name.replace(/'/g, "\\'");
+        return `<div class="file-card" onclick="openFileModal('${fileUrl}','${safeName}')"><span class="file-icon">${fileIcon(name)}</span><span class="file-name">${name}</span></div>`;
       }).join('');
     }
     function closePostModal(e) {

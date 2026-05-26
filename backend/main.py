@@ -139,7 +139,8 @@ def file_proxy(url: str):
         raise HTTPException(400, "url required")
     # Only allow aula.dk URLs for security
     parsed = urllib.parse.urlparse(url)
-    if not parsed.netloc.endswith("aula.dk"):
+    allowed = parsed.netloc.endswith("aula.dk") or parsed.netloc.endswith("aula-prod.aula.dk")
+    if not allowed:
         raise HTTPException(403, "Only aula.dk URLs are allowed")
     try:
         r = client.session.get(url, stream=True, timeout=30)

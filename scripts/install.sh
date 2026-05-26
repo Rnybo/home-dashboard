@@ -84,7 +84,8 @@ if [ -d "$INSTALL_DIR/backend" ]; then
     cp "$INSTALL_DIR/backend/"*.py "$INSTALL_DIR/"
     mkdir -p "$INSTALL_DIR/static"
     cp "$INSTALL_DIR/frontend/"*.html "$INSTALL_DIR/static/"
-    ok "Filer fladt ud fra backend/ og frontend/"
+    cp "$INSTALL_DIR/scripts/login_node.js" "$INSTALL_DIR/"
+    ok "Filer fladt ud fra backend/, frontend/ og scripts/"
 fi
 
 # Patch playwright stub efter kode er hentet

@@ -92,7 +92,7 @@ app.add_middleware(NoCacheMiddleware)
 
 @app.get("/")
 async def index():
-    resp = FileResponse("static/index.html")
+    resp = FileResponse(Path(__file__).parent.parent / "frontend" / "index.html")
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     return resp
@@ -682,4 +682,4 @@ async def save_settings(request: Request):
     return {"ok": True, "api_key": api_key}
 
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory=str(Path(__file__).parent.parent / "frontend"), html=True), name="static")

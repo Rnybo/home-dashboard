@@ -14,9 +14,9 @@
     body { background: var(--bg); color: #333; font-family: 'Segoe UI', sans-serif;
       display: flex; flex-direction: column; min-height: 100dvh; gap: 10px; padding: 10px; }
     header { display: flex; justify-content: space-between; align-items: center;
-      background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0; }
-    header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; }
-    header #clock { font-size: 0.95rem; color: #cce4f7; }
+      background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0; gap: 8px; }
+    header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; white-space: nowrap; min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
+    header #clock { font-size: 0.95rem; color: #cce4f7; white-space: nowrap; }
     #session-banner { display: none; background: rgba(0,0,0,0.12); border-radius: var(--radius);
       padding: 4px 12px; font-size: 0.75rem; user-select: none;
       color: rgba(255,255,255,0.85); flex-shrink: 0; text-align: right; }
@@ -303,7 +303,7 @@
 <body>
   <header>
     <h1>🏠 Familieoverblik</h1>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
       <div id="session-banner" style="display:none;font-size:0.75rem;color:rgba(255,255,255,0.85)">
         ⚠️ <span id="banner-msg"></span>
       </div>
@@ -1262,14 +1262,17 @@
         document.getElementById('session-banner').style.display = 'inline-block';
         document.getElementById('banner-msg').textContent = 'Aula offline — vælg konto';
       } else {
-        items.innerHTML = loginAccounts.map(a =>
-          `<div class="acc-item" style="color:#aaa;cursor:default">✅ ${a.name}</div>`
-        ).join('') || '<div class="acc-item" style="color:#aaa">Ingen konti</div>';
+        // Only show the active account (index 0 unless a specific login was done)
+        const active = loginAccounts.find(a => a.index === (window._activeAccountIndex ?? 0))
+                    || loginAccounts[0]
+                    || { name: 'Logget ind' };
+        items.innerHTML = `<div class="acc-item" style="color:#aaa;cursor:default">✅ ${active.name}</div>`;
         document.getElementById('session-banner').style.display = 'none';
       }
     }
 
     async function startLogin(accountIndex = 0) {
+      window._activeAccountIndex = accountIndex;
       document.getElementById('account-dropdown').style.display = 'none';
       document.getElementById('session-banner').style.display = 'inline-block';
       document.getElementById('banner-msg').textContent = 'Logger ind...';

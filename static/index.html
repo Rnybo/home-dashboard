@@ -296,6 +296,7 @@
       .messages-card { width: 100%; }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <header>
@@ -1662,7 +1663,13 @@
 
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
     setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
-    loadAll();
+    function parseEmojis() {
+      if (typeof twemoji !== 'undefined')
+        twemoji.parse(document.body, { folder: 'svg', ext: '.svg', base: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/' });
+    }
+    loadAll().then(parseEmojis).catch(()=>{});
+    // Re-parse after dynamic renders
+    document.addEventListener('renderDone', parseEmojis);
   </script>
 </body>
 </html>

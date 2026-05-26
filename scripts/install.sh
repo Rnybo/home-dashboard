@@ -11,7 +11,7 @@ export HOME="/data/data/com.termux/files/home"
 export PREFIX="/data/data/com.termux/files/usr"
 
 REPO="https://github.com/Rnybo/home-dashboard.git"
-INSTALL_DIR="$HOME/aula-dashboard"
+INSTALL_DIR="$HOME/home-dashboard"
 LOG="/sdcard/familieoverblik_install.log"
 MARKER="$HOME/.familieoverblik_installed"
 
@@ -101,10 +101,10 @@ cat > "$HOME/.termux/boot/start-familieoverblik.sh" << 'BOOT'
 #!/data/data/com.termux/files/usr/bin/sh
 export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export HOME="/data/data/com.termux/files/home"
-cd ~/aula-dashboard
+cd ~/home-dashboard
 pkill -f uvicorn 2>/dev/null
 sleep 2
-nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > ~/aula-dashboard/server.log 2>&1 &
+nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > ~/home-dashboard/server.log 2>&1 &
 BOOT
 chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"

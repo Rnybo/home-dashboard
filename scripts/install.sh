@@ -42,14 +42,13 @@ fi
 # ── Trin 2: Hent/opdater kode ────────────────────────────────────────────────
 step "Henter seneste kode..."
 if [ -d "$INSTALL_DIR/.git" ]; then
-    cd "$INSTALL_DIR"
-    git pull origin main >> "$LOG" 2>&1
+    cd "$INSTALL_DIR" && git pull origin main >> "$LOG" 2>&1
     ok "Kode opdateret"
 else
     rm -rf "$INSTALL_DIR"
-    git clone "$REPO" "$INSTALL_DIR" >> "$LOG" 2>&1
-    if [ $? -eq 0 ]; then ok "Kode hentet"
-    else err "Git clone fejlede — tjek netværk og at $REPO er tilgængeligt"; fi
+    git clone "$REPO" "$INSTALL_DIR" >> "$LOG" 2>&1 \
+        && ok "Kode hentet" \
+        || err "Git clone fejlede — tjek netværk"
 fi
 
 # ── Trin 3: Python afhængigheder ─────────────────────────────────────────────

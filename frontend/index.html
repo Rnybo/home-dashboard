@@ -80,8 +80,9 @@
     .day-col.weekend { background: #fafafa; }
     .day-col.today.weekend { background: #f5faff; }
     .th-spacer { position: sticky; top: 0; background: #fff; z-index: 2; border-bottom: 2px solid var(--border); }
-    .day-header { padding: 4px 4px 8px; text-align: center; font-size: 0.78rem; font-weight: 700;
-      color: #666; border-bottom: 2px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 2; }
+    .day-header { padding: 4px 4px 4px; text-align: center; font-size: 0.78rem; font-weight: 700;
+      color: #666; border-bottom: 2px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 2; overflow: hidden; }
+    .day-header .allday-badges { height: 28px; overflow: hidden; margin-top: 2px; }
     .day-header.weekend { color: #999; }
     .day-header.weekend .date-num { color: #999; }
     .day-header .date-num { display: block; font-size: 1.1rem; font-weight: 800; color: #333; line-height: 1.2; }
@@ -884,11 +885,21 @@
             });
         const allDayBadges = dayAllDay.map(e => {
           const color = e.color || 'var(--blue-accent)';
-          const title = e.title || e.summary || '(ingen titel)';
-          return `<div title="${title}" style="font-size:0.6rem;font-weight:700;
-            background:${color};color:#fff;border-radius:3px;
-            padding:1px 5px;margin-top:2px;white-space:nowrap;
-            overflow:hidden;text-overflow:ellipsis;max-width:100%">${title}</div>`;
+          const title = (e.title || e.summary || '(ingen titel)').replace(/'/g, "\\'");
+          const safeE = JSON.stringify({
+            title: e.title || e.summary || '(ingen titel)',
+            start: e.start || '',
+            end: e.end || '',
+            allDay: true,
+            color: e.color || '',
+            description: e.description || e.content || '',
+            custom: !!e.custom,
+            id: e.id || ''
+          }).replace(/'/g, "\\'");
+          return `<div onclick="event.stopPropagation();openEvInfo(${safeE})" style="font-size:0.6rem;font-weight:700;
+            background:${e.color||'var(--blue-accent)'};color:#fff;border-radius:3px;
+            padding:1px 5px;margin-top:2px;white-space:nowrap;cursor:pointer;
+            overflow:hidden;text-overflow:ellipsis;">${e.title || e.summary || '(ingen titel)'}</div>`;
         }).join('');
         // Weather — header strip (same style for all days)
         let weatherStrip = '';
@@ -909,7 +920,7 @@
         html += `<div class="day-header ${isToday?'today':''} ${(day.getDay()===0||day.getDay()===6)?'weekend':''}" style="min-height:48px">
           ${DAY_NAMES[i]}<br><span class="date-num">${day.getDate()}</span>
           ${weatherStrip}
-          <div style="line-height:1.2">${allDayBadges}</div>
+          <div class="allday-badges">${allDayBadges}</div>
         </div>`;
       });
       html += `<div class="time-gutter" style="height:${totalH}px;grid-row:2">`;
@@ -1436,24 +1447,46 @@
       return html;
     }
 
-    function openEvInfo(el, evt) {
-      evt.stopPropagation();
-      const title = el.dataset.title;
-      const time  = el.dataset.time;
-      const color = el.dataset.color;
-      const isCustom = el.dataset.custom === '1';
-      const evId = el.dataset.evid;
+    function openEvInfo(elOrEvt, evt) {
+      // Called either as openEvInfo(domEl, mouseEvt) from cal-events
+      // or as openEvInfo(evtObj) from allday badges with a plain data object
+      let title, time, color, isCustom, evId, desc, extra = {};
+
+      if (elOrEvt && elOrEvt.dataset) {
+        // DOM element path
+        if (evt) evt.stopPropagation();
+        title    = elOrEvt.dataset.title;
+        time     = elOrEvt.dataset.time;
+        color    = elOrEvt.dataset.color;
+        isCustom = elOrEvt.dataset.custom === '1';
+        evId     = elOrEvt.dataset.evid;
+        desc     = elOrEvt.dataset.desc || '';
+        try { extra = JSON.parse(elOrEvt.dataset.extra || '{}'); } catch(e) {}
+      } else {
+        // Plain object path (from allday badge onclick)
+        const d = elOrEvt;
+        title    = d.title || '(ingen titel)';
+        color    = d.color || 'var(--blue-accent)';
+        isCustom = !!d.custom;
+        evId     = d.id || '';
+        desc     = d.description || '';
+        if (d.allDay) {
+          const fmt = s => s ? new Date(s+'T00:00:00').toLocaleDateString('da-DK',{weekday:'short',day:'numeric',month:'short'}) : '';
+          time = 'Heldagsarrangement' + (d.start ? ' · ' + fmt(d.start) + (d.end && d.end !== d.start ? ' – ' + fmt(d.end) : '') : '');
+        } else {
+          const s = d.start ? new Date(d.start) : null;
+          const e = d.end   ? new Date(d.end)   : null;
+          const fmtT = dt => dt.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+          time = s ? (fmtT(s) + (e ? ' – ' + fmtT(e) : '')) : '';
+        }
+      }
 
       document.getElementById('ev-info-title').textContent = title;
       document.getElementById('ev-info-time').textContent  = time;
-      const desc = el.dataset.desc || '';
       const descEl = document.getElementById('ev-info-desc');
       if (desc) { descEl.textContent = desc; descEl.style.display = 'block'; }
       else { descEl.textContent = ''; descEl.style.display = 'none'; }
 
-      // Extra details
-      let extra = {};
-      try { extra = JSON.parse(el.dataset.extra || '{}'); } catch(e) {}
       const detailsEl = document.getElementById('ev-info-details');
       const rows = [];
       if (extra.location)    rows.push(`📍 ${extra.location}`);

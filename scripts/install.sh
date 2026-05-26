@@ -13,7 +13,6 @@ export PREFIX="/data/data/com.termux/files/usr"
 REPO="https://github.com/Rnybo/home-dashboard.git"
 INSTALL_DIR="$HOME/home-dashboard"
 LOG="/sdcard/familieoverblik_install.log"
-MARKER="$HOME/.familieoverblik_installed"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 ok()   { printf "${GREEN}✓ %s${NC}\n" "$1"; }
@@ -22,14 +21,12 @@ err()  { printf "${RED}✗ %s${NC}\n" "$1"; exit 1; }
 step() { printf "\n${YELLOW}▶ %s${NC}\n" "$1"; }
 skip() { printf "${GREEN}↩ %s — allerede installeret${NC}\n" "$1"; }
 
-is_first_install() { [ ! -f "$MARKER" ]; }
-
 printf "==================================================\n"
-printf "  Familieoverblik — %s\n" "$(is_first_install && echo 'Installation' || echo 'Opdatering')"
+printf "  Familieoverblik — Installation/Opdatering\n"
 printf "==================================================\n"
 
 # ── Trin 1: Grundpakker ───────────────────────────────────────────────────────
-if is_first_install || ! command -v python > /dev/null 2>&1; then
+if ! command -v git > /dev/null 2>&1 || ! command -v python > /dev/null 2>&1; then
     step "Installerer Termux-pakker..."
     DEBIAN_FRONTEND=noninteractive pkg update -y >> "$LOG" 2>&1 || true
     DEBIAN_FRONTEND=noninteractive pkg install -y bash python git openssh nodejs curl >> "$LOG" 2>&1 \
@@ -39,20 +36,28 @@ else
     skip "Termux-pakker"
 fi
 
-# ── Trin 2: Hent/opdater kode ────────────────────────────────────────────────
+# ── Trin 2: Hent/opdater kode (ALTID) ────────────────────────────────────────
 step "Henter seneste kode..."
 if [ -d "$INSTALL_DIR/.git" ]; then
     cd "$INSTALL_DIR" && git pull origin main >> "$LOG" 2>&1
     ok "Kode opdateret"
 else
+    # Gem node_modules hvis de findes, slet resten og klon
+    if [ -d "$INSTALL_DIR/node_modules" ]; then
+        mv "$INSTALL_DIR/node_modules" /tmp/nm_backup 2>/dev/null
+    fi
     rm -rf "$INSTALL_DIR"
     git clone "$REPO" "$INSTALL_DIR" >> "$LOG" 2>&1 \
         && ok "Kode hentet" \
         || err "Git clone fejlede — tjek netværk"
+    # Gendan node_modules
+    if [ -d /tmp/nm_backup ]; then
+        mv /tmp/nm_backup "$INSTALL_DIR/node_modules" 2>/dev/null
+    fi
 fi
 
 # ── Trin 3: Python afhængigheder ─────────────────────────────────────────────
-if is_first_install || ! python -c "import fastapi" > /dev/null 2>&1; then
+if ! python -c "import fastapi" > /dev/null 2>&1; then
     step "Installerer Python pakker..."
     pip install --quiet --break-system-packages \
         fastapi uvicorn requests beautifulsoup4 python-dotenv \
@@ -64,7 +69,7 @@ else
 fi
 
 # ── Trin 4: Node.js / Playwright ─────────────────────────────────────────────
-if is_first_install || [ ! -d "$INSTALL_DIR/node_modules/playwright-core" ]; then
+if [ ! -d "$INSTALL_DIR/node_modules/playwright-core" ]; then
     step "Installerer Node.js pakker..."
     npm install playwright-core@1.52.0 --prefix "$INSTALL_DIR" --silent >> "$LOG" 2>&1 \
         || warn "npm install fejlede — Playwright login virker muligvis ikke"
@@ -98,10 +103,7 @@ BOOT
 chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"
 
-# ── Trin 7: Marker installation som fuldført ─────────────────────────────────
-touch "$MARKER"
-
-# ── Trin 8: Start server ─────────────────────────────────────────────────────
+# ── Trin 7: Start server ─────────────────────────────────────────────────────
 step "Starter server..."
 pkill -f uvicorn 2>/dev/null || true
 fuser -k 8000/tcp 2>/dev/null || true

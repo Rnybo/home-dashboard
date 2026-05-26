@@ -444,7 +444,7 @@
       </div>
       <div class="field">
         <label>Kalender</label>
-        <div id="event-cal-options" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;padding:10px;background:#f8f9fa;border-radius:8px"></div>
+        <div id="event-cal-options" style="display:flex;flex-wrap:wrap;gap:16px;margin-top:6px;padding:10px;background:#f8f9fa;border-radius:8px"></div>
       </div>
       <div class="modal-btns">
         <button class="btn-save-local" onclick="saveEventLocal()">📌 Gem til Familieoverblik</button>
@@ -1511,9 +1511,9 @@
         ...CHILDREN.map(c => ({ id: 'cal-child-' + c.id, label: c.name, color: '#43a047' })),
       ];
       calOpts.innerHTML = cals.map(c =>
-        `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer">
-          <input type="checkbox" class="cal-opt" id="${c.id}" style="accent-color:${c.color}">
-          <span style="background:${c.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:0.72rem">${c.label}</span>
+        `<label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;cursor:pointer">
+          <input type="checkbox" class="cal-opt" id="${c.id}" style="accent-color:${c.color};width:15px;height:15px;flex-shrink:0">
+          <span style="background:${c.color};color:#fff;padding:2px 10px;border-radius:10px;font-size:0.72rem;white-space:nowrap">${c.label}</span>
         </label>`
       ).join('');
 
@@ -1553,9 +1553,9 @@
         ...CHILDREN.map(c => ({ id: 'cal-child-' + c.id, label: c.name, color: '#43a047' })),
       ];
       calOpts.innerHTML = cals.map(c =>
-        `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;cursor:pointer">
-          <input type="checkbox" class="cal-opt" id="${c.id}" style="accent-color:${c.color}">
-          <span style="background:${c.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:0.72rem">${c.label}</span>
+        `<label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;cursor:pointer">
+          <input type="checkbox" class="cal-opt" id="${c.id}" style="accent-color:${c.color};width:15px;height:15px;flex-shrink:0">
+          <span style="background:${c.color};color:#fff;padding:2px 10px;border-radius:10px;font-size:0.72rem;white-space:nowrap">${c.label}</span>
         </label>`
       ).join('');
 

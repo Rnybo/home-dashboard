@@ -21,7 +21,8 @@ from pathlib import Path
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
-load_dotenv()
+ROOT = Path(__file__).parent.parent  # project root (aula-dashboard/)
+load_dotenv(ROOT / ".env")
 
 def _start_mdns():
     try:
@@ -45,7 +46,7 @@ _start_mdns()
 
 # Ensure required keys exist in .env
 def _ensure_env_key(key: str, default: str):
-    env_path = Path(__file__).parent / ".env"
+    env_path = ROOT / ".env"
     try:
         content = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
         if not any(l.startswith(f"{key}=") for l in content.splitlines()):
@@ -387,7 +388,7 @@ def gallery_user_media(inst_profile_ids: str = "", index: int = 0, limit: int = 
 @app.post("/api/logout")
 def logout():
     import json
-    p = Path(__file__).parent / "session.json"
+    p = ROOT / "session.json"
     if p.exists():
         p.write_text(json.dumps({}))
     client.update_credentials({})
@@ -396,7 +397,7 @@ def logout():
 
 # ── Custom events ─────────────────────────────────────────────────────────────
 
-CUSTOM_EVENTS_FILE = Path(__file__).parent / "custom_events.json"
+CUSTOM_EVENTS_FILE = ROOT / "custom_events.json"
 
 def load_custom_events() -> list:
     try:    return json.loads(CUSTOM_EVENTS_FILE.read_text(encoding="utf-8"))
@@ -625,7 +626,7 @@ async def save_settings(request: Request):
     """Save settings to .env file and reload environment."""
     import secrets as sec
     data = await request.json()
-    env_path = Path(__file__).parent / ".env"
+    env_path = ROOT / ".env"
     lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
 
     def set_env(key: str, value: str):

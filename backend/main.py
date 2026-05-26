@@ -10,10 +10,10 @@ from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from backend.aula_client import AulaClient
-if sys.platform == "linux" and "com.termux" in __import__("os").environ.get("PREFIX", ""):
-    from backend.aula_playwright_android import AulaPlaywright
-else:
+try:
     from backend.aula_playwright import AulaPlaywright
+except ModuleNotFoundError:
+    from backend.aula_playwright_android import AulaPlaywright
 import os
 import json
 import logging

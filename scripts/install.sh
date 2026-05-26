@@ -10,7 +10,7 @@ export PATH="/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr
 export HOME="/data/data/com.termux/files/home"
 export PREFIX="/data/data/com.termux/files/usr"
 
-REPO="https://github.com/Rnybo/aula-dashboard.git"
+REPO="https://github.com/Rnybo/home-dashboard.git"
 INSTALL_DIR="$HOME/aula-dashboard"
 LOG="/sdcard/familieoverblik_install.log"
 MARKER="$HOME/.familieoverblik_installed"
@@ -77,6 +77,14 @@ else
     git clone "$REPO" "$INSTALL_DIR" >> "$LOG" 2>&1
     if [ $? -eq 0 ]; then ok "Kode hentet"
     else warn "Git clone fejlede — kopiér koden manuelt fra PC"; fi
+fi
+
+# Repoet bruger backend/ og frontend/ mapper — flad dem ud til tablet-struktur
+if [ -d "$INSTALL_DIR/backend" ]; then
+    cp "$INSTALL_DIR/backend/"*.py "$INSTALL_DIR/"
+    mkdir -p "$INSTALL_DIR/static"
+    cp "$INSTALL_DIR/frontend/"*.html "$INSTALL_DIR/static/"
+    ok "Filer fladt ud fra backend/ og frontend/"
 fi
 
 # Patch playwright stub efter kode er hentet

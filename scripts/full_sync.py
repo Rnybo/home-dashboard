@@ -11,13 +11,14 @@ REMOTE_ROOT = "/data/data/com.termux/files/home/aula-dashboard"
 
 # All files to deploy: (local, remote)
 FILES = [
-    ("main.py",                    "main.py"),
-    ("aula_client.py",             "aula_client.py"),
-    ("aula_playwright_android.py", "aula_playwright.py"),  # stub for Android
-    ("login_node.js",              "login_node.js"),
-    ("requirements.txt",           "requirements.txt"),
-    (".env",                       ".env"),
-    ("static/index.html",          "static/index.html"),
+    ("backend/main.py",                    "main.py"),
+    ("backend/aula_client.py",             "aula_client.py"),
+    ("backend/aula_playwright_android.py", "aula_playwright.py"),  # stub for Android
+    ("scripts/login_node.js",              "login_node.js"),
+    ("requirements.txt",                   "requirements.txt"),
+    (".env",                               ".env"),
+    ("frontend/index.html",                "static/index.html"),
+    ("frontend/settings.html",             "static/settings.html"),
 ]
 
 def connect():

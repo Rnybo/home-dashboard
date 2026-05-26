@@ -4,10 +4,10 @@
 # Kør: bash install.sh
 # =============================================================================
 
-set -e
+set +e
 REPO="https://github.com/Rnybo/aula-dashboard.git"
 INSTALL_DIR="$HOME/aula-dashboard"
-LOG="$HOME/install.log"
+LOG="/sdcard/familieoverblik_install.log"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 ok()   { echo -e "${GREEN}✓ $1${NC}"; }
@@ -27,11 +27,11 @@ ok "Termux-pakker installeret"
 
 # ── Trin 2: Python afhængigheder ──────────────────────────────────────────────
 step "Installerer Python pakker..."
-pip install --quiet \
+pip install --quiet --break-system-packages \
     fastapi uvicorn requests beautifulsoup4 python-dotenv \
-    icalendar recurring-ical-events zeroconf httpx >> "$LOG" 2>&1 \
-    || err "Python pakker fejlede — tjek $LOG"
-ok "Python pakker installeret"
+    icalendar recurring-ical-events zeroconf httpx >> "$LOG" 2>&1
+if [ $? -eq 0 ]; then ok "Python pakker installeret"
+else warn "Nogle Python pakker fejlede — tjek $LOG"; fi
 
 # ── Trin 3: Node.js / Playwright ─────────────────────────────────────────────
 step "Installerer Node.js pakker..."

@@ -63,22 +63,7 @@ else
 fi
 
 # ── Trin 4: Patch playwright til Android ─────────────────────────────────────
-PLAYWRIGHT_HOST="$INSTALL_DIR/node_modules/playwright-core/lib/server/utils/hostPlatform.js"
-PLAYWRIGHT_REG="$INSTALL_DIR/node_modules/playwright-core/lib/server/registry/index.js"
-
-if [ -f "$PLAYWRIGHT_HOST" ]; then
-    grep -q "ubuntu22.04-arm64" "$PLAYWRIGHT_HOST" 2>/dev/null || {
-        step "Patcher Playwright til Android..."
-        sed -i "s/hostPlatform: '<unknown>'/hostPlatform: 'ubuntu22.04-arm64'/" "$PLAYWRIGHT_HOST"
-        ok "hostPlatform.js patchet"
-    }
-fi
-if [ -f "$PLAYWRIGHT_REG" ]; then
-    grep -q "android" "$PLAYWRIGHT_REG" 2>/dev/null || {
-        sed -i 's/if (process.platform === "linux")/if (process.platform === "linux" || process.platform === "android")/' "$PLAYWRIGHT_REG"
-        ok "registry/index.js patchet"
-    }
-fi
+# (køres efter git pull i trin 5)
 
 # ── Trin 5: Hent/opdater kode ─────────────────────────────────────────────────
 step "Henter seneste kode..."
@@ -92,6 +77,12 @@ else
     git clone "$REPO" "$INSTALL_DIR" >> "$LOG" 2>&1
     if [ $? -eq 0 ]; then ok "Kode hentet"
     else warn "Git clone fejlede — kopiér koden manuelt fra PC"; fi
+fi
+
+# Patch playwright stub efter kode er hentet
+if [ -f "$INSTALL_DIR/aula_playwright_android.py" ]; then
+    cp "$INSTALL_DIR/aula_playwright_android.py" "$INSTALL_DIR/aula_playwright.py"
+    ok "Playwright Android stub aktiveret"
 fi
 
 # ── Trin 6: .env setup ────────────────────────────────────────────────────────

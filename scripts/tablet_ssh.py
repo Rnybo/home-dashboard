@@ -1,11 +1,12 @@
 """SSH helper for Termux on Android tablet"""
 import paramiko
 import sys
+from pathlib import Path
 
 TABLET_IP = "127.0.0.1"
 TABLET_PORT = 8022
 TABLET_USER = "u0_a225"
-KEY_FILE = r"C:\Users\rnf\Projects\home-dashboard\tablet_key"
+KEY_FILE = str(Path(__file__).parent.parent / "tablet_key")
 
 def ssh_run(cmd: str, timeout: int = 180) -> str:
     key = paramiko.RSAKey.from_private_key_file(KEY_FILE)

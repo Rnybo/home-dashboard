@@ -1,0 +1,10 @@
+import paramiko, subprocess, sys
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+subprocess.run(['adb', 'forward', 'tcp:8022', 'tcp:8022'], capture_output=True)
+key = paramiko.RSAKey.from_private_key_file(r'tablet_key')
+c = paramiko.SSHClient()
+c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+c.connect('127.0.0.1', port=8022, username='u0_a225', pkey=key, timeout=10)
+_, out, _ = c.exec_command('tail -80 ~/aula-dashboard/server.log', timeout=15)
+print(out.read().decode('utf-8', errors='replace'))
+c.close()

@@ -394,10 +394,6 @@ def load_custom_events() -> list:
 def save_custom_events(events: list):
     CUSTOM_EVENTS_FILE.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def event_fingerprint(title: str, start: str, end: str) -> str:
-    import hashlib
-    key = f"{title.strip()}|{start}|{end or ''}"
-    return hashlib.md5(key.encode()).hexdigest()[:12]
 
 @app.get("/api/custom-events")
 def get_custom_events():

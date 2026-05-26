@@ -1652,14 +1652,6 @@
       loadGoogleCalendar();
     }
 
-    function openGoogleCal() {
-      const title = encodeURIComponent(document.getElementById('event-title').value.trim());
-      const start = document.getElementById('event-start').value.replace(/[-:T]/g,'').substring(0,15)+'Z';
-      const end   = document.getElementById('event-end').value
-        ? document.getElementById('event-end').value.replace(/[-:T]/g,'').substring(0,15)+'Z' : start;
-      window.open(`https://calendar.google.com/calendar/r/eventedit?text=${title}&dates=${start}/${end}`, '_blank');
-    }
-
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
     setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
     loadAll();

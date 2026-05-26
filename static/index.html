@@ -128,7 +128,9 @@
     #view-overview { flex-direction: column; gap: 10px; overflow-y: auto; }
     .overview-section { background: #fff; border-radius: var(--radius); padding: 14px; border: 1px solid var(--border); flex-shrink: 0; }
     .overview-section h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 12px; }
-    .post-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e8f0f7; cursor: pointer; }
+    .post-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e8f0f7; cursor: pointer; position: relative; }
+    .post-item.unread::before { content:''; position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:8px; height:8px; border-radius:50%; background:#e53935; }
+    .post-item.unread .post-title { font-weight: 700; color: var(--blue); }
     .post-item:last-child { border-bottom: none; padding-bottom: 0; }
     .post-item:hover { background: #f5faff; border-radius: 6px; padding-left: 6px; margin-left: -6px; }
     .post-thumb { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--blue-mid); }
@@ -179,8 +181,8 @@
     .msg-item:hover { background: #f0f7ff; border-radius: 4px; padding-left: 4px; }
     .msg-item:last-child { border-bottom: none; }
     .msg-item .subject { font-weight: 600; color: #333; }
-    .msg-item.unread .subject { color: var(--blue); }
-    .msg-item.unread { border-left: 3px solid var(--blue); padding-left: 8px; }
+    .msg-item.unread { border-left: 3px solid var(--blue); padding-left: 8px; background: #f0f7ff; }
+    .msg-item.unread .subject { color: var(--blue); font-weight: 700; }
     .msg-item .meta { color: #999; font-size: 0.75rem; margin-top: 3px; }
     .loading { color: #bbb; font-style: italic; font-size: 0.82rem; }
 
@@ -784,15 +786,17 @@
     function renderOverviewPosts(posts) {
       const el = document.getElementById('overview-posts');
       if (!posts.length) { el.innerHTML = '<span class="loading">Ingen opslag</span>'; return; }
+      const seenTs = new Date(getSeen().overview || 0);
       el.innerHTML = posts.map(p => {
+        const isNew = new Date(p.timestamp) > seenTs;
         const thumb = p.attachments?.[0]?.media?.largeThumbnailUrl || p.attachments?.[0]?.media?.thumbnailUrl || '';
         const date = new Date(p.timestamp).toLocaleDateString('da-DK', {day:'numeric', month:'short', year:'numeric'});
         const preview = (p.content?.html||'').replace(/<[^>]+>/g,'').trim().substring(0, 120);
         const important = p.isImportant ? '<span class="post-important">⚠️ Vigtigt</span>' : '';
         const thumbHtml = thumb ? `<img class="post-thumb" src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : `<div class="post-thumb-placeholder">📰</div>`;
-        return `<div class="post-item" onclick="openPost(${p.id})">${thumbHtml}
+        return `<div class="post-item${isNew?' unread':''}" onclick="openPost(${p.id})">${thumbHtml}
           <div class="post-body">${important}
-            <div class="post-title">${p.title||'(ingen titel)'}</div>
+            <div class="post-title">${isNew?'🔴 ':''}${p.title||'(ingen titel)'}</div>
             <div class="post-meta">${p.ownerProfile?.fullName||''} · ${date}${p.commentCount ? ' · 💬 '+p.commentCount : ''}</div>
             <div class="post-preview">${preview}</div>
           </div></div>`;
@@ -1112,7 +1116,11 @@
       const el=document.getElementById(elId);
       if (!cachedThreads.length) { el.textContent='Ingen beskeder'; return; }
       const limit = elId === 'messages-cal' ? 3 : 20;
-      el.innerHTML=cachedThreads.slice(0,limit).map(t => `<div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')"><div class="subject">${t.subject||'(ingen emne)'}</div><div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div></div>`).join('');
+      el.innerHTML=cachedThreads.slice(0,limit).map(t => `
+        <div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')">
+          <div class="subject">${t.read?'':' 🔴 '}${t.subject||'(ingen emne)'}</div>
+          <div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div>
+        </div>`).join('');
     }
     function openGoogleEvent(idx) {
       const e = _upcomingEvents[idx]; if (!e) return;

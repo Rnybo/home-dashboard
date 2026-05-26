@@ -50,7 +50,6 @@ class AulaClient:
             "PHPSESSID": phpsessid,
             "Csrfp-Token": csrf_token,
             "initialLogin": "true",
-            "profile_change": "16",
         })
 
     def _post(self, method: str, body: dict) -> dict:

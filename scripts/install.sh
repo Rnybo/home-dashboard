@@ -54,8 +54,7 @@ fi
 # ── Trin 3: Node.js / Playwright ─────────────────────────────────────────────
 if is_first_install || [ ! -d "$INSTALL_DIR/node_modules/playwright-core" ]; then
     step "Installerer Node.js pakker..."
-    cd "$INSTALL_DIR" 2>/dev/null || true
-    npm install playwright-core@1.52.0 --silent >> "$LOG" 2>&1 \
+    npm install playwright-core@1.52.0 --prefix "$INSTALL_DIR" --silent >> "$LOG" 2>&1 \
         || warn "npm install fejlede — Playwright login virker muligvis ikke"
     ok "Node.js pakker installeret"
 else

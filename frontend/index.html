@@ -858,6 +858,7 @@
     // ── Timetable ──
     function renderWeek() {
       if (!CHILDREN.length) return;
+      window._evRegistry = [];  // reset event registry for allday badge clicks
       const days = getWeekDays(), today = new Date();
       document.getElementById('week-nr').textContent = getWeekNr(days[0]);
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
@@ -884,9 +885,7 @@
               return e.start && isSameDay(new Date(e.start.substring(0,10)+'T00:00:00'), day);
             });
         const allDayBadges = dayAllDay.map(e => {
-          const color = e.color || 'var(--blue-accent)';
-          const title = (e.title || e.summary || '(ingen titel)').replace(/'/g, "\\'");
-          const safeE = JSON.stringify({
+          const idx = window._evRegistry.push({
             title: e.title || e.summary || '(ingen titel)',
             start: e.start || '',
             end: e.end || '',
@@ -895,8 +894,8 @@
             description: e.description || e.content || '',
             custom: !!e.custom,
             id: e.id || ''
-          }).replace(/'/g, "\\'");
-          return `<div onclick="event.stopPropagation();openEvInfo(${safeE})" style="font-size:0.6rem;font-weight:700;
+          }) - 1;
+          return `<div onclick="event.stopPropagation();openEvInfo(window._evRegistry[${idx}])" style="font-size:0.6rem;font-weight:700;
             background:${e.color||'var(--blue-accent)'};color:#fff;border-radius:3px;
             padding:1px 5px;margin-top:2px;white-space:nowrap;cursor:pointer;
             overflow:hidden;text-overflow:ellipsis;">${e.title || e.summary || '(ingen titel)'}</div>`;

@@ -29,7 +29,7 @@ def start_server():
     # Start new server — nohup keeps it alive after SSH closes
     c.exec_command(
         'cd ~/aula-dashboard && find . -name "__pycache__" -exec rm -rf {} + 2>/dev/null; '
-        'nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > server.log 2>&1 &',
+        'nohup uvicorn backend.main:app --host 0.0.0.0 --port 8080 > server.log 2>&1 &',
         timeout=5
     )
     c.close()
@@ -37,12 +37,12 @@ def start_server():
     time.sleep(4)
 
     # Verify
-    r = subprocess.run(['adb', 'shell', 'ss -tlnp 2>/dev/null | grep 8000'],
+    r = subprocess.run(['adb', 'shell', 'ss -tlnp 2>/dev/null | grep 8080'],
                        capture_output=True, text=True)
-    if '8000' in r.stdout:
-        print("Server running on port 8000")
+    if '8080' in r.stdout:
+        print("Server running on port 8080")
     else:
-        print("WARNING: port 8000 not listening — check server.log on tablet")
+        print("WARNING: port 8080 not listening — check server.log on tablet")
 
 if __name__ == "__main__":
     start_server()

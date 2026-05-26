@@ -105,7 +105,7 @@ export HOME="/data/data/com.termux/files/home"
 cd ~/aula-dashboard
 pkill -f uvicorn 2>/dev/null
 sleep 2
-nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > ~/aula-dashboard/server.log 2>&1 &
+nohup uvicorn backend.main:app --host 0.0.0.0 --port 8080 > ~/aula-dashboard/server.log 2>&1 &
 BOOT
 chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"
@@ -116,17 +116,17 @@ touch "$MARKER"
 # ── Trin 9: (Gen)start server ─────────────────────────────────────────────────
 step "Starter server..."
 pkill -f uvicorn 2>/dev/null || true
-fuser -k 8000/tcp 2>/dev/null || true
+fuser -k 8080/tcp 2>/dev/null || true
 sleep 1
-nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > "$INSTALL_DIR/server.log" 2>&1 &
+nohup uvicorn backend.main:app --host 0.0.0.0 --port 8080 > "$INSTALL_DIR/server.log" 2>&1 &
 sleep 3
 
 if pgrep -f uvicorn > /dev/null; then
     ok "Server kører!"
     printf "\n==================================================\n"
     printf "  ${GREEN}Familieoverblik er klar!${NC}\n\n"
-    printf "  Dashboard:     http://familiekalender.local:8000\n"
-    printf "  Indstillinger: http://familiekalender.local:8000/settings.html\n"
+    printf "  Dashboard:     http://familiekalender.local:8080\n"
+    printf "  Indstillinger: http://familiekalender.local:8080/settings.html\n"
     printf "==================================================\n"
 else
     err "Server startede ikke — tjek $INSTALL_DIR/server.log"

@@ -6,7 +6,7 @@ if sys.platform == "win32":
 
 from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from backend.aula_client import AulaClient
@@ -129,6 +129,37 @@ def config(request: Request):
 @app.get("/api/status", dependencies=[Depends(check_api_key)])
 def status():
     return {"session_valid": client.check_session()}
+
+
+@app.get("/api/file-proxy", dependencies=[Depends(check_api_key)])
+def file_proxy(url: str):
+    """Proxy an Aula file URL through the authenticated session so all devices can access it."""
+    import urllib.parse
+    if not url:
+        raise HTTPException(400, "url required")
+    # Only allow aula.dk URLs for security
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.netloc.endswith("aula.dk"):
+        raise HTTPException(403, "Only aula.dk URLs are allowed")
+    try:
+        r = client.session.get(url, stream=True, timeout=30)
+        r.raise_for_status()
+        content_type = r.headers.get("Content-Type", "application/octet-stream")
+        content_disp = r.headers.get("Content-Disposition", "")
+        # For PDFs serve inline, everything else as attachment
+        if "pdf" in content_type:
+            disp = "inline"
+        elif content_disp:
+            disp = content_disp
+        else:
+            filename = url.split("/")[-1].split("?")[0] or "file"
+            disp = f'attachment; filename="{filename}"'
+        headers = {"Content-Disposition": disp}
+        if "Content-Length" in r.headers:
+            headers["Content-Length"] = r.headers["Content-Length"]
+        return StreamingResponse(r.iter_content(chunk_size=65536), media_type=content_type, headers=headers)
+    except Exception as e:
+        raise HTTPException(502, f"Could not fetch file: {e}")
 
 
 @app.get("/api/login/accounts", dependencies=[Depends(check_api_key)])

@@ -170,8 +170,24 @@
     #post-modal-close { float: right; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: #999; }
     #post-modal-body { font-size: 0.85rem; color: #333; line-height: 1.6; }
     #post-modal-body img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
-    .post-modal-attachments { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 12px; }
-    .post-modal-attachments img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; cursor: pointer; }
+    .post-modal-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .post-modal-attachments img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; cursor: pointer; flex-shrink: 0; }
+    .file-card { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f0f4f8;
+      border: 1px solid var(--border); border-radius: 8px; cursor: pointer; text-decoration: none;
+      color: var(--blue); font-size: 0.82rem; font-weight: 600; max-width: 260px; }
+    .file-card:hover { background: var(--blue-light); }
+    .file-card .file-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .file-card .file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── File viewer modal ── */
+    #file-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:600; flex-direction:column; align-items:center; justify-content:center; padding:16px; }
+    #file-modal-overlay.open { display:flex; }
+    #file-modal { background:#fff; border-radius:12px; width:min(860px,96vw); height:min(90dvh,860px); display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 40px rgba(0,0,0,0.3); }
+    #file-modal-header { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    #file-modal-title { flex:1; font-size:0.88rem; font-weight:600; color:#333; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #file-modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#999; flex-shrink:0; }
+    #file-modal-dl { background:var(--blue-light); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:0.78rem; font-weight:600; color:var(--blue); text-decoration:none; flex-shrink:0; }
+    #file-modal iframe { flex:1; border:none; width:100%; }
 
     /* ── Messages panel ── */
     .messages-card { background: #fff; border-radius: var(--radius); padding: 12px;
@@ -453,6 +469,18 @@
         <button class="btn-save-local" onclick="saveEventLocal()">📌 Gem til Familieoverblik</button>
         <button class="btn-cancel-modal" onclick="closeEventModal()">Annuller</button>
       </div>
+    </div>
+  </div>
+
+  <!-- File viewer modal -->
+  <div id="file-modal-overlay" onclick="closeFileModal(event)">
+    <div id="file-modal">
+      <div id="file-modal-header">
+        <span id="file-modal-title"></span>
+        <a id="file-modal-dl" href="#" download>⬇️ Download</a>
+        <button id="file-modal-close" onclick="closeFileModal()">✕</button>
+      </div>
+      <iframe id="file-modal-frame" src="" title="Fil"></iframe>
     </div>
   </div>
 
@@ -839,16 +867,52 @@
       const btnId = 'parse-btn-' + postId;
       document.getElementById('post-modal-body').innerHTML += `<div style="margin-top:12px"><button class="parse-event-btn" id="${btnId}">📅 Tilføj til kalender</button></div>`;
       document.getElementById(btnId).addEventListener('click', e => { e.stopPropagation(); openEventModal(plainText); });
-      const atts = p.attachments?.filter(a => a.media) || [];
-      document.getElementById('post-modal-attachments').innerHTML = atts.map(a => {
-        const url = a.media.largeThumbnailUrl || a.media.thumbnailUrl || '';
-        return url ? `<img src="${url}" loading="lazy" onclick="openLightboxUrl('${a.media.file?.url||url}')">` : '';
-      }).join('');
+      document.getElementById('post-modal-attachments').innerHTML = renderAttachments(p.attachments || []);
       document.getElementById('post-modal-overlay').classList.add('open');
     }
     function openLightboxUrl(url) {
       lightboxItems = [{url, thumbUrl: url, isVideo: url.match(/\.(mov|mp4|webm)/i), title:''}];
       lightboxIdx = 0; showLightboxItem(); document.getElementById('lightbox').classList.add('open');
+    }
+
+    // ── File helpers ──
+    const FILE_ICONS = { pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📋', pptx:'📋', txt:'📃', zip:'🗜️', default:'📎' };
+    function fileIcon(name) {
+      const ext = (name||'').split('.').pop().toLowerCase();
+      return FILE_ICONS[ext] || FILE_ICONS.default;
+    }
+    function proxyUrl(url) {
+      return `/api/file-proxy?url=${encodeURIComponent(url)}`;
+    }
+    function openFileModal(fileUrl, name) {
+      const proxy = proxyUrl(fileUrl);
+      document.getElementById('file-modal-title').textContent = name || 'Fil';
+      document.getElementById('file-modal-dl').href = proxy;
+      document.getElementById('file-modal-dl').download = name || 'fil';
+      document.getElementById('file-modal-frame').src = proxy;
+      document.getElementById('file-modal-overlay').classList.add('open');
+    }
+    function closeFileModal(e) {
+      if (!e || e.target === document.getElementById('file-modal-overlay') || e.target === document.getElementById('file-modal-close')) {
+        document.getElementById('file-modal-frame').src = '';
+        document.getElementById('file-modal-overlay').classList.remove('open');
+      }
+    }
+    function renderAttachments(attachments) {
+      if (!attachments?.length) return '';
+      return attachments.map(a => {
+        // Image/video with thumbnail → lightbox
+        if (a.media?.thumbnailUrl || a.media?.largeThumbnailUrl) {
+          const thumb = a.media.largeThumbnailUrl || a.media.thumbnailUrl;
+          const full  = a.media.file?.url || thumb;
+          return `<img src="${thumb}" loading="lazy" onclick="openLightboxUrl('${full}')" style="width:120px;height:120px;object-fit:cover;border-radius:8px;cursor:pointer;flex-shrink:0">`;
+        }
+        // File attachment
+        const fileUrl = a.media?.file?.url || a.file?.url || a.url || '';
+        const name = a.media?.file?.name || a.file?.name || a.name || fileUrl.split('/').pop().split('?')[0] || 'Fil';
+        if (!fileUrl) return '';
+        return `<div class="file-card" onclick="openFileModal('${fileUrl}','${name.replace(/'/g,"\\'")}')"><span class="file-icon">${fileIcon(name)}</span><span class="file-name">${name}</span></div>`;
+      }).join('');
     }
     function closePostModal(e) {
       if (!e || e.target===document.getElementById('post-modal-overlay') || e.target===document.getElementById('post-modal-close'))
@@ -1215,7 +1279,8 @@
         document.getElementById('msg-modal-body').innerHTML=msgs.map(m => {
           const sender=m.sender?.fullName||'Ukendt', date=m.sendDateTime?new Date(m.sendDateTime).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
           const mBtnId = 'parse-msg-' + (m.id||Math.random().toString(36).slice(2));
-          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div><button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button></div>`;
+          const attsHtml = renderAttachments(m.attachments || []);
+          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div>${attsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${attsHtml}</div>` : ''}<button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button></div>`;
         }).join('');
         // Attach event listeners after render
         msgs.forEach(m => {

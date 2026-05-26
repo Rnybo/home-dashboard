@@ -296,7 +296,6 @@
       .messages-card { width: 100%; }
     }
   </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <header>
@@ -1663,15 +1662,7 @@
 
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
     setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
-    function parseEmojis() {
-      if (typeof twemoji === 'undefined') return;
-      const opts = { folder: 'svg', ext: '.svg', base: 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/' };
-      // Only parse specific safe elements — not event titles which may contain DK/US etc.
-      document.querySelectorAll('header, .top-nav, .bottom-nav, .today-card, #today-widget, .day-header, .tab, #account-menu-btn, #account-dropdown').forEach(el => twemoji.parse(el, opts));
-    }
-    loadAll().then(parseEmojis).catch(()=>{});
-    // Re-parse after dynamic renders
-    document.addEventListener('renderDone', parseEmojis);
+    loadAll();
   </script>
 </body>
 </html>

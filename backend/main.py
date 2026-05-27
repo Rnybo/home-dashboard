@@ -64,8 +64,8 @@ _ensure_env_key("WEATHER_LON", "")
 
 app = FastAPI(docs_url=None, redoc_url=None)
 client = AulaClient()
-def _on_login_success(creds):
-    client.update_credentials(creds)
+def _on_login_success(phpsessid, csrf_token):
+    client.update_credentials(phpsessid, csrf_token)
     mqtt_client.publish("familieoverblik/session/state", {"valid": True}, retain=True)
 
 playwright_login = AulaPlaywright(on_success=_on_login_success)

@@ -1501,7 +1501,8 @@
 
     async function pollLoginStatus() {
       clearInterval(loginPolling);
-      await apiFetch('/api/login/cancel', {method:'POST'}).catch(()=>{});
+      apiFetch('/api/login/cancel', {method:'POST'}).catch(()=>{});
+      await new Promise(r => setTimeout(r, 300));
       loginPolling=setInterval(async()=>{
         const data=await apiFetch('/api/login/status').then(r=>r.json()), msg=document.getElementById('banner-msg');
         if (data.state==='show_qr') { document.getElementById('session-banner').style.display='block'; msg.innerHTML=`<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,${data.qr_image}"/>`; }

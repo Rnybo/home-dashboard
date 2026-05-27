@@ -36,7 +36,18 @@
     .toast { display: none; background: #2e7d32; color: #fff; border-radius: 8px; padding: 12px 20px; text-align: center; margin-top: 12px; font-weight: 600; }
     .toast.error { background: #c62828; }
     .toast.visible { display: block; }
-    .section-note { font-size: 0.75rem; color: #aaa; margin-bottom: 12px; line-height: 1.5; }
+    .childlock-status { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+    .childlock-badge { font-size:0.82rem; font-weight:700; padding:4px 12px; border-radius:20px; }
+    .childlock-badge.on  { background:#fff3e0; color:#e65100; }
+    .childlock-badge.off { background:#e8f5e9; color:#2e7d32; }
+    .pin-dots { display:flex; gap:10px; justify-content:center; margin:16px 0 8px; }
+    .pin-dot { width:18px; height:18px; border-radius:50%; border:2px solid var(--blue); background:#fff; transition:background .1s; }
+    .pin-dot.filled { background:var(--blue); }
+    .numpad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:240px; margin:0 auto; }
+    .numpad button { padding:14px; font-size:1.2rem; font-weight:700; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; }
+    .numpad button:hover { background:var(--blue); color:#fff; }
+    .numpad .btn-del { font-size:1rem; color:#999; }
+    .childlock-msg { font-size:0.78rem; color:#aaa; text-align:center; margin-top:10px; }
   </style>
 </head>
 <body>
@@ -302,6 +313,117 @@
     }
 
     load();
+  </script>
+
+  <!-- Børnelås -->
+  <div class="card">
+    <h2>🔒 Børnelås</h2>
+    <p class="section-note">Børnelåsen sætter dashboardet i skrivebeskyttet tilstand. Aktivér med en 4-cifret PIN-kode. Låsen slås automatisk til efter 5 minutters inaktivitet.</p>
+    <div class="childlock-status">
+      <span id="cl-badge" class="childlock-badge off">Slået fra</span>
+      <button id="cl-toggle-btn" onclick="clToggle()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:0.82rem;font-weight:600;color:var(--blue);cursor:pointer"></button>
+    </div>
+    <div id="cl-pin-area">
+      <p id="cl-prompt" style="font-size:0.82rem;font-weight:600;color:#555;text-align:center;margin-bottom:4px"></p>
+      <div class="pin-dots">
+        <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+        <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+      </div>
+      <div class="numpad">
+        <button onclick="clNum('1')">1</button><button onclick="clNum('2')">2</button><button onclick="clNum('3')">3</button>
+        <button onclick="clNum('4')">4</button><button onclick="clNum('5')">5</button><button onclick="clNum('6')">6</button>
+        <button onclick="clNum('7')">7</button><button onclick="clNum('8')">8</button><button onclick="clNum('9')">9</button>
+        <button onclick="clNum('0')" style="grid-column:2">0</button>
+        <button class="btn-del" onclick="clDel()">⌫</button>
+      </div>
+      <p id="cl-msg" class="childlock-msg"></p>
+    </div>
+  </div>
+
+  <script>
+    // ── Børnelås settings logic ──
+    const CL_KEY = 'childlock_pin_hash';
+
+    function clHash(pin) {
+      // Simple hash — djb2
+      let h = 5381;
+      for (const c of pin) h = ((h << 5) + h) + c.charCodeAt(0);
+      return (h >>> 0).toString(16);
+    }
+
+    let clPin = '', clStep = 'idle', clFirstPin = '';
+
+    function clRender() {
+      const stored = localStorage.getItem(CL_KEY);
+      const badge = document.getElementById('cl-badge');
+      const btn   = document.getElementById('cl-toggle-btn');
+      const area  = document.getElementById('cl-pin-area');
+      if (stored) {
+        badge.textContent = '🔒 Sat op'; badge.className = 'childlock-badge on';
+        btn.textContent = 'Fjern børnelås';
+      } else {
+        badge.textContent = 'Slået fra'; badge.className = 'childlock-badge off';
+        btn.textContent = 'Opsæt børnelås';
+      }
+      area.style.display = clStep === 'idle' ? 'none' : 'block';
+      // dots
+      for (let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i < clPin.length);
+    }
+
+    function clToggle() {
+      const stored = localStorage.getItem(CL_KEY);
+      clPin = '';
+      if (stored) {
+        clStep = 'confirm-remove';
+        document.getElementById('cl-prompt').textContent = 'Indtast PIN for at fjerne børnelåsen';
+      } else {
+        clStep = 'set-new';
+        document.getElementById('cl-prompt').textContent = 'Vælg en 4-cifret PIN-kode';
+      }
+      document.getElementById('cl-msg').textContent = '';
+      clRender();
+    }
+
+    function clNum(n) {
+      if (clPin.length >= 4) return;
+      clPin += n;
+      clRender();
+      if (clPin.length === 4) setTimeout(clSubmit, 150);
+    }
+
+    function clDel() { if (clPin.length) { clPin = clPin.slice(0,-1); clRender(); } }
+
+    function clSubmit() {
+      const stored = localStorage.getItem(CL_KEY);
+      if (clStep === 'set-new') {
+        clFirstPin = clPin; clPin = '';
+        clStep = 'confirm-new';
+        document.getElementById('cl-prompt').textContent = 'Gentag PIN-koden';
+        document.getElementById('cl-msg').textContent = '';
+      } else if (clStep === 'confirm-new') {
+        if (clPin === clFirstPin) {
+          localStorage.setItem(CL_KEY, clHash(clPin));
+          document.getElementById('cl-msg').textContent = '✅ Børnelås opsat!';
+          clStep = 'idle'; clPin = ''; clFirstPin = '';
+        } else {
+          document.getElementById('cl-msg').textContent = '❌ Koderne passer ikke — prøv igen';
+          clPin = ''; clStep = 'set-new';
+          document.getElementById('cl-prompt').textContent = 'Vælg en 4-cifret PIN-kode';
+        }
+      } else if (clStep === 'confirm-remove') {
+        if (clHash(clPin) === stored) {
+          localStorage.removeItem(CL_KEY);
+          document.getElementById('cl-msg').textContent = '✅ Børnelås fjernet';
+          clStep = 'idle'; clPin = '';
+        } else {
+          document.getElementById('cl-msg').textContent = '❌ Forkert PIN';
+          clPin = '';
+        }
+      }
+      clRender();
+    }
+
+    clRender();
   </script>
 </body>
 </html>

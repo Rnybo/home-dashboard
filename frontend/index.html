@@ -314,6 +314,26 @@
       .media-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
       .messages-card { width: 100%; }
     }
+    /* ── Børnelås ── */
+    body.child-locked .btn-create, body.child-locked .btn-delete-ev,
+    body.child-locked .add-btn, body.child-locked .parse-event-btn,
+    body.child-locked #settings-link, body.child-locked .acc-logout { display:none !important; }
+    #lock-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:700;
+      align-items:center; justify-content:center; }
+    #lock-overlay.open { display:flex; }
+    #lock-box { background:#fff; border-radius:14px; padding:28px 24px 20px; width:min(320px,94vw);
+      text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.3); }
+    #lock-box h3 { font-size:1rem; font-weight:700; color:#333; margin-bottom:4px; }
+    #lock-box p  { font-size:0.78rem; color:#aaa; margin-bottom:8px; }
+    .lock-dots { display:flex; gap:12px; justify-content:center; margin:14px 0 10px; }
+    .lock-dot { width:18px; height:18px; border-radius:50%; border:2px solid var(--blue); background:#fff; transition:background .1s; }
+    .lock-dot.filled { background:var(--blue); }
+    .lock-numpad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .lock-numpad button { padding:14px; font-size:1.2rem; font-weight:700; border:1px solid var(--border);
+      border-radius:8px; background:#fff; cursor:pointer; }
+    .lock-numpad button:hover, .lock-numpad button:active { background:var(--blue); color:#fff; }
+    #lock-msg { font-size:0.78rem; color:#c62828; min-height:18px; margin-top:6px; }
+
   </style>
 </head>
 <body>
@@ -331,7 +351,8 @@
         </div>
       </div>
       <div id="clock"></div>
-      <a href="/settings.html" style="color:#cce4f7;font-size:1.1rem;text-decoration:none" title="Indstillinger">⚙️</a>
+      <span id="lock-btn" onclick="clLockBtnClick()" title="Børnelås" style="font-size:1.2rem;cursor:pointer;display:none"></span>
+      <a id="settings-link" href="/settings.html" style="color:#cce4f7;font-size:1.1rem;text-decoration:none" title="Indstillinger">⚙️</a>
     </div>
   </header>
 
@@ -469,6 +490,26 @@
         <button class="btn-save-local" onclick="saveEventLocal()">📌 Gem til Familieoverblik</button>
         <button class="btn-cancel-modal" onclick="closeEventModal()">Annuller</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Børnelås overlay -->
+  <div id="lock-overlay">
+    <div id="lock-box">
+      <h3>🔒 Børnelås</h3>
+      <p>Indtast PIN for at låse op</p>
+      <div class="lock-dots">
+        <div class="lock-dot" id="ld0"></div><div class="lock-dot" id="ld1"></div>
+        <div class="lock-dot" id="ld2"></div><div class="lock-dot" id="ld3"></div>
+      </div>
+      <div class="lock-numpad">
+        <button onclick="clLockNum('1')">1</button><button onclick="clLockNum('2')">2</button><button onclick="clLockNum('3')">3</button>
+        <button onclick="clLockNum('4')">4</button><button onclick="clLockNum('5')">5</button><button onclick="clLockNum('6')">6</button>
+        <button onclick="clLockNum('7')">7</button><button onclick="clLockNum('8')">8</button><button onclick="clLockNum('9')">9</button>
+        <button onclick="clLockNum('0')" style="grid-column:2">0</button>
+        <button onclick="clLockDel()" style="color:#999">⌫</button>
+      </div>
+      <div id="lock-msg"></div>
     </div>
   </div>
 
@@ -870,6 +911,89 @@
       document.getElementById('post-modal-attachments').innerHTML = renderAttachments(p.attachments || []);
       document.getElementById('post-modal-overlay').classList.add('open');
     }
+    // ── Børnelås ──────────────────────────────────────────────────────────────
+    const CL_KEY = 'childlock_pin_hash';
+    let clLocked = false, clLockPin = '', clInactivityTimer = null;
+
+    function clHash(pin) {
+      let h = 5381;
+      for (const c of pin) h = ((h << 5) + h) + c.charCodeAt(0);
+      return (h >>> 0).toString(16);
+    }
+
+    function clUpdateBtn() {
+      const stored = localStorage.getItem(CL_KEY);
+      const btn = document.getElementById('lock-btn');
+      const settingsLink = document.getElementById('settings-link');
+      if (!stored) { btn.style.display = 'none'; return; }
+      btn.style.display = 'inline';
+      btn.textContent = clLocked ? '🔒' : '🔓';
+      btn.title = clLocked ? 'Låst — klik for at låse op' : 'Klik for at aktivere børnelås';
+      if (settingsLink) settingsLink.style.display = clLocked ? 'none' : '';
+    }
+
+    function clApplyLock(locked) {
+      clLocked = locked;
+      document.body.classList.toggle('child-locked', locked);
+      document.getElementById('lock-overlay').classList.toggle('open', locked);
+      clUpdateBtn();
+      if (locked) clResetInactivity();
+    }
+
+    function clLockBtnClick() {
+      if (!localStorage.getItem(CL_KEY)) return;
+      if (clLocked) {
+        // show overlay to unlock (already open)
+      } else {
+        clApplyLock(true);
+      }
+    }
+
+    // PIN input for unlock overlay
+    function clLockNum(n) {
+      if (clLockPin.length >= 4) return;
+      clLockPin += n;
+      for (let i=0;i<4;i++) document.getElementById('ld'+i).classList.toggle('filled', i < clLockPin.length);
+      if (clLockPin.length === 4) setTimeout(clLockSubmit, 150);
+    }
+    function clLockDel() {
+      if (clLockPin.length) { clLockPin = clLockPin.slice(0,-1); }
+      for (let i=0;i<4;i++) document.getElementById('ld'+i).classList.toggle('filled', i < clLockPin.length);
+    }
+    function clLockSubmit() {
+      const stored = localStorage.getItem(CL_KEY);
+      if (clHash(clLockPin) === stored) {
+        clLockPin = '';
+        for (let i=0;i<4;i++) document.getElementById('ld'+i).classList.remove('filled');
+        document.getElementById('lock-msg').textContent = '';
+        clApplyLock(false);
+      } else {
+        document.getElementById('lock-msg').textContent = '❌ Forkert PIN';
+        clLockPin = '';
+        for (let i=0;i<4;i++) document.getElementById('ld'+i).classList.remove('filled');
+      }
+    }
+
+    // Auto-lock after 5 min inactivity
+    function clResetInactivity() {
+      clearTimeout(clInactivityTimer);
+      if (!localStorage.getItem(CL_KEY)) return;
+      clInactivityTimer = setTimeout(() => { if (!clLocked) clApplyLock(true); }, 5 * 60 * 1000);
+    }
+    ['click','touchstart','mousemove','keydown'].forEach(e =>
+      document.addEventListener(e, () => { if (!clLocked) clResetInactivity(); }, { passive: true })
+    );
+
+    // Init on load
+    function clInit() {
+      const stored = localStorage.getItem(CL_KEY);
+      if (stored) {
+        clApplyLock(true);  // start locked if PIN is set
+      }
+      clUpdateBtn();
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     function openLightboxUrl(url) {
       lightboxItems = [{url, thumbUrl: url, isVideo: url.match(/\.(mov|mp4|webm)/i), title:''}];
       lightboxIdx = 0; showLightboxItem(); document.getElementById('lightbox').classList.add('open');
@@ -1774,6 +1898,7 @@
     window.addEventListener('storage', e => {
       if (e.key === 'config_updated') initConfig();
     });
+    clInit();
     loadAll();
   </script>
 </body>

@@ -64,7 +64,13 @@ Edit `.env` or use the settings page after starting the server.
 | `ORS_DEST_N_NAME/LAT/LON/DEFAULT` | Destination N (N=1,2,3...) |
 | `ANTHROPIC_API_KEY` | Optional — improves date parsing from messages |
 
-### 5. Start server
+### 5. Installer Mosquitto MQTT broker (anbefalet)
+```
+winget install mosquitto
+```
+`start.bat` starter Mosquitto automatisk — hvis ikke installeret, kører dashboardet stadig men uden MQTT.
+
+### 6. Start server
 ```bash
 start.bat
 ```

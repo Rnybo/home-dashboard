@@ -318,11 +318,11 @@
     body.child-locked .btn-create, body.child-locked .btn-delete-ev,
     body.child-locked .add-btn, body.child-locked .parse-event-btn,
     body.child-locked #settings-link, body.child-locked .acc-logout { display:none !important; }
-    #lock-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:700;
+    #lock-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:700;
       align-items:center; justify-content:center; }
     #lock-overlay.open { display:flex; }
-    #lock-box { background:#fff; border-radius:14px; padding:28px 24px 20px; width:min(320px,94vw);
-      text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.3); }
+    #lock-box { background:#fff; border-radius:14px; padding:28px 24px 20px; width:min(300px,90vw);
+      text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.25); }
     #lock-box h3 { font-size:1rem; font-weight:700; color:#333; margin-bottom:4px; }
     #lock-box p  { font-size:0.78rem; color:#aaa; margin-bottom:8px; }
     .lock-dots { display:flex; gap:12px; justify-content:center; margin:14px 0 10px; }
@@ -332,6 +332,7 @@
     .lock-numpad button { padding:14px; font-size:1.2rem; font-weight:700; border:1px solid var(--border);
       border-radius:8px; background:#fff; cursor:pointer; }
     .lock-numpad button:hover, .lock-numpad button:active { background:var(--blue); color:#fff; }
+    .lock-numpad .btn-cancel-lock { font-size:0.78rem; color:#999; padding:10px; }
     #lock-msg { font-size:0.78rem; color:#c62828; min-height:18px; margin-top:6px; }
 
   </style>
@@ -493,10 +494,10 @@
     </div>
   </div>
 
-  <!-- Børnelås overlay -->
-  <div id="lock-overlay">
+  <!-- Børnelås PIN-dialog (vises kun ved unlock) -->
+  <div id="lock-overlay" onclick="if(event.target===this)clLockCancel()">
     <div id="lock-box">
-      <h3>🔒 Børnelås</h3>
+      <h3>🔒 Låse op</h3>
       <p>Indtast PIN for at låse op</p>
       <div class="lock-dots">
         <div class="lock-dot" id="ld0"></div><div class="lock-dot" id="ld1"></div>
@@ -510,6 +511,7 @@
         <button onclick="clLockDel()" style="color:#999">⌫</button>
       </div>
       <div id="lock-msg"></div>
+      <button class="btn-cancel-lock" onclick="clLockCancel()">Annuller</button>
     </div>
   </div>
 
@@ -935,7 +937,8 @@
     function clApplyLock(locked) {
       clLocked = locked;
       document.body.classList.toggle('child-locked', locked);
-      document.getElementById('lock-overlay').classList.toggle('open', locked);
+      // PIN dialog only shown when unlocking — not when locking
+      if (!locked) document.getElementById('lock-overlay').classList.remove('open');
       clUpdateBtn();
       if (locked) clResetInactivity();
     }
@@ -943,10 +946,21 @@
     function clLockBtnClick() {
       if (!localStorage.getItem(CL_KEY)) return;
       if (clLocked) {
-        // show overlay to unlock (already open)
+        // Show PIN dialog to unlock
+        clLockPin = '';
+        for (let i=0;i<4;i++) document.getElementById('ld'+i).classList.remove('filled');
+        document.getElementById('lock-msg').textContent = '';
+        document.getElementById('lock-overlay').classList.add('open');
       } else {
         clApplyLock(true);
       }
+    }
+
+    function clLockCancel() {
+      document.getElementById('lock-overlay').classList.remove('open');
+      clLockPin = '';
+      for (let i=0;i<4;i++) document.getElementById('ld'+i).classList.remove('filled');
+      document.getElementById('lock-msg').textContent = '';
     }
 
     // PIN input for unlock overlay

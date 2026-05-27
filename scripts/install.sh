@@ -71,6 +71,11 @@ if ! python -c "import fastapi" > /dev/null 2>&1; then
     else warn "Nogle Python pakker fejlede — tjek $LOG"; fi
 else
     skip "Python pakker"
+    # Sørg for paho-mqtt er installeret selv om andre pakker allerede er der
+    if ! python -c "import paho.mqtt" > /dev/null 2>&1; then
+        pip install --quiet --break-system-packages paho-mqtt >> "$LOG" 2>&1 \
+            && ok "paho-mqtt installeret" || warn "paho-mqtt fejlede"
+    fi
 fi
 
 # ── Trin 4: Node.js / Playwright ─────────────────────────────────────────────

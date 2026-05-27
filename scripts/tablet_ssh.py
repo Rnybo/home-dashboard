@@ -17,6 +17,9 @@ def ssh_run(cmd: str, timeout: int = 180) -> str:
     stdout = out.read().decode('utf-8', errors='replace')
     stderr = err.read().decode('utf-8', errors='replace')
     c.close()
+    # Ensure printable output on Windows
+    stdout = stdout.encode('cp1252', errors='replace').decode('cp1252')
+    stderr = stderr.encode('cp1252', errors='replace').decode('cp1252')
     return stdout + (f"\nSTDERR: {stderr}" if stderr.strip() else "")
 
 def ssh_push(local_path: str, remote_path: str):

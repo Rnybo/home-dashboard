@@ -1287,6 +1287,7 @@
         } else {
           // ── Aula child tab — same logic as gTab but filtered by child ──
           const child = CHILDREN[activeTab];
+          const tabColor = childColor(activeTab);
           const childPresence = presenceData[child.id] || [];
           const tpl = childPresence.find(t => t.byDate===dateStr);
           const presenceEvents = [];

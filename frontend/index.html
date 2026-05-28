@@ -1192,7 +1192,16 @@
               if (!e.allDay) return false;
               if (!(e.profiles||[]).includes(CHILDREN[activeTab]?.id)) return false;
               return e.start && isSameDay(new Date(e.start.substring(0,10)+'T00:00:00'), day);
-            });
+            }).concat(googleEvents.filter(e => {
+              if (!e.allDay || !e.custom) return false;
+              const calId = 'cal-child-' + CHILDREN[activeTab]?.id;
+              if (!(e.calendar || '').split(',').includes(calId)) return false;
+              const start = new Date(e.start + 'T00:00:00');
+              const endRaw = e.end && e.end !== e.start ? e.end : e.start;
+              const end = new Date(endRaw + 'T00:00:00');
+              const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+              return dayStart >= start && dayStart <= end;
+            }));
         const allDayBadges = dayAllDay.map(e => {
           const idx = window._evRegistry.push({
             title: e.title || e.summary || '(ingen titel)',

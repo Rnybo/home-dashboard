@@ -359,126 +359,61 @@ def google_calendar(from_date: str = "", to_date: str = ""):
 
     events = []
 
-    # ── OAuth path: fetch from configured calendar IDs ───────────────────────
+    # ── ICS path (altid) ─────────────────────────────────────────────────────
     access_token = _get_google_access_token()
-    if access_token:
-        headers = {"Authorization": f"Bearer {access_token}"}
-        # Build list of calendar IDs from env (same as ICS config)
-        seen_ids, oauth_calendars = set(), []
-        default_cal = os.getenv("GOOGLE_DEFAULT_CALENDAR_ID", "primary")
-        for idx in range(1, 11):
-            suffix = "" if idx == 1 else f"_{idx}"
-            name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", "")
-            # Derive cal_id from ICS url or use default
-            ics_url = os.getenv(f"GOOGLE_CALENDAR_ICS{suffix}", "")
-            if ics_url and "ical/" in ics_url:
-                import urllib.parse
-                cal_id = urllib.parse.unquote(ics_url.split("ical/")[1].split("/")[0])
-            elif idx == 1:
-                cal_id = default_cal
-            else:
-                break
-            if cal_id and cal_id not in seen_ids:
-                seen_ids.add(cal_id)
-                oauth_calendars.append({"id": cal_id, "name": name or cal_id, "color": colors[min(idx-1, len(colors)-1)]})
+    seen, ics_calendars = set(), []
+    for idx in range(1, 11):
+        suffix = "" if idx == 1 else f"_{idx}"
+        url  = os.getenv(f"GOOGLE_CALENDAR_ICS{suffix}", "")
+        name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", f"Kalender {idx}")
+        if url and url not in seen:
+            seen.add(url); ics_calendars.append({"url": url, "name": name, "color": colors[min(idx-1, len(colors)-1)]})
+    ics_calendars.append({"url": "https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", "name": "Helligdag", "color": "#f59e0b"})
 
-        for cal in oauth_calendars:
-            try:
-                resp = req.get(
-                    f"https://www.googleapis.com/calendar/v3/calendars/{cal['id']}/events",
-                    headers=headers,
-                    params={
-                        "timeMin":      f"{date_from.isoformat()}T00:00:00Z",
-                        "timeMax":      f"{date_to.isoformat()}T23:59:59Z",
-                        "singleEvents": "true",
-                        "orderBy":      "startTime",
-                        "maxResults":   100,
-                    },
-                    timeout=8
-                )
-                resp.raise_for_status()
-                for item in resp.json().get("items", []):
-                    start = item.get("start", {})
-                    end   = item.get("end",   {})
-                    all_day = "date" in start and "dateTime" not in start
-                    ext_cals = item.get("extendedProperties", {}).get("private", {}).get("familieoverblik_calendars", "")
-                    events.append({
-                        "title":    item.get("summary", "(ingen titel)"),
-                        "start":    start.get("dateTime") or start.get("date", ""),
-                        "end":      end.get("dateTime")   or end.get("date", ""),
-                        "allDay":   all_day,
-                        "owner":    cal["name"],
-                        "color":    cal["color"],
-                        "location": item.get("location", ""),
-                        "familieoverblik_calendars": ext_cals,
-                    })
-            except Exception as ex:
-                logging.warning(f"Google Calendar API fetch failed for {cal['id']}: {ex}")
-
-    # ── ICS fallback (no OAuth or OAuth failed) ───────────────────────────────
-    if not access_token:
-        seen, ics_calendars = set(), []
-        for idx in range(1, 11):
-            suffix = "" if idx == 1 else f"_{idx}"
-            url  = os.getenv(f"GOOGLE_CALENDAR_ICS{suffix}", "")
-            name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", f"Kalender {idx}")
-            if url and url not in seen:
-                seen.add(url); ics_calendars.append({"url": url, "name": name, "color": colors[min(idx-1, len(colors)-1)]})
-        ics_calendars.append({"url": "https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", "name": "Helligdag", "color": "#f59e0b"})
-
-        for cal in ics_calendars:
-            if not cal["url"]: continue
-            try:
-                r = req.get(cal["url"], timeout=8)
-                r.raise_for_status()
-                gcal = Calendar.from_ical(r.content)
-                for component in recurring_ical_events.of(gcal).between(date_from, date_to):
-                    if component.name != "VEVENT": continue
-                    dtstart = component.get("DTSTART")
-                    dtend   = component.get("DTEND")
-                    if not dtstart: continue
-                    val = dtstart.dt
-                    all_day = not hasattr(val, "hour")
-                    start_iso = val.isoformat() if all_day else val.astimezone().isoformat()
-                    end_val   = dtend.dt if dtend else val
-                    end_iso   = end_val.isoformat() if all_day else (end_val.astimezone().isoformat() if hasattr(end_val, "hour") else end_val.isoformat())
-                    events.append({
-                        "title":    str(component.get("SUMMARY", "(ingen titel)")),
-                        "start":    start_iso,
-                        "end":      end_iso,
-                        "allDay":   all_day,
-                        "owner":    cal["name"],
-                        "color":    cal["color"],
-                        "location": str(component.get("LOCATION", "")),
-                    })
-            except Exception as ex:
-                logging.warning(f"ICS fetch failed for {cal['name']}: {ex}")
-
-    # Always add helligdage via ICS (not in personal calendar list)
-    if access_token:
+    for cal in ics_calendars:
+        if not cal["url"]: continue
         try:
-            r = req.get("https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", timeout=8)
+            r = req.get(cal["url"], timeout=8)
             r.raise_for_status()
             gcal = Calendar.from_ical(r.content)
             for component in recurring_ical_events.of(gcal).between(date_from, date_to):
                 if component.name != "VEVENT": continue
                 dtstart = component.get("DTSTART")
+                dtend   = component.get("DTEND")
                 if not dtstart: continue
                 val = dtstart.dt
                 all_day = not hasattr(val, "hour")
-                dtend = component.get("DTEND")
-                end_val = dtend.dt if dtend else val
+                start_iso = val.isoformat() if all_day else val.astimezone().isoformat()
+                end_val   = dtend.dt if dtend else val
+                end_iso   = end_val.isoformat() if all_day else (end_val.astimezone().isoformat() if hasattr(end_val, "hour") else end_val.isoformat())
+                # Try to get familieoverblik_calendars via OAuth if available
+                ext_cals = ""
+                if access_token:
+                    uid = str(component.get("UID", ""))
+                    if uid:
+                        try:
+                            import urllib.parse
+                            cal_id = urllib.parse.unquote(cal["url"].split("ical/")[1].split("/")[0]) if "ical/" in cal["url"] else "primary"
+                            gr = req.get(
+                                f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events/{uid}",
+                                headers={"Authorization": f"Bearer {access_token}"}, timeout=4
+                            )
+                            if gr.status_code == 200:
+                                ext_cals = gr.json().get("extendedProperties", {}).get("private", {}).get("familieoverblik_calendars", "")
+                        except Exception:
+                            pass
                 events.append({
-                    "title":    str(component.get("SUMMARY", "")),
-                    "start":    val.isoformat(),
-                    "end":      end_val.isoformat(),
+                    "title":    str(component.get("SUMMARY", "(ingen titel)")),
+                    "start":    start_iso,
+                    "end":      end_iso,
                     "allDay":   all_day,
-                    "owner":    "Helligdag",
-                    "color":    "#f59e0b",
-                    "location": "",
+                    "owner":    cal["name"],
+                    "color":    cal["color"],
+                    "location": str(component.get("LOCATION", "")),
+                    "familieoverblik_calendars": ext_cals,
                 })
         except Exception as ex:
-            logging.warning(f"Helligdage ICS failed: {ex}")
+            logging.warning(f"ICS fetch failed for {cal['name']}: {ex}")
 
     return events
 

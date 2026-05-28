@@ -305,13 +305,25 @@
     .klasse-child-row { display: flex; align-items: center; padding: 6px 14px; cursor: pointer; border-bottom: 1px solid #f0f4f8; }
     .klasse-child-row:last-child { border-bottom: none; }
     .klasse-child-row:hover { background: #f8fafc; }
+    .klasse-child-row.own-child { background: #f0f7ff; }
+    .klasse-child-row.own-child:hover { background: #e4f0fc; }
     .klasse-child-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--blue-mid); margin-right: 10px; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; color: var(--blue); font-weight: 700; border: 2px solid var(--border); }
-    .klasse-child-name { flex: 1; font-size: 0.85rem; font-weight: 600; color: #333; }
+    .klasse-child-name { font-size: 0.85rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .klasse-child-bday { font-size: 0.72rem; color: #aaa; margin-top: 1px; }
     .klasse-child-expand { font-size: 0.7rem; color: #bbb; }
     .klasse-parents { display: none; background: #f8fafc; border-top: 1px solid #f0f4f8; padding: 8px 14px 8px 56px; }
     .klasse-parents.open { display: block; }
-    .klasse-parent-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.8rem; color: #444; }
-    .klasse-parent-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e0e7ef; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #666; font-weight: 700; }
+    .klasse-parent-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid #eef2f7; }
+    .klasse-parent-row:last-child { border-bottom: none; }
+    .klasse-parent-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e0e7ef; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #666; font-weight: 700; }
+    .klasse-parent-info { flex: 1; min-width: 0; }
+    .klasse-parent-name { font-size: 0.83rem; font-weight: 700; color: #333; margin-bottom: 2px; }
+    .klasse-parent-relation { font-size: 0.72rem; color: #999; margin-bottom: 4px; }
+    .klasse-contact-row { font-size: 0.78rem; color: #444; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+    .klasse-contact-row a { color: var(--blue); text-decoration: none; }
+    .klasse-contact-row a:hover { text-decoration: underline; }
+    .klasse-birthday { font-size: 0.75rem; color: #888; padding: 4px 0 6px; display: flex; align-items: center; gap: 6px; }
+    .klasse-loading-contacts { font-size: 0.78rem; color: #bbb; font-style: italic; padding: 8px 0; }
 
     /* ── Mobile ── */
     .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0;
@@ -337,6 +349,22 @@
       .media-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
       .messages-card { width: 100%; }
     }
+    /* ── MitID login overlay ── */
+    #mitid-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:800;
+      align-items:center; justify-content:center; }
+    #mitid-overlay.open { display:flex; }
+    #mitid-box { background:#fff; border-radius:16px; padding:24px 20px 20px; width:min(360px,94vw);
+      text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.3); }
+    #mitid-box h3 { font-size:1rem; font-weight:700; color:#333; margin-bottom:4px; }
+    #mitid-box p { font-size:0.78rem; color:#888; margin-bottom:12px; }
+    #mitid-qr-img { width:100%; max-width:300px; border-radius:10px; border:2px solid #e0e7ef; margin-bottom:12px; display:none; }
+    #mitid-spinner { font-size:2rem; margin:12px 0; animation:spin 1s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #mitid-status { font-size:0.82rem; color:#555; margin-bottom:14px; min-height:20px; }
+    #mitid-cancel-btn { background:#f5f5f5; border:1px solid #ddd; border-radius:8px;
+      padding:8px 20px; font-size:0.85rem; font-weight:600; color:#666; cursor:pointer; }
+    #mitid-cancel-btn:hover { background:#eee; }
+
     /* ── Børnelås ── */
     body.child-locked .btn-create, body.child-locked .btn-delete-ev,
     body.child-locked .add-btn, body.child-locked .parse-event-btn,
@@ -523,6 +551,18 @@
         <button class="btn-save-local" onclick="saveEventLocal()">📌 Gem til Familieoverblik</button>
         <button class="btn-cancel-modal" onclick="closeEventModal()">Annuller</button>
       </div>
+    </div>
+  </div>
+
+  <!-- MitID login overlay -->
+  <div id="mitid-overlay">
+    <div id="mitid-box">
+      <h3>🔐 Log ind med MitID</h3>
+      <p id="mitid-hint">Åbner login-flow...</p>
+      <div id="mitid-spinner">⏳</div>
+      <img id="mitid-qr-img" src="" alt="MitID godkendelse">
+      <div id="mitid-status"></div>
+      <button id="mitid-cancel-btn" onclick="cancelMitIDLogin()">Annuller</button>
     </div>
   </div>
 
@@ -1250,79 +1290,211 @@
 
     // ── Klasse ──
     let klasseLoaded = false;
+    const contactCache = {}; // groupId -> {childId -> contactData}
+
     async function loadGroups() {
       if (klasseLoaded) return;
       klasseLoaded = true;
       const el = document.getElementById('klasse-content');
+      const cached = (() => { try { const v = localStorage.getItem('ls_groups'); return v ? JSON.parse(v) : null; } catch(e) { return null; } })();
+      if (cached) renderGroups(cached, el);
       try {
         const groups = await apiFetch('/api/groups').then(r => r.json());
+        try { localStorage.setItem('ls_groups', JSON.stringify(groups)); } catch(e) {}
         renderGroups(groups, el);
       } catch(e) {
-        el.innerHTML = '<span class="loading">Kunne ikke hente gruppedata</span>';
+        if (!cached) el.innerHTML = '<span class="loading">Kunne ikke hente gruppedata</span>';
       }
     }
 
     function renderGroups(groups, el) {
-      if (!groups || !groups.length) {
-        el.innerHTML = '<span class="loading">Ingen grupper fundet</span>';
-        return;
-      }
+      if (!groups || !groups.length) { el.innerHTML = '<span class="loading">Ingen grupper fundet</span>'; return; }
       el.innerHTML = groups.map((group, gi) => {
         const children = group.children || [];
+        const myKidsHtml = (group.myChildren || []).map(k => {
+          const ini = k.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+          return k.photoUrl
+            ? `<img src="${k.photoUrl}" title="${k.name}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;border:2px solid var(--blue);margin-left:4px" onerror="this.style.display='none'">`
+            : `<span style="background:var(--blue);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;margin-left:4px">${ini}</span>`;
+        }).join('');
+
         const childrenHtml = children.map((child, ci) => {
-          const initials = child.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+          const ini = child.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+          const isOwn = child.isOwnChild;
           const avatarHtml = child.photoUrl
-            ? `<img class="klasse-child-avatar" src="${child.photoUrl}" alt="${child.name}" onerror="this.outerHTML='<div class=\\'klasse-child-avatar\\'>${initials}</div>'">`
-            : `<div class="klasse-child-avatar">${initials}</div>`;
-
-          const parentsHtml = (child.parents || []).map(p => {
-            const pInitials = p.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
-            const genderIcon = p.gender === 'F' ? '👩' : '👨';
-            const pAvatarHtml = p.photoUrl
-              ? `<img class="klasse-parent-avatar" src="${p.photoUrl}" alt="${p.name}" onerror="this.outerHTML='<div class=\\'klasse-parent-avatar\\'>${pInitials}</div>'">`
-              : `<div class="klasse-parent-avatar">${pInitials}</div>`;
-            return `<div class="klasse-parent-row">${pAvatarHtml}<span>${genderIcon} ${p.name}</span></div>`;
-          }).join('');
-
-          const hasParents = child.parents && child.parents.length > 0;
+            ? `<img class="klasse-child-avatar" src="${child.photoUrl}" alt="${child.name}" style="${isOwn ? 'border-color:var(--blue);border-width:3px' : ''}" onerror="this.outerHTML='<div class=\\'klasse-child-avatar\\'>${ini}</div>'">`
+            : `<div class="klasse-child-avatar" style="${isOwn ? 'background:var(--blue);color:#fff' : ''}">${ini}</div>`;
           return `
-            <div class="klasse-child-row" onclick="toggleParents(${gi},${ci})" ${!hasParents ? 'style="cursor:default"' : ''}>
+            <div class="klasse-child-row${isOwn ? ' own-child' : ''}" onclick="toggleParents(${gi},${ci},${group.id},${child.id})">
               ${avatarHtml}
-              <span class="klasse-child-name">${child.name}</span>
-              ${hasParents ? '<span class="klasse-child-expand" id="arrow-'+gi+'-'+ci+'">▶ forældre</span>' : ''}
+              <div style="flex:1;min-width:0">
+                <div class="klasse-child-name">${child.name}${isOwn ? ' ⭐' : ''}</div>
+                <div class="klasse-child-bday" id="bday-${gi}-${ci}"></div>
+              </div>
+              <span class="klasse-child-expand" id="arrow-${gi}-${ci}">▶ kontakt</span>
             </div>
-            ${hasParents ? `<div class="klasse-parents" id="parents-${gi}-${ci}">${parentsHtml}</div>` : ''}`;
+            <div class="klasse-parents" id="parents-${gi}-${ci}">
+              <div class="klasse-loading-contacts">Henter kontaktinfo...</div>
+            </div>`;
         }).join('');
 
         return `
           <div class="klasse-group">
             <div class="klasse-group-header" onclick="toggleGroup(${gi})" id="group-header-${gi}">
-              <span>👥 ${group.name}</span>
-              <span>
+              <span style="display:flex;align-items:center;gap:6px">👥 ${group.name}${myKidsHtml}</span>
+              <span style="display:flex;align-items:center;gap:8px">
                 <span class="klasse-count">${children.length} børn</span>
                 <span class="klasse-arrow" id="group-arrow-${gi}">▶</span>
               </span>
             </div>
-            <div class="klasse-children" id="group-children-${gi}">${childrenHtml}</div>
+            <div class="klasse-children" id="group-children-${gi}" data-group-id="${group.id}">${childrenHtml}</div>
           </div>`;
       }).join('');
     }
 
-    function toggleGroup(gi) {
-      const header = document.getElementById('group-header-' + gi);
-      const children = document.getElementById('group-children-' + gi);
-      const arrow = document.getElementById('group-arrow-' + gi);
-      const open = children.classList.toggle('open');
-      header.classList.toggle('open', open);
-      if (arrow) arrow.style.transform = open ? 'rotate(90deg)' : '';
+    async function toggleParents(gi, ci, groupId, childId) {
+      const panel = document.getElementById(`parents-${gi}-${ci}`);
+      const arrow = document.getElementById(`arrow-${gi}-${ci}`);
+      const open = panel.classList.toggle('open');
+      if (arrow) arrow.textContent = open ? '▼ kontakt' : '▶ kontakt';
+      if (!open) return;
+
+      // Check if already rendered with real data
+      if (panel.dataset.loaded) return;
+
+      // Load contacts for this group (cached per group)
+      if (!contactCache[groupId]) {
+        try {
+          const cacheKey = 'ls_contacts_' + groupId;
+          const stored = (() => { try { const v = localStorage.getItem(cacheKey); return v ? JSON.parse(v) : null; } catch(e) { return null; } })();
+          if (stored) contactCache[groupId] = stored;
+
+          const fresh = await apiFetch(`/api/groups/${groupId}/contacts`).then(r => r.json());
+          contactCache[groupId] = {};
+          fresh.forEach(c => { contactCache[groupId][c.id] = c; });
+          try { localStorage.setItem(cacheKey, JSON.stringify(contactCache[groupId])); } catch(e) {}
+        } catch(e) {
+          panel.innerHTML = '<div class="klasse-loading-contacts">Kunne ikke hente kontaktinfo</div>';
+          return;
+        }
+      }
+
+      const contact = contactCache[groupId]?.[childId];
+      if (!contact) {
+        panel.innerHTML = '<div class="klasse-loading-contacts">Ingen kontaktinfo tilgængelig</div>';
+        return;
+      }
+
+      panel.dataset.loaded = '1';
+      panel.innerHTML = renderContactPanel(contact);
     }
 
-    function toggleParents(gi, ci) {
-      const parents = document.getElementById(`parents-${gi}-${ci}`);
-      const arrow = document.getElementById(`arrow-${gi}-${ci}`);
-      if (!parents) return;
-      const open = parents.classList.toggle('open');
-      if (arrow) arrow.textContent = open ? '▼ forældre' : '▶ forældre';
+    function renderContactPanel(contact) {
+      let html = '';
+
+      // Parents
+      const parents = contact.parents || [];
+      if (!parents.length) {
+        html += '<div class="klasse-loading-contacts">Ingen forældre registreret</div>';
+      } else {
+        html += parents.map(p => {
+          const ini = p.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+          const pPicUrl = p.photoSignedUrl || p.photoUrl;
+          const pProxyUrl = pPicUrl ? `/api/profile-picture?url=${encodeURIComponent(pPicUrl)}` : '';
+          const avatarHtml = pProxyUrl
+            ? `<img class="klasse-parent-avatar" src="${pProxyUrl}" onerror="this.outerHTML='<div class=\\'klasse-parent-avatar\\'>${ini}</div>'">`
+            : `<div class="klasse-parent-avatar">${ini}</div>`;
+          const relLabel = p.relation || (p.gender === 'F' ? 'Mor' : p.gender === 'M' ? 'Far' : 'Forælder');
+          let contactRows = '';
+          if (p.mobile) contactRows += `<div class="klasse-contact-row">📞 <a href="tel:${p.mobile}">${p.mobile}</a></div>`;
+          if (p.email)  contactRows += `<div class="klasse-contact-row">✉️ <a href="mailto:${p.email}">${p.email}</a></div>`;
+          if (p.address && p.address.trim()) contactRows += `<div class="klasse-contact-row">🏠 ${p.address}</div>`;
+          return `<div class="klasse-parent-row">
+            ${avatarHtml}
+            <div class="klasse-parent-info">
+              <div class="klasse-parent-name">${p.name}</div>
+              <div class="klasse-parent-relation">${relLabel}</div>
+              ${contactRows || '<div class="klasse-contact-row" style="color:#bbb">Ingen kontaktinfo delt</div>'}
+            </div>
+          </div>`;
+        }).join('');
+      }
+      return html;
+    }
+
+    function toggleGroup(gi) {
+      const header = document.getElementById('group-header-' + gi);
+      const childrenEl = document.getElementById('group-children-' + gi);
+      const arrow = document.getElementById('group-arrow-' + gi);
+      const open = childrenEl.classList.toggle('open');
+      header.classList.toggle('open', open);
+      if (arrow) arrow.style.transform = open ? 'rotate(90deg)' : '';
+      // Load contacts in background to populate birthdays
+      if (open && !childrenEl.dataset.contactsLoaded) {
+        childrenEl.dataset.contactsLoaded = '1';
+        const groupId = parseInt(childrenEl.dataset.groupId);
+        _prefetchContacts(gi, groupId);
+      }
+    }
+
+    async function _prefetchContacts(gi, groupId) {
+      if (contactCache[groupId]) { _applyBirthdays(gi, groupId); return; }
+      try {
+        const cacheKey = 'ls_contacts_' + groupId;
+        const stored = (() => { try { const v = localStorage.getItem(cacheKey); return v ? JSON.parse(v) : null; } catch(e) { return null; } })();
+        if (stored) { contactCache[groupId] = stored; _applyBirthdays(gi, groupId); }
+        const fresh = await apiFetch(`/api/groups/${groupId}/contacts`).then(r => r.json());
+        contactCache[groupId] = {};
+        fresh.forEach(c => { contactCache[groupId][c.id] = c; });
+        try { localStorage.setItem(cacheKey, JSON.stringify(contactCache[groupId])); } catch(e) {}
+        _applyBirthdays(gi, groupId);
+      } catch(e) {}
+    }
+
+    function _applyBirthdays(gi, groupId) {
+      const childrenEl = document.getElementById('group-children-' + gi);
+      if (!childrenEl) return;
+      childrenEl.querySelectorAll('[id^="bday-' + gi + '-"]').forEach(el => {
+        const parts = el.id.split('-');
+        const ci = parseInt(parts[2]);
+        const row = el.closest('.klasse-child-row');
+        if (!row) return;
+        const onclickVal = row.getAttribute('onclick') || '';
+        const args = onclickVal.match(/\d+/g);
+        if (!args || args.length < 4) return;
+        const childId = parseInt(args[3]);
+        const contact = contactCache[groupId]?.[childId];
+        if (!contact) return;
+
+        // Update avatar with contactlist photo via proxy
+        const picUrl = contact.photoSignedUrl || contact.photoUrl;
+        if (picUrl) {
+          const proxyUrl = `/api/profile-picture?url=${encodeURIComponent(picUrl)}`;
+          const img = row.querySelector('.klasse-child-avatar');
+          if (img && img.tagName === 'IMG') {
+            img.src = proxyUrl;
+          } else if (img) {
+            const ini = img.textContent;
+            const newImg = document.createElement('img');
+            newImg.className = 'klasse-child-avatar';
+            newImg.src = proxyUrl;
+            newImg.alt = contact.name;
+            if (row.classList.contains('own-child')) newImg.style.cssText = 'border-color:var(--blue);border-width:3px';
+            newImg.onerror = () => { newImg.outerHTML = `<div class="klasse-child-avatar" style="${row.classList.contains('own-child') ? 'background:var(--blue);color:#fff' : ''}">${ini}</div>`; };
+            img.replaceWith(newImg);
+          }
+        }
+
+        // Update birthday
+        if (!contact.birthday) return;
+        const bd = new Date(contact.birthday);
+        const today = new Date();
+        const thisYear = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+        const daysUntil = Math.round((thisYear - today) / 86400000);
+        const bdStr = bd.toLocaleDateString('da-DK', { day: 'numeric', month: 'long' });
+        const upcoming = daysUntil === 0 ? ' 🎉' : daysUntil > 0 && daysUntil <= 14 ? ` (om ${daysUntil} dage)` : '';
+        el.textContent = `🎂 ${bdStr}${upcoming}`;
+      });
     }
 
     // ── Gallery ──
@@ -1611,14 +1783,57 @@
 
     async function pollLoginStatus() {
       clearInterval(loginPolling);
-      apiFetch('/api/login/cancel', {method:'POST'}).catch(()=>{});
-      await new Promise(r => setTimeout(r, 300));
-      loginPolling=setInterval(async()=>{
-        const data=await apiFetch('/api/login/status').then(r=>r.json()), msg=document.getElementById('banner-msg');
-        if (data.state==='show_qr') { document.getElementById('session-banner').style.display='block'; msg.innerHTML=`<b>📷 Scan QR-koden</b><br/><img style="display:block;width:260px;margin-top:6px;border-radius:8px;border:2px solid #fff;" src="data:image/png;base64,${data.qr_image}"/>`; }
-        else if (data.state==='success') { clearInterval(loginPolling); msg.textContent='✅ Login lykkedes!'; setTimeout(()=>window.location.reload(),1000); }
-        else if (data.state==='failed') { clearInterval(loginPolling); msg.textContent='❌ '+(data.error||'Login fejlede'); loadLoginAccounts(); }
-      },3000);
+      // Open MitID overlay
+      const overlay = document.getElementById('mitid-overlay');
+      const qrImg = document.getElementById('mitid-qr-img');
+      const spinner = document.getElementById('mitid-spinner');
+      const status = document.getElementById('mitid-status');
+      const hint = document.getElementById('mitid-hint');
+      overlay.classList.add('open');
+      qrImg.style.display = 'none';
+      spinner.style.display = 'inline-block';
+      hint.textContent = 'Starter login-flow...';
+      status.textContent = '';
+
+      loginPolling = setInterval(async () => {
+        try {
+          const data = await apiFetch('/api/login/status').then(r => r.json());
+          if (data.state === 'show_qr') {
+            spinner.style.display = 'none';
+            hint.textContent = 'Godkend i din MitID app eller scan QR-koden:';
+            if (data.qr_image) {
+              qrImg.src = 'data:image/png;base64,' + data.qr_image;
+              qrImg.style.display = 'block';
+            }
+            status.textContent = '';
+          } else if (data.state === 'running') {
+            spinner.style.display = 'inline-block';
+            qrImg.style.display = 'none';
+            hint.textContent = 'Logger ind...';
+          } else if (data.state === 'success') {
+            clearInterval(loginPolling);
+            spinner.style.display = 'none';
+            qrImg.style.display = 'none';
+            hint.textContent = '✅ Login lykkedes!';
+            status.textContent = 'Genindlæser...';
+            setTimeout(() => { overlay.classList.remove('open'); window.location.reload(); }, 1200);
+          } else if (data.state === 'failed') {
+            clearInterval(loginPolling);
+            spinner.style.display = 'none';
+            qrImg.style.display = 'none';
+            hint.textContent = '❌ Login fejlede';
+            status.textContent = data.error || '';
+            loadLoginAccounts();
+            setTimeout(() => overlay.classList.remove('open'), 3000);
+          }
+        } catch(e) { /* ignore poll errors */ }
+      }, 2000);
+    }
+
+    function cancelMitIDLogin() {
+      clearInterval(loginPolling);
+      apiFetch('/api/login/cancel', { method: 'POST' }).catch(() => {});
+      document.getElementById('mitid-overlay').classList.remove('open');
     }
     async function checkSession() {
       try {

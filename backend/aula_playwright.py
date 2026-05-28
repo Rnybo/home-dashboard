@@ -209,6 +209,18 @@ class AulaPlaywright:
                     if "aula.dk" in page.url and "/login" not in page.url and "mitid" not in page.url.lower():
                         break
 
+                    # Always update qr_image so frontend shows current screen state
+                    try:
+                        section = page.locator('.mitid-core-section')
+                        if await section.count() > 0:
+                            qr_bytes = await section.screenshot(timeout=2000)
+                        else:
+                            qr_bytes = await page.screenshot()
+                        self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
+                        self.state = AulaLoginState.SHOW_QR
+                    except Exception:
+                        pass
+
                     # Handle loginoption page — click private person identity
                     if "loginoption" in page.url:
                         logger.info("loginoption detected, clicking private identity...")
@@ -248,11 +260,6 @@ class AulaPlaywright:
                         logger.info(f"URL after loginoption: {page.url}")
                         break
 
-                    try:
-                        qr_bytes = await page.locator('.mitid-core-section').screenshot(timeout=2000)
-                    except Exception:
-                        qr_bytes = await page.screenshot()
-                    self.qr_image = base64.b64encode(qr_bytes).decode('utf-8')
                     await page.wait_for_timeout(3000)
                     elapsed += 3
 

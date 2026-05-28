@@ -427,7 +427,32 @@ def gallery_user_media(inst_profile_ids: str = "", index: int = 0, limit: int = 
 
 @app.get("/api/groups", dependencies=[Depends(check_api_key)])
 def groups():
-    return aula_call(client.get_groups)
+    return aula_call(client.get_groups_cached)
+
+
+@app.get("/api/groups/{group_id}/contacts", dependencies=[Depends(check_api_key)])
+def group_contacts(group_id: int):
+    return aula_call(lambda: client.get_contact_list(group_id))
+
+
+@app.get("/api/profile-picture")
+def profile_picture(url: str):
+    """Proxy a signed Aula profile picture URL through the authenticated session."""
+    import urllib.parse
+    if not url:
+        raise HTTPException(400, "url required")
+    parsed = urllib.parse.urlparse(url)
+    if not parsed.netloc.endswith("aula.dk") and not parsed.netloc.endswith("aula-prod.aula.dk") and "media-prod.aula.dk" not in parsed.netloc:
+        raise HTTPException(403, "Only aula.dk URLs are allowed")
+    try:
+        content_type, data = client.get_profile_picture_url(url)
+        if not data:
+            raise HTTPException(404, "No picture")
+        from fastapi.responses import Response
+        return Response(content=data, media_type=content_type,
+                       headers={"Cache-Control": "max-age=3600"})
+    except Exception as e:
+        raise HTTPException(502, str(e))
 
 
 @app.post("/api/logout")

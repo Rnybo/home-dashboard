@@ -79,6 +79,10 @@ class AulaPlaywright:
         env = os.environ.copy()
         env["PLAYWRIGHT_HOST_PLATFORM_OVERRIDE"] = "ubuntu22.04-arm64"
         env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"] = CHROMIUM_PATH
+        # Chromium needs a writable tmp dir on Android
+        termux_tmp = "/data/data/com.termux/files/usr/tmp"
+        env["TMPDIR"] = termux_tmp
+        env["XDG_RUNTIME_DIR"] = termux_tmp
 
         try:
             self._proc = subprocess.Popen(

@@ -87,7 +87,7 @@ async def _session_keepalive():
             mqtt_client.publish("familieoverblik/session/state", {"valid": False}, retain=True)
 
 async def _google_calendar_sync():
-    """Every 5 minutes: remove local custom events that have been deleted in Google Calendar."""
+    """Every 5 minutes: sync local custom events with Google Calendar (delete, cancel, update)."""
     import asyncio, requests as req
     log = logging.getLogger("gcal_sync")
     await asyncio.sleep(60)  # wait 1 min after startup before first run
@@ -99,7 +99,7 @@ async def _google_calendar_sync():
                 headers = {"Authorization": f"Bearer {access_token}"}
                 events = load_custom_events()
                 changed = False
-                for ev in list(events):
+                for ev in events:
                     gid = ev.get("google_event_id", "")
                     if not gid:
                         continue
@@ -108,14 +108,56 @@ async def _google_calendar_sync():
                         headers=headers, timeout=8
                     )
                     if r.status_code == 404:
-                        events = [e for e in events if e.get("id") != ev.get("id")]
-                        log.info(f"Removed locally deleted Google event: {ev.get('title')} ({gid})")
+                        events = [e for e in events if e.get("id") != ev["id"]]
+                        log.info(f"Sync: removed deleted event '{ev.get('title')}'")
                         changed = True
+                        break  # list mutated — will re-run next cycle
                     elif r.status_code == 200:
-                        data = r.json()
-                        if data.get("status") == "cancelled":
-                            events = [e for e in events if e.get("id") != ev.get("id")]
-                            log.info(f"Removed cancelled Google event: {ev.get('title')} ({gid})")
+                        g = r.json()
+                        if g.get("status") == "cancelled":
+                            events = [e for e in events if e.get("id") != ev["id"]]
+                            log.info(f"Sync: removed cancelled event '{ev.get('title')}'")
+                            changed = True
+                            break
+                        # Check for updates: title, start, end, description
+                        g_title_raw = g.get("summary", "")
+                        # Strip child prefix e.g. "(Aksel, Max) - " to get base title
+                        import re as _re
+                        g_title = _re.sub(r'^\([^)]+\)\s*-\s*', '', g_title_raw)
+                        g_start = g.get("start", {})
+                        g_end   = g.get("end", {})
+                        g_start_str = g_start.get("dateTime", g_start.get("date", ""))
+                        g_end_str   = g_end.get("dateTime",   g_end.get("date", ""))
+                        g_desc  = g.get("description", "") or ""
+                        # Normalize Google dateTime to match local format (strip seconds+tz)
+                        def norm(s):
+                            if not s: return ""
+                            s = s[:16]  # "YYYY-MM-DDTHH:MM"
+                            return s
+                        g_start_norm = norm(g_start_str)
+                        g_end_norm   = norm(g_end_str)
+                        loc_start = norm(ev.get("start", ""))
+                        loc_end   = norm(ev.get("end") or "")
+                        # All-day: Google end is day-after, subtract one day
+                        if "date" in g_start and "dateTime" not in g_start:
+                            import datetime as _dt
+                            g_start_norm = g_start.get("date", "")
+                            try:
+                                g_end_norm = (_dt.date.fromisoformat(g_end.get("date","")) - _dt.timedelta(days=1)).isoformat()
+                            except Exception:
+                                g_end_norm = g_end.get("date","")
+                        updates = {}
+                        if g_title and g_title != ev.get("title", ""):
+                            updates["title"] = g_title
+                        if g_start_norm and g_start_norm != loc_start:
+                            updates["start"] = g_start_norm
+                        if g_end_norm and g_end_norm != loc_end:
+                            updates["end"] = g_end_norm
+                        if g_desc != (ev.get("description") or ""):
+                            updates["description"] = g_desc
+                        if updates:
+                            ev.update(updates)
+                            log.info(f"Sync: updated '{ev.get('title')}' — {list(updates.keys())}")
                             changed = True
                 if changed:
                     save_custom_events(events)

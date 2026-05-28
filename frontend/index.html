@@ -1289,15 +1289,6 @@
           const child = CHILDREN[activeTab];
           const childPresence = presenceData[child.id] || [];
           const tpl = childPresence.find(t => t.byDate===dateStr);
-
-          if (tpl && !tpl.isOnVacation && tpl.entryTime) {
-            const [eh,em]=tpl.entryTime.split(':').map(Number);
-            html += `<div class="presence-bar" style="top:${pct(eh*60+em)}%;height:${hourH*0.4}px;min-height:14px;border-left-color:${tabColor};color:${tabColor}">🧒🎒 ${tpl.entryTime.substring(0,5)}</div>`;
-          }
-          if (tpl && !tpl.isOnVacation && tpl.exitTime) {
-            const [xh,xm]=tpl.exitTime.split(':').map(Number), lbl=tpl.exitWith||'';
-            html += `<div class="presence-bar" style="top:${pct(xh*60+xm)}%;height:${hourH*0.4}px;min-height:14px;border-left-color:${tabColor};color:${tabColor}">🏠 ${tpl.exitTime.substring(0,5)}${lbl?' · '+lbl:''}</div>`;
-          }
           const presenceEvents = [];
           if (tpl && !tpl.isOnVacation) {
             const ds = dateStr;

@@ -1280,10 +1280,11 @@
             if (e.custom) return (e.calendar || '').split(',').includes('cal-faelles');
             return gTab.owner === null || e.owner === gTab.owner;
           });
-          const timed = filtered.filter(e => !e.allDay).map(e => ({
-            ...e,
-            color: e.custom ? calEventBackground(e.calendar||'') ? e.color : tabColor : tabColor
-          }));
+          const timed = filtered.filter(e => !e.allDay).map(e => {
+            if (!e.custom) return e; // Google Calendar events — behold original farve
+            const grad = calEventBackground(e.calendar || '');
+            return { ...e, color: grad ? e.color : tabColor };
+          });
           html += renderCalEvents(timed, pct, false);
         } else {
           const child = CHILDREN[activeTab];
@@ -1318,7 +1319,7 @@
             ...allEvents.filter(e => !e.allDay && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), day))
               .map(e => ({ ...e, color: tabColor })),
             ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && (e.calendar || '').split(',').includes('cal-child-' + child.id))
-              .map(e => ({ ...e, color: calEventBackground(e.calendar||'') ? e.color : tabColor })),
+              .map(e => ({ ...e, color: calEventBackground(e.calendar||'') || tabColor })),
           ];
           html += renderCalEvents(childEvents, pct, true);
         }

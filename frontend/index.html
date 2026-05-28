@@ -1273,20 +1273,21 @@
         }
 
         if (gTab) {
+          const tabColor = CAL_COLORS.faelles;
           const filtered = googleEvents.filter(e => {
             const d = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
             if (!isSameDay(d, day)) return false;
-            if (e.custom) {
-              return (e.calendar || '').split(',').includes('cal-faelles');
-            }
+            if (e.custom) return (e.calendar || '').split(',').includes('cal-faelles');
             return gTab.owner === null || e.owner === gTab.owner;
           });
-          // Google/custom events on google tab
-          const timed = filtered.filter(e => !e.allDay);
+          const timed = filtered.filter(e => !e.allDay).map(e => ({
+            ...e,
+            color: e.custom ? calEventBackground(e.calendar||'') ? e.color : tabColor : tabColor
+          }));
           html += renderCalEvents(timed, pct, false);
         } else {
-          // ── Aula child tab — same logic as gTab but filtered by child ──
           const child = CHILDREN[activeTab];
+          const tabColor = childColor(activeTab);
           const childPresence = presenceData[child.id] || [];
           const tpl = childPresence.find(t => t.byDate===dateStr);
 
@@ -1314,8 +1315,10 @@
           // All events for this child — aula + custom + presence — in one layout pass
           const childEvents = [
             ...presenceEvents,
-            ...allEvents.filter(e => !e.allDay && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), day)),
-            ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && (e.calendar || '').split(',').includes('cal-child-' + child.id)),
+            ...allEvents.filter(e => !e.allDay && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), day))
+              .map(e => ({ ...e, color: tabColor })),
+            ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && (e.calendar || '').split(',').includes('cal-child-' + child.id))
+              .map(e => ({ ...e, color: calEventBackground(e.calendar||'') ? e.color : tabColor })),
           ];
           html += renderCalEvents(childEvents, pct, true);
         }

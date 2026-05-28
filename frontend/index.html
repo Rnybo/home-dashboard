@@ -804,14 +804,14 @@
         try{localStorage.setItem('ls_children',JSON.stringify(CHILDREN));localStorage.setItem('ls_inst_ids',JSON.stringify(INST_PROFILE_IDS));}catch(e){}
         document.getElementById('child-tabs').innerHTML = [
           ...CHILDREN.map((c, i) =>
-            `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">
+            `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})" style="border-bottom:3px solid ${childColor(i)}">
               ${c.photoUrl ? `<img src="${c.photoUrl}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
               ${c.name}
             </div>`
           ),
           ...GOOGLE_TABS.map((g, i) =>
-            `<div class="tab" onclick="switchGoogleTab(${i})" style="border-left:3px solid ${g.color}">
-              <span style="color:${g.color}">📅</span> ${g.name}
+            `<div class="tab" onclick="switchGoogleTab(${i})" style="border-bottom:3px solid ${CAL_COLORS.faelles}">
+              <span style="color:${CAL_COLORS.faelles}">📅</span> ${g.name}
             </div>`
           ),
         ].join('');

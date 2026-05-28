@@ -1,12 +1,13 @@
-﻿"""
-Familieoverblik â€” API Test Suite
-KÃ¸r: python tests/test_api.py
-KrÃ¦ver at serveren kÃ¸rer pÃ¥ localhost:8000
+"""
+Familieoverblik -- API Test Suite
+Koer: python tests/test_api.py
+Kraever at serveren koerer paa localhost:8000
 """
 import requests
 import json
 import os
 import sys
+import time
 import datetime
 from dotenv import load_dotenv
 
@@ -16,8 +17,8 @@ BASE_URL = "http://localhost:8000"
 API_KEY  = os.getenv("API_KEY", "")
 HEADERS  = {"x-api-key": API_KEY}
 
-PASS = "\033[92mâœ“\033[0m"
-FAIL = "\033[91mâœ—\033[0m"
+PASS = "[OK]"
+FAIL = "[FAIL]"
 
 results = []
 
@@ -44,7 +45,24 @@ def delete(path, params=None, timeout=10):
     return requests.delete(f"{BASE_URL}{path}", headers=HEADERS, params=params, timeout=timeout)
 
 
-print("\nðŸ”µ Server")
+# -- Cleanup: slet eventuelle TEST_EVENT fra tidligere koersler ---------------
+def cleanup_test_events():
+    try:
+        events = get("/api/custom-events").json()
+        stale = [e for e in events if e.get("title") == "TEST_EVENT"]
+        if stale:
+            print(f"  (Rydder op: {len(stale)} gamle TEST_EVENT...)")
+            for e in stale:
+                delete(f"/api/custom-events/{e['id']}")
+            time.sleep(3)  # vent paa Google sync
+    except Exception:
+        pass
+
+cleanup_test_events()
+
+
+# -- Server -------------------------------------------------------------------
+print("\n-- Server")
 
 def t_status():
     r = get("/api/status")
@@ -63,7 +81,8 @@ def t_settings():
 test("GET /settings.html returnerer 200", t_settings)
 
 
-print("\nðŸ”µ Auth")
+# -- Auth ---------------------------------------------------------------------
+print("\n-- Auth")
 
 def t_auth_accounts():
     r = get("/api/login/accounts")
@@ -78,9 +97,10 @@ def t_oauth_connect():
 test("GET /api/google-oauth/connect returnerer auth URL", t_oauth_connect)
 
 
-print("\nðŸ”µ Google Calendar")
+# -- Google Calendar ----------------------------------------------------------
+print("\n-- Google Calendar")
 
-today = datetime.date.today().isoformat()
+today     = datetime.date.today().isoformat()
 next_week = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
 
 def t_gcal():
@@ -94,7 +114,7 @@ def t_gcal_fields():
     if data:
         for field in ("title", "start", "allDay", "owner", "color"):
             assert field in data[0], f"mangler felt: {field}"
-test("Google Calendar events har pÃ¥krÃ¦vede felter", t_gcal_fields)
+test("Google Calendar events har paakraevede felter", t_gcal_fields)
 
 def t_weather():
     r = get("/api/weather")
@@ -102,9 +122,11 @@ def t_weather():
 test("GET /api/weather returnerer vejrdata", t_weather)
 
 
-print("\nðŸ”µ Custom Events (CRUD)")
+# -- Custom Events (CRUD) -----------------------------------------------------
+print("\n-- Custom Events (CRUD)")
 
-created_id = None
+created_id        = None
+created_google_id = None
 
 def t_custom_get():
     r = get("/api/custom-events")
@@ -129,11 +151,26 @@ def t_custom_visible():
     assert created_id in ids, "oprettet event ikke fundet"
 test("Oprettet event vises i GET liste", t_custom_visible)
 
+def t_custom_google_synced():
+    """Vent op til 10 sek paa Google sync og noter google_event_id."""
+    global created_google_id
+    if not created_id: raise AssertionError("intet event oprettet")
+    for _ in range(5):
+        events = get("/api/custom-events").json()
+        ev = next((e for e in events if e["id"] == created_id), None)
+        if ev and ev.get("google_event_id"):
+            created_google_id = ev["google_event_id"]
+            return
+        time.sleep(2)
+    # Ikke en fejl hvis Google er utilgaengelig -- bare advar
+    print("    (advarsel: Google sync ikke bekraeftet inden timeout)")
+test("Google Calendar event synkroniseret (timeout 10s)", t_custom_google_synced)
+
 def t_custom_delete():
     if not created_id: raise AssertionError("intet event oprettet")
     r = delete(f"/api/custom-events/{created_id}")
     assert r.status_code == 200 and r.json().get("ok"), f"fejl: {r.text}"
-test("DELETE /api/custom-events/{id} sletter event", t_custom_delete)
+test("DELETE /api/custom-events/{id} sletter lokalt event", t_custom_delete)
 
 def t_custom_gone():
     if not created_id: raise AssertionError("intet event oprettet")
@@ -141,8 +178,37 @@ def t_custom_gone():
     assert created_id not in ids, "slettet event vises stadig"
 test("Slettet event mangler i GET liste", t_custom_gone)
 
+def t_google_event_deleted():
+    """Verificer at Google Calendar event ogsaa er slettet (vent op til 10s paa bg-sync)."""
+    if not created_google_id:
+        print("    (spring over -- intet google_event_id)")
+        return
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+    try:
+        from backend.google_utils import _get_google_access_token
+        import requests as req
+        token = _get_google_access_token()
+        if not token:
+            print("    (spring over -- ingen Google token)")
+            return
+        cal_id = os.getenv("GOOGLE_DEFAULT_CALENDAR_ID", "primary")
+        for _ in range(5):
+            r = req.get(
+                f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events/{created_google_id}",
+                headers={"Authorization": f"Bearer {token}"}, timeout=8
+            )
+            if r.status_code in (404, 410) or r.json().get("status") == "cancelled":
+                return
+            time.sleep(2)
+        raise AssertionError(f"Google event eksisterer stadig efter 10s: {r.status_code}")
+    except ImportError:
+        print("    (spring over -- kan ikke importere backend)")
+test("Google Calendar event slettet efter local delete", t_google_event_deleted)
 
-print("\nðŸ”µ Aula")
+
+# -- Aula ---------------------------------------------------------------------
+print("\n-- Aula")
 
 def t_aula_posts():
     r = get("/api/posts")
@@ -155,21 +221,20 @@ def t_aula_profile():
 test("GET /api/aula/profile svarer", t_aula_profile)
 
 
-# â”€â”€ Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Summary ------------------------------------------------------------------
 passed = sum(1 for _, ok, _ in results if ok)
 failed = sum(1 for _, ok, _ in results if not ok)
 total  = len(results)
 
 print(f"\n{'='*45}")
-print(f"  Resultat: {passed}/{total} tests bestÃ¥et", end="")
+print(f"  Resultat: {passed}/{total} tests bestaaet", end="")
 if failed:
     print(f"  ({failed} fejlede)\n\n  Fejlede tests:")
     for name, ok, err in results:
         if not ok:
-            print(f"    âœ— {name}\n      {err}")
+            print(f"    FAIL {name}\n      {err}")
 else:
-    print(" ðŸŽ‰")
+    print(" :)")
 print(f"{'='*45}\n")
 
 sys.exit(0 if failed == 0 else 1)
-

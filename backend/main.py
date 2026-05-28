@@ -359,66 +359,61 @@ def google_calendar(from_date: str = "", to_date: str = ""):
 
     events = []
 
-    # ── OAuth path: fetch calendars via Google Calendar API ──────────────────
+    # ── OAuth path: fetch from configured calendar IDs ───────────────────────
     access_token = _get_google_access_token()
     if access_token:
         headers = {"Authorization": f"Bearer {access_token}"}
-        try:
-            # List all calendars for the user
-            cal_list = req.get(
-                "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-                headers=headers, timeout=8
-            ).json().get("items", [])
+        # Build list of calendar IDs from env (same as ICS config)
+        seen_ids, oauth_calendars = set(), []
+        default_cal = os.getenv("GOOGLE_DEFAULT_CALENDAR_ID", "primary")
+        for idx in range(1, 11):
+            suffix = "" if idx == 1 else f"_{idx}"
+            name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", "")
+            # Derive cal_id from ICS url or use default
+            ics_url = os.getenv(f"GOOGLE_CALENDAR_ICS{suffix}", "")
+            if ics_url and "ical/" in ics_url:
+                import urllib.parse
+                cal_id = urllib.parse.unquote(ics_url.split("ical/")[1].split("/")[0])
+            elif idx == 1:
+                cal_id = default_cal
+            else:
+                break
+            if cal_id and cal_id not in seen_ids:
+                seen_ids.add(cal_id)
+                oauth_calendars.append({"id": cal_id, "name": name or cal_id, "color": colors[min(idx-1, len(colors)-1)]})
 
-            color_map = {
-                "tomato":"#e53935","flamingo":"#f06292","tangerine":"#fb8c00",
-                "banana":"#f9a825","sage":"#81c784","basil":"#43a047",
-                "peacock":"#1e88e5","blueberry":"#3949ab","lavender":"#9575cd",
-                "grape":"#8e24aa","graphite":"#757575",
-            }
-
-            for idx, cal in enumerate(cal_list):
-                cal_id    = cal.get("id", "")
-                cal_name  = cal.get("summaryOverride") or cal.get("summary", cal_id)
-                bg_color  = cal.get("backgroundColor", "")
-                color_id  = cal.get("colorId", "")
-                color     = bg_color or color_map.get(color_id, colors[min(idx, len(colors)-1)])
-
-                try:
-                    resp = req.get(
-                        f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
-                        headers=headers,
-                        params={
-                            "timeMin":      f"{date_from.isoformat()}T00:00:00Z",
-                            "timeMax":      f"{date_to.isoformat()}T23:59:59Z",
-                            "singleEvents": "true",
-                            "orderBy":      "startTime",
-                            "maxResults":   100,
-                        },
-                        timeout=8
-                    )
-                    resp.raise_for_status()
-                    for item in resp.json().get("items", []):
-                        start = item.get("start", {})
-                        end   = item.get("end",   {})
-                        all_day = "date" in start and "dateTime" not in start
-                        ext_cals = item.get("extendedProperties", {}).get("private", {}).get("familieoverblik_calendars", "")
-                        events.append({
-                            "title":    item.get("summary", "(ingen titel)"),
-                            "start":    start.get("dateTime") or start.get("date", ""),
-                            "end":      end.get("dateTime")   or end.get("date", ""),
-                            "allDay":   all_day,
-                            "owner":    cal_name,
-                            "color":    color,
-                            "location": item.get("location", ""),
-                            "familieoverblik_calendars": ext_cals,
-                        })
-                except Exception as ex:
-                    logging.warning(f"Google Calendar API fetch failed for {cal_name}: {ex}")
-
-        except Exception as ex:
-            logging.warning(f"Google Calendar API calendarList failed: {ex}")
-            access_token = ""  # fall through to ICS
+        for cal in oauth_calendars:
+            try:
+                resp = req.get(
+                    f"https://www.googleapis.com/calendar/v3/calendars/{cal['id']}/events",
+                    headers=headers,
+                    params={
+                        "timeMin":      f"{date_from.isoformat()}T00:00:00Z",
+                        "timeMax":      f"{date_to.isoformat()}T23:59:59Z",
+                        "singleEvents": "true",
+                        "orderBy":      "startTime",
+                        "maxResults":   100,
+                    },
+                    timeout=8
+                )
+                resp.raise_for_status()
+                for item in resp.json().get("items", []):
+                    start = item.get("start", {})
+                    end   = item.get("end",   {})
+                    all_day = "date" in start and "dateTime" not in start
+                    ext_cals = item.get("extendedProperties", {}).get("private", {}).get("familieoverblik_calendars", "")
+                    events.append({
+                        "title":    item.get("summary", "(ingen titel)"),
+                        "start":    start.get("dateTime") or start.get("date", ""),
+                        "end":      end.get("dateTime")   or end.get("date", ""),
+                        "allDay":   all_day,
+                        "owner":    cal["name"],
+                        "color":    cal["color"],
+                        "location": item.get("location", ""),
+                        "familieoverblik_calendars": ext_cals,
+                    })
+            except Exception as ex:
+                logging.warning(f"Google Calendar API fetch failed for {cal['id']}: {ex}")
 
     # ── ICS fallback (no OAuth or OAuth failed) ───────────────────────────────
     if not access_token:

@@ -1214,8 +1214,11 @@
             id: e.id || '',
             famcals: e.familieoverblik_calendars || e.calendar || '',
           }) - 1;
+          const calStr = e.familieoverblik_calendars || e.calendar || '';
+          const bgGrad = calEventBackground(calStr);
+          const bgStyle = bgGrad ? bgGrad : (e.color || 'var(--blue-accent)');
           return `<div onclick="event.stopPropagation();openEvInfo(window._evRegistry[${idx}])" style="font-size:0.6rem;font-weight:700;
-            background:${e.color||'var(--blue-accent)'};color:#fff;border-radius:3px;
+            background:${bgStyle};color:#fff;border-radius:3px;
             padding:1px 5px;margin-top:2px;white-space:nowrap;cursor:pointer;
             overflow:hidden;text-overflow:ellipsis;">${e.title || e.summary || '(ingen titel)'}</div>`;
         }).join('');

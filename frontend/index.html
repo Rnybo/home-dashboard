@@ -1850,6 +1850,16 @@
             hint.textContent = '✅ Login lykkedes!';
             status.textContent = 'Genindlæser...';
             setTimeout(() => { overlay.classList.remove('open'); window.location.reload(); }, 1200);
+          } else if (data.state === 'idle') {
+            // State reset to idle may mean success already handled — check session
+            try {
+              const s = await apiFetch('/api/status').then(r => r.json());
+              if (s.session_valid) {
+                clearInterval(loginPolling);
+                overlay.classList.remove('open');
+                window.location.reload();
+              }
+            } catch(e) {}
           } else if (data.state === 'failed') {
             clearInterval(loginPolling);
             spinner.style.display = 'none';

@@ -119,7 +119,8 @@ async def _google_calendar_sync():
                             log.info(f"Sync: removed cancelled event '{ev.get('title')}'")
                             changed = True
                             break
-                        # Check for updates: start, end, description (not title — Google has child prefix)
+                        # Check for updates: title, start, end, description
+                        g_title = g.get("summary", "")
                         g_start = g.get("start", {})
                         g_end   = g.get("end", {})
                         g_start_str = g_start.get("dateTime", g_start.get("date", ""))
@@ -143,6 +144,8 @@ async def _google_calendar_sync():
                             except Exception:
                                 g_end_norm = g_end.get("date","")
                         updates = {}
+                        if g_title and g_title != ev.get("title", ""):
+                            updates["title"] = g_title
                         if g_start_norm and g_start_norm != loc_start:
                             updates["start"] = g_start_norm
                         if g_end_norm and g_end_norm != loc_end:

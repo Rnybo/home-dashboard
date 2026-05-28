@@ -359,6 +359,17 @@ class AulaClient:
             page += 1
         return results
 
+    def get_child_name(self, inst_profile_id: str) -> str:
+        """Return first name of a child by institutionProfileId, using cached profile."""
+        try:
+            for inst in self._get_institutions():
+                for child in (inst.get("children") or []):
+                    if str(child.get("id")) == str(inst_profile_id):
+                        return child.get("name", "").split()[0]
+        except Exception:
+            pass
+        return ""
+
     def get_presence(self, inst_profile_ids: list, from_date: str = None, to_date: str = None) -> list:
         today = datetime.date.today()
         if not from_date:

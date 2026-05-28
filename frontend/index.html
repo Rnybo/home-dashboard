@@ -119,8 +119,8 @@
     #ev-info-modal .ev-info-time { font-size:0.82rem; color:#666; margin-bottom:8px; }
     #ev-info-modal .ev-info-desc { font-size:0.8rem; color:#444; line-height:1.6; max-height:180px; overflow-y:auto; margin:10px 0; padding:8px; background:#f8f9fa; border-radius:6px; white-space:pre-wrap; word-break:break-word; }
     #ev-info-modal .ev-info-cal { font-size:0.75rem; font-weight:600; display:inline-block; padding:2px 8px; border-radius:10px; color:#fff; margin-bottom:14px; }
-    #ev-info-modal .ev-info-btns { display:flex; gap:8px; margin-top:16px; }
-    #ev-info-modal .ev-info-btns button { flex:1; padding:9px; border-radius:8px; border:none; font-size:0.85rem; font-weight:600; cursor:pointer; }
+    #ev-info-modal .ev-info-btns { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+    #ev-info-modal .ev-info-btns button { padding:9px; border-radius:8px; border:none; font-size:0.85rem; font-weight:600; cursor:pointer; }
     .btn-delete-ev { background:#fee2e2; color:#c62828; }
     .btn-delete-ev:hover { background:#fca5a5; }
     .btn-close-ev { background:#f5f5f5; color:#666; }
@@ -654,6 +654,24 @@
     }
     function getChildIds() { return CHILDREN.map(c => c.id).join(','); }
 
+    const CAL_COLORS = { faelles: '#e53935' };
+    const CHILD_PALETTE = ['#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b'];
+    function childColor(idx) { return CHILD_PALETTE[idx % CHILD_PALETTE.length]; }
+    function calColorMap() {
+      const m = { 'cal-faelles': { label: 'Fælles', color: CAL_COLORS.faelles } };
+      CHILDREN.forEach((c,i) => m['cal-child-' + c.id] = { label: c.name, color: childColor(i) });
+      return m;
+    }
+    function calEventBackground(calendarStr) {
+      if (!calendarStr) return null;
+      const cals = calendarStr.split(',').filter(Boolean);
+      if (cals.length <= 1) return null;
+      const map = calColorMap();
+      const colors = cals.map(cid => (map[cid] || {color:'#888'}).color);
+      const pct = 100 / colors.length;
+      const stops = colors.map((c, i) => `${c} ${i*pct}%, ${c} ${(i+1)*pct}%`).join(', ');
+      return `linear-gradient(135deg, ${stops})`;
+    }
     const AULA_VIEWS = ['overview', 'gallery', 'klasse', 'msg'];
     const VIEWS = ['cal', 'overview', 'gallery', 'klasse', 'msg'];
 
@@ -1169,7 +1187,8 @@
             color: e.color || '',
             description: e.description || e.content || '',
             custom: !!e.custom,
-            id: e.id || ''
+            id: e.id || '',
+            famcals: e.familieoverblik_calendars || e.calendar || '',
           }) - 1;
           return `<div onclick="event.stopPropagation();openEvInfo(window._evRegistry[${idx}])" style="font-size:0.6rem;font-weight:700;
             background:${e.color||'var(--blue-accent)'};color:#fff;border-radius:3px;
@@ -1231,7 +1250,7 @@
             const d = e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start);
             if (!isSameDay(d, day)) return false;
             if (e.custom) {
-              return e.calendar === 'cal-faelles';
+              return (e.calendar || '').split(',').includes('cal-faelles');
             }
             return gTab.owner === null || e.owner === gTab.owner;
           });
@@ -1269,7 +1288,7 @@
           const childEvents = [
             ...presenceEvents,
             ...allEvents.filter(e => !e.allDay && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), day)),
-            ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && e.calendar === 'cal-child-' + child.id),
+            ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && (e.calendar || '').split(',').includes('cal-child-' + child.id)),
           ];
           html += renderCalEvents(childEvents, pct, true);
         }
@@ -1966,14 +1985,18 @@
         }
         const title = e.title||'(ingen titel)';
         const color = e.color || 'var(--blue-accent)';
+        const calStr = e.calendar || e.familieoverblik_calendars || '';
+        const bgGradient = calEventBackground(calStr);
+        const bgStyle = bgGradient ? `background:${bgGradient}` : `background:${color}`;
         const id = e.id ? `data-evid="${e.id}"` : '';
         const isCustom = e.custom ? 'data-custom="1"' : '';
         const calsAttr = e.calendar ? `data-calendar="${e.calendar}"` : '';
+        const famCalAttr = `data-famcals="${e.familieoverblik_calendars || e.calendar || ''}"`;
         const descAttr = e.description ? `data-desc="${e.description.replace(/"/g,'&quot;').replace(/\n/g,'&#10;')}"` : '';
         const extra = { location: e.location||'', creator: e.creator||'', institution: e.institution||'', responseRequired: e.responseRequired||false, responseStatus: e.responseStatus||null, repeating: e.repeating||false, source: e.source||'' };
         const extraAttr = `data-extra='${JSON.stringify(extra).replace(/'/g,'&#39;')}'`;
-        html += `<div class="cal-event" style="top:${topPct}%;height:${heightPct}%;min-height:20px;background:${color};left:calc(3px + ${l}%);width:calc(${w}% - 6px);right:auto" 
-          ${id} ${isCustom} ${calsAttr} ${descAttr} ${extraAttr} onclick="openEvInfo(this,event)"
+        html += `<div class="cal-event" style="top:${topPct}%;height:${heightPct}%;min-height:20px;${bgStyle};left:calc(3px + ${l}%);width:calc(${w}% - 6px);right:auto" 
+          ${id} ${isCustom} ${calsAttr} ${famCalAttr} ${descAttr} ${extraAttr} onclick="openEvInfo(this,event)"
           data-title="${title.replace(/"/g,'&quot;')}" data-time="${ts}" data-color="${color}">
           <span class="ev-title">${title}</span><span class="ev-time">${ts}</span></div>`;
       });
@@ -1983,7 +2006,7 @@
     function openEvInfo(elOrEvt, evt) {
       // Called either as openEvInfo(domEl, mouseEvt) from cal-events
       // or as openEvInfo(evtObj) from allday badges with a plain data object
-      let title, time, color, isCustom, evId, desc, extra = {};
+      let title, time, color, isCustom, evId, desc, extra = {}, famCals = '';
 
       if (elOrEvt && elOrEvt.dataset) {
         // DOM element path
@@ -1994,6 +2017,7 @@
         isCustom = elOrEvt.dataset.custom === '1';
         evId     = elOrEvt.dataset.evid;
         desc     = elOrEvt.dataset.desc || '';
+        famCals  = elOrEvt.dataset.famcals || '';
         try { extra = JSON.parse(elOrEvt.dataset.extra || '{}'); } catch(e) {}
       } else {
         // Plain object path (from allday badge onclick)
@@ -2003,6 +2027,7 @@
         isCustom = !!d.custom;
         evId     = d.id || '';
         desc     = d.description || '';
+        famCals  = d.famcals || d.familieoverblik_calendars || d.calendar || '';
         if (d.allDay) {
           const fmt = s => s ? new Date(s+'T00:00:00').toLocaleDateString('da-DK',{weekday:'short',day:'numeric',month:'short'}) : '';
           time = 'Heldagsarrangement' + (d.start ? ' · ' + fmt(d.start) + (d.end && d.end !== d.start ? ' – ' + fmt(d.end) : '') : '');
@@ -2036,19 +2061,82 @@
       const cal = document.getElementById('ev-info-cal');
       cal.style.background = color; cal.textContent = isCustom ? '📌 Lokal begivenhed' : '📅 Kalender';
 
+      // "Vises i" badges
+      const famCalEl = document.getElementById('ev-info-famcals');
+      if (famCalEl) famCalEl.remove();
+      if (famCals) {
+        const calLabels = calColorMap();
+        const badges = famCals.split(',').filter(Boolean).map(cid => {
+          const info = calLabels[cid] || { label: cid, color: '#888' };
+          return `<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700;color:#fff;background:${info.color};margin-right:4px">${info.label}</span>`;
+        }).join('');
+        const div = document.createElement('div');
+        div.id = 'ev-info-famcals';
+        div.style.cssText = 'margin-bottom:10px;margin-top:4px';
+        div.innerHTML = '<div style="font-size:0.7rem;color:#aaa;margin-bottom:4px">Vises i</div>' + badges;
+        cal.insertAdjacentElement('afterend', div);
+      }
+
       const btns = document.getElementById('ev-info-btns');
       btns.innerHTML = '';
 
       if (isCustom && evId) {
-        const delBtn = document.createElement('button');
-        delBtn.className = 'btn-delete-ev';
-        delBtn.textContent = '🗑️ Fjern fra kalender';
-        delBtn.onclick = async () => {
-          await apiFetch(`/api/custom-events/${evId}`, { method:'DELETE' });
-          document.getElementById('ev-info-overlay').classList.remove('open');
-          loadGoogleCalendar();
-        };
-        btns.appendChild(delBtn);
+        const calList = famCals ? famCals.split(',').filter(Boolean) : [];
+        const calLabels2 = calColorMap();
+
+        if (calList.length > 1) {
+          // Multiple calendars — checkboxes inline, buttons below
+          const label = document.createElement('div');
+          label.style.cssText = 'font-size:0.75rem;font-weight:600;color:#555;margin-bottom:6px;width:100%';
+          label.textContent = 'Fjern fra kalender';
+          btns.appendChild(label);
+
+          const optWrap = document.createElement('div');
+          optWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:20px;padding:10px;background:#f8f9fa;border-radius:8px;justify-content:space-evenly;width:100%;margin-bottom:10px';
+          calList.forEach(cid => {
+            const info = calLabels2[cid] || { label: cid, color: '#888' };
+            const lbl = document.createElement('label');
+            lbl.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:600;cursor:pointer';
+            lbl.innerHTML = `<input type="checkbox" class="del-cal-cb" data-calid="${cid}" checked style="accent-color:${info.color};width:15px;height:15px;flex-shrink:0"><span style="color:${info.color}">${info.label}</span>`;
+            optWrap.appendChild(lbl);
+          });
+          btns.appendChild(optWrap);
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn-delete-ev';
+          delBtn.textContent = '🗑️ Fjern valgte fra kalender';
+          delBtn.onclick = async () => {
+            const checked = [...optWrap.querySelectorAll('.del-cal-cb:checked')].map(cb => cb.dataset.calid);
+            if (!checked.length) return;
+            delBtn.disabled = true; delBtn.textContent = 'Fjerner...';
+            for (const calId of checked) {
+              await apiFetch(`/api/custom-events/${evId}?calendar=${calId}`, { method:'DELETE' });
+            }
+            document.getElementById('ev-info-overlay').classList.remove('open');
+            loadGoogleCalendar();
+          };
+          btns.appendChild(delBtn);
+          // Tilføj Luk eksplicit her for multi-kalender
+          const closeBtnM = document.createElement('button');
+          closeBtnM.className = 'btn-close-ev';
+          closeBtnM.textContent = 'Luk';
+          closeBtnM.onclick = () => document.getElementById('ev-info-overlay').classList.remove('open');
+          btns.appendChild(closeBtnM);
+          document.getElementById('ev-info-overlay').classList.add('open');
+          return;
+        } else {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'btn-delete-ev';
+          delBtn.style.cssText = 'flex:1';
+          delBtn.textContent = '🗑️ Fjern fra kalender';
+          delBtn.onclick = async () => {
+            const calId = calList[0] || '';
+            await apiFetch(`/api/custom-events/${evId}${calId ? '?calendar='+calId : ''}`, { method:'DELETE' });
+            document.getElementById('ev-info-overlay').classList.remove('open');
+            loadGoogleCalendar();
+          };
+          btns.appendChild(delBtn);
+        }
       }
       const closeBtn = document.createElement('button');
       closeBtn.className = 'btn-close-ev';
@@ -2088,10 +2176,8 @@
 
       // Render calendar options
       const calOpts = document.getElementById('event-cal-options');
-      const cals = [
-        { id: 'cal-faelles', label: 'Fælles', color: '#005fa8' },
-        ...CHILDREN.map(c => ({ id: 'cal-child-' + c.id, label: c.name, color: '#43a047' })),
-      ];
+      const calMap = calColorMap();
+      const cals = Object.entries(calMap).map(([id, v]) => ({ id, ...v }));
       calOpts.innerHTML = cals.map(c =>
         `<label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;cursor:pointer">
           <span style="background:${c.color};color:#fff;padding:2px 10px;border-radius:10px;font-size:0.72rem;white-space:nowrap">${c.label}</span>
@@ -2131,10 +2217,8 @@
 
       // Render calendar options — children + Fælles + Vælg alle
       const calOpts = document.getElementById('event-cal-options');
-      const cals = [
-        { id: 'cal-faelles', label: 'Fælles', color: '#005fa8' },
-        ...CHILDREN.map(c => ({ id: 'cal-child-' + c.id, label: c.name, color: '#43a047' })),
-      ];
+      const calMap = calColorMap();
+      const cals = Object.entries(calMap).map(([id, v]) => ({ id, ...v }));
       calOpts.innerHTML = cals.map(c =>
         `<label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;cursor:pointer">
           <span style="background:${c.color};color:#fff;padding:2px 10px;border-radius:10px;font-size:0.72rem;white-space:nowrap">${c.label}</span>
@@ -2213,15 +2297,22 @@
         _savingEvent = false; if (btn) { btn.disabled = false; btn.textContent = '📌 Gem til Familieoverblik'; }
         return;
       }
-      const colors = { 'cal-faelles': '#005fa8' };
-      CHILDREN.forEach(c => colors['cal-child-' + c.id] = '#43a047');
-      for (const calId of selectedCals) {
+      const colors = calColorMap();
+      const calendarStr = selectedCals.join(',');
+      const childCals = selectedCals.filter(c => c.startsWith('cal-child-'));
+      const primaryId = childCals.length ? childCals[0] : selectedCals[0];
+      const primaryColor = (colors[primaryId] || {color:'#7c3aed'}).color;
+      const ac = new AbortController();
+      const fetchTimeout = setTimeout(() => ac.abort(), 8000);
+      try {
         await apiFetch('/api/custom-events', { method:'POST',
+          signal: ac.signal,
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ title, start, end, allDay, color: colors[calId] || '#7c3aed',
-            calendar: calId, description: _eventText })
+          body: JSON.stringify({ title, start, end, allDay, color: primaryColor,
+            calendar: calendarStr, description: _eventText })
         });
-      }
+      } catch(e) {}
+      clearTimeout(fetchTimeout);
       // Show confirmation
       const startDate = new Date(allDay ? start + 'T00:00:00' : start);
       const fmt = startDate.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});

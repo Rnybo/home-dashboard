@@ -270,53 +270,141 @@ def birthdays(inst_profile_ids: str = ""):
 def google_calendar(from_date: str = "", to_date: str = ""):
     import datetime, requests as req
     from icalendar import Calendar
+    import recurring_ical_events
 
     colors = ["#e53935","#8e24aa","#1e88e5","#43a047","#fb8c00"]
-    seen, calendars = set(), []
-    for idx in range(1, 11):
-        suffix = "" if idx == 1 else f"_{idx}"
-        url  = os.getenv(f"GOOGLE_CALENDAR_ICS{suffix}", "")
-        name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", f"Kalender {idx}")
-        if url and url not in seen:
-            seen.add(url); calendars.append({"url": url, "name": name, "color": colors[min(idx-1, len(colors)-1)]})
-    calendars.append({"url": "https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", "name": "Helligdag", "color": "#f59e0b"})
-    today = datetime.date.today()
+    today     = datetime.date.today()
     date_from = datetime.date.fromisoformat(from_date) if from_date else today
     date_to   = datetime.date.fromisoformat(to_date)   if to_date   else today + datetime.timedelta(days=6)
 
     events = []
-    for cal in calendars:
-        if not cal["url"]:
-            continue
+
+    # ── OAuth path: fetch calendars via Google Calendar API ──────────────────
+    access_token = _get_google_access_token()
+    if access_token:
+        headers = {"Authorization": f"Bearer {access_token}"}
         try:
-            r = req.get(cal["url"], timeout=8)
+            # List all calendars for the user
+            cal_list = req.get(
+                "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+                headers=headers, timeout=8
+            ).json().get("items", [])
+
+            color_map = {
+                "tomato":"#e53935","flamingo":"#f06292","tangerine":"#fb8c00",
+                "banana":"#f9a825","sage":"#81c784","basil":"#43a047",
+                "peacock":"#1e88e5","blueberry":"#3949ab","lavender":"#9575cd",
+                "grape":"#8e24aa","graphite":"#757575",
+            }
+
+            for idx, cal in enumerate(cal_list):
+                cal_id    = cal.get("id", "")
+                cal_name  = cal.get("summaryOverride") or cal.get("summary", cal_id)
+                bg_color  = cal.get("backgroundColor", "")
+                color_id  = cal.get("colorId", "")
+                color     = bg_color or color_map.get(color_id, colors[min(idx, len(colors)-1)])
+
+                try:
+                    resp = req.get(
+                        f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
+                        headers=headers,
+                        params={
+                            "timeMin":      f"{date_from.isoformat()}T00:00:00Z",
+                            "timeMax":      f"{date_to.isoformat()}T23:59:59Z",
+                            "singleEvents": "true",
+                            "orderBy":      "startTime",
+                            "maxResults":   100,
+                        },
+                        timeout=8
+                    )
+                    resp.raise_for_status()
+                    for item in resp.json().get("items", []):
+                        start = item.get("start", {})
+                        end   = item.get("end",   {})
+                        all_day = "date" in start and "dateTime" not in start
+                        ext_cals = item.get("extendedProperties", {}).get("private", {}).get("familieoverblik_calendars", "")
+                        events.append({
+                            "title":    item.get("summary", "(ingen titel)"),
+                            "start":    start.get("dateTime") or start.get("date", ""),
+                            "end":      end.get("dateTime")   or end.get("date", ""),
+                            "allDay":   all_day,
+                            "owner":    cal_name,
+                            "color":    color,
+                            "location": item.get("location", ""),
+                            "familieoverblik_calendars": ext_cals,
+                        })
+                except Exception as ex:
+                    logging.warning(f"Google Calendar API fetch failed for {cal_name}: {ex}")
+
+        except Exception as ex:
+            logging.warning(f"Google Calendar API calendarList failed: {ex}")
+            access_token = ""  # fall through to ICS
+
+    # ── ICS fallback (no OAuth or OAuth failed) ───────────────────────────────
+    if not access_token:
+        seen, ics_calendars = set(), []
+        for idx in range(1, 11):
+            suffix = "" if idx == 1 else f"_{idx}"
+            url  = os.getenv(f"GOOGLE_CALENDAR_ICS{suffix}", "")
+            name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", f"Kalender {idx}")
+            if url and url not in seen:
+                seen.add(url); ics_calendars.append({"url": url, "name": name, "color": colors[min(idx-1, len(colors)-1)]})
+        ics_calendars.append({"url": "https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", "name": "Helligdag", "color": "#f59e0b"})
+
+        for cal in ics_calendars:
+            if not cal["url"]: continue
+            try:
+                r = req.get(cal["url"], timeout=8)
+                r.raise_for_status()
+                gcal = Calendar.from_ical(r.content)
+                for component in recurring_ical_events.of(gcal).between(date_from, date_to):
+                    if component.name != "VEVENT": continue
+                    dtstart = component.get("DTSTART")
+                    dtend   = component.get("DTEND")
+                    if not dtstart: continue
+                    val = dtstart.dt
+                    all_day = not hasattr(val, "hour")
+                    start_iso = val.isoformat() if all_day else val.astimezone().isoformat()
+                    end_val   = dtend.dt if dtend else val
+                    end_iso   = end_val.isoformat() if all_day else (end_val.astimezone().isoformat() if hasattr(end_val, "hour") else end_val.isoformat())
+                    events.append({
+                        "title":    str(component.get("SUMMARY", "(ingen titel)")),
+                        "start":    start_iso,
+                        "end":      end_iso,
+                        "allDay":   all_day,
+                        "owner":    cal["name"],
+                        "color":    cal["color"],
+                        "location": str(component.get("LOCATION", "")),
+                    })
+            except Exception as ex:
+                logging.warning(f"ICS fetch failed for {cal['name']}: {ex}")
+
+    # Always add helligdage via ICS (not in personal calendar list)
+    if access_token:
+        try:
+            r = req.get("https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics", timeout=8)
             r.raise_for_status()
             gcal = Calendar.from_ical(r.content)
-            import recurring_ical_events
-            components = recurring_ical_events.of(gcal).between(date_from, date_to)
-            for component in components:
-                if component.name != "VEVENT":
-                    continue
+            for component in recurring_ical_events.of(gcal).between(date_from, date_to):
+                if component.name != "VEVENT": continue
                 dtstart = component.get("DTSTART")
-                dtend   = component.get("DTEND")
-                if not dtstart:
-                    continue
+                if not dtstart: continue
                 val = dtstart.dt
                 all_day = not hasattr(val, "hour")
-                start_iso = val.isoformat() if all_day else val.astimezone().isoformat()
+                dtend = component.get("DTEND")
                 end_val = dtend.dt if dtend else val
-                end_iso = end_val.isoformat() if all_day else (end_val.astimezone().isoformat() if hasattr(end_val, 'hour') else end_val.isoformat())
                 events.append({
-                    "title":    str(component.get("SUMMARY", "(ingen titel)")),
-                    "start":    start_iso,
-                    "end":      end_iso,
+                    "title":    str(component.get("SUMMARY", "")),
+                    "start":    val.isoformat(),
+                    "end":      end_val.isoformat(),
                     "allDay":   all_day,
-                    "owner":    cal["name"],
-                    "color":    cal["color"],
-                    "location": str(component.get("LOCATION", "")),
+                    "owner":    "Helligdag",
+                    "color":    "#f59e0b",
+                    "location": "",
                 })
         except Exception as ex:
-            logging.warning(f"ICS fetch failed for {cal['name']}: {ex}")
+            logging.warning(f"Helligdage ICS failed: {ex}")
+
     return events
 
 
@@ -470,11 +558,13 @@ def logout():
 CUSTOM_EVENTS_FILE = ROOT / "custom_events.json"
 
 def load_custom_events() -> list:
-    try:    return json.loads(CUSTOM_EVENTS_FILE.read_text(encoding="utf-8"))
-    except: return []
+    with _custom_events_lock:
+        try:    return json.loads(CUSTOM_EVENTS_FILE.read_text(encoding="utf-8"))
+        except: return []
 
 def save_custom_events(events: list):
-    CUSTOM_EVENTS_FILE.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
+    with _custom_events_lock:
+        CUSTOM_EVENTS_FILE.write_text(json.dumps(events, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @app.get("/api/custom-events")
@@ -483,8 +573,8 @@ def get_custom_events():
 
 @app.post("/api/custom-events")
 async def add_custom_event(request: Request):
+    import uuid, threading
     data = await request.json()
-    import uuid
     event = {
         "id":          str(uuid.uuid4()),
         "title":       data.get("title", "").strip(),
@@ -494,17 +584,62 @@ async def add_custom_event(request: Request):
         "description": data.get("description", ""),
         "color":       data.get("color", "#7c3aed"),
         "calendar":    data.get("calendar", ""),
+        "google_event_id": "",
     }
     events = load_custom_events()
     events.append(event)
     save_custom_events(events)
+
+    # Sync to Google Calendar in background — don't block the response
+    def _bg_sync():
+        gid = _sync_google_event(event)
+        if gid:
+            all_ev = load_custom_events()
+            for e in all_ev:
+                if e.get("id") == event["id"]:
+                    e["google_event_id"] = gid
+                    break
+            save_custom_events(all_ev)
+
+    threading.Thread(target=_bg_sync, daemon=True).start()
     return {"ok": True, "id": event["id"]}
 
+
 @app.delete("/api/custom-events/{event_id}")
-def delete_custom_event(event_id: str):
-    events = [e for e in load_custom_events() if e.get("id") != event_id]
-    save_custom_events(events)
-    return {"ok": True}
+def delete_custom_event(event_id: str, calendar: str = ""):
+    """Delete event. If calendar given, only remove that tag — delete Google event when no calendars left."""
+    import threading
+    all_events = load_custom_events()
+    target = next((e for e in all_events if e.get("id") == event_id), None)
+
+    if target and calendar:
+        current_cals = [c.strip() for c in target.get("calendar", "").split(",") if c.strip()]
+        current_cals = [c for c in current_cals if c != calendar]
+
+        if current_cals:
+            target["calendar"] = ",".join(current_cals)
+            # Recalculate color: fælles=red, child=green (frontend overrides with calColorMap anyway)
+            has_child = any(c.startswith("cal-child-") for c in current_cals)
+            target["color"] = "#43a047" if has_child else "#e53935"
+            save_custom_events(all_events)
+            # Update Google metadata in background
+            t = dict(target)
+            threading.Thread(target=_sync_google_event, args=(t,), daemon=True).start()
+            return {"ok": True, "deleted": False, "remaining_calendars": current_cals}
+        else:
+            all_events = [e for e in all_events if e.get("id") != event_id]
+            save_custom_events(all_events)
+            gid = target.get("google_event_id", "")
+            if gid:
+                threading.Thread(target=_delete_google_event, args=(gid,), daemon=True).start()
+            return {"ok": True, "deleted": True}
+    else:
+        all_events = [e for e in all_events if e.get("id") != event_id]
+        save_custom_events(all_events)
+        gid = target.get("google_event_id", "") if target else ""
+        if gid:
+            threading.Thread(target=_delete_google_event, args=(gid,), daemon=True).start()
+        return {"ok": True, "deleted": True}
 
 @app.post("/api/parse-event")
 async def parse_event(request: Request):
@@ -674,6 +809,10 @@ def get_settings():
         "google_calendars": [],
         "weather_lat": os.getenv("WEATHER_LAT", "56.127"),
         "weather_lon": os.getenv("WEATHER_LON", "10.178"),
+        "google_client_id":     "***" if os.getenv("GOOGLE_CLIENT_ID") else "",
+        "google_client_secret": "***" if os.getenv("GOOGLE_CLIENT_SECRET") else "",
+        "google_oauth_connected": bool(os.getenv("GOOGLE_OAUTH_REFRESH_TOKEN")),
+        "google_default_calendar_id": os.getenv("GOOGLE_DEFAULT_CALENDAR_ID", "primary"),
     }
     for suffix in [""] + [f"_{i}" for i in range(2, 11)]:
         u = os.getenv(f"MITID_USERNAME{suffix}", "")
@@ -736,6 +875,14 @@ async def save_settings(request: Request):
             lines.append(f"GOOGLE_CALENDAR_ICS{suffix}={url}")
             lines.append(f"GOOGLE_CALENDAR_NAME{suffix}={name}")
 
+    # Google OAuth credentials
+    gcid = data.get("google_client_id", "").strip()
+    gcsc = data.get("google_client_secret", "").strip()
+    if gcid and gcid != "***": set_env("GOOGLE_CLIENT_ID", gcid)
+    if gcsc and gcsc != "***": set_env("GOOGLE_CLIENT_SECRET", gcsc)
+    gcal_default = data.get("google_default_calendar_id", "").strip()
+    if gcal_default: set_env("GOOGLE_DEFAULT_CALENDAR_ID", gcal_default)
+
     # Weather
     if data.get("weather_lat"): set_env("WEATHER_LAT", data["weather_lat"])
     if data.get("weather_lon"): set_env("WEATHER_LON", data["weather_lon"])
@@ -754,6 +901,223 @@ async def save_settings(request: Request):
     API_KEY = os.getenv("API_KEY", "")
 
     return {"ok": True, "api_key": api_key}
+
+
+
+# ── Google OAuth ─────────────────────────────────────────────────────────────
+
+GOOGLE_TOKEN_URL    = "https://oauth2.googleapis.com/token"
+GOOGLE_AUTH_URL     = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_OAUTH_SCOPES = "https://www.googleapis.com/auth/calendar.events"
+
+_google_token_cache: dict = {"token": "", "expires_at": 0.0}
+_custom_events_lock = __import__("threading").Lock()  # guards custom_events.json r/w
+
+def _get_google_access_token() -> str:
+    """Return a valid Google access token, refreshing via refresh_token if needed."""
+    import time, requests as req
+    cache = _google_token_cache
+    if cache["token"] and time.time() < cache["expires_at"] - 60:
+        return cache["token"]
+
+    refresh_token = os.getenv("GOOGLE_OAUTH_REFRESH_TOKEN", "")
+    if not refresh_token:
+        return ""
+
+    r = req.post(GOOGLE_TOKEN_URL, data={
+        "client_id":     os.getenv("GOOGLE_CLIENT_ID", ""),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
+        "refresh_token": refresh_token,
+        "grant_type":    "refresh_token",
+    }, timeout=10)
+    r.raise_for_status()
+    tokens = r.json()
+    access_token = tokens.get("access_token", "")
+    expires_in   = tokens.get("expires_in", 3600)
+
+    os.environ["GOOGLE_OAUTH_ACCESS_TOKEN"] = access_token
+    cache["token"]      = access_token
+    cache["expires_at"] = time.time() + expires_in
+    logging.getLogger("google_oauth").info("Access token refreshed")
+    return access_token
+
+
+def _fmt_google_dt(s: str, is_end_allday: bool = False) -> dict:
+    """Convert 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM' to Google Calendar dateTime/date dict.
+    For all-day end dates Google requires the day *after* the last day."""
+    if "T" in s:
+        return {"dateTime": s + ":00" if len(s) == 16 else s, "timeZone": "Europe/Copenhagen"}
+    if is_end_allday:
+        import datetime as dt
+        d = dt.date.fromisoformat(s) + dt.timedelta(days=1)
+        return {"date": d.isoformat()}
+    return {"date": s}
+
+
+def _sync_google_event(event: dict) -> str | None:
+    """Create or update a Google Calendar event. Returns google_event_id or None."""
+    import requests as req
+    access_token = _get_google_access_token()
+    if not access_token:
+        return None
+
+    cal_id = os.getenv("GOOGLE_DEFAULT_CALENDAR_ID", "primary")
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
+    local_id    = event.get("id", "")
+    local_cals  = event.get("calendar", "")
+    google_id   = event.get("google_event_id", "")
+    title       = event.get("title", "")
+
+    # Build title prefix from child calendars e.g. "(Aksel, Max) - Titel"
+    child_names = []
+    for cid in local_cals.split(","):
+        cid = cid.strip()
+        if cid.startswith("cal-child-"):
+            prof_id = cid.replace("cal-child-", "")
+            name = client.get_child_name(prof_id)
+            if name:
+                child_names.append(name)
+    if child_names:
+        title = f"({', '.join(child_names)}) - {title}"
+
+    all_day = "T" not in event.get("start", "")
+    end_raw = event.get("end") or event.get("start", "")
+    body = {
+        "summary":     title,
+        "description": event.get("description", ""),
+        "start":       _fmt_google_dt(event.get("start", "")),
+        "end":         _fmt_google_dt(end_raw, is_end_allday=all_day),
+        "extendedProperties": {
+            "private": {
+                "familieoverblik_id":        local_id,
+                "familieoverblik_calendars": local_cals,
+            }
+        }
+    }
+
+    try:
+        if google_id:
+            # Update existing
+            r = req.put(
+                f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events/{google_id}",
+                headers=headers, json=body, timeout=10
+            )
+        else:
+            # Create new
+            r = req.post(
+                f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
+                headers=headers, json=body, timeout=10
+            )
+        r.raise_for_status()
+        return r.json().get("id", "")
+    except Exception as ex:
+        logging.warning(f"Google Calendar sync failed: {ex}")
+        return None
+
+
+def _delete_google_event(google_event_id: str) -> bool:
+    """Delete a Google Calendar event entirely."""
+    import requests as req
+    access_token = _get_google_access_token()
+    if not access_token or not google_event_id:
+        return False
+    cal_id = os.getenv("GOOGLE_DEFAULT_CALENDAR_ID", "primary")
+    try:
+        r = req.delete(
+            f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events/{google_event_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10
+        )
+        return r.status_code in (200, 204)
+    except Exception as ex:
+        logging.warning(f"Google Calendar delete failed: {ex}")
+        return False
+
+@app.get("/api/google-oauth/calendars")
+def google_oauth_calendars():
+    """List user's Google calendars for the default calendar picker."""
+    import requests as req
+    access_token = _get_google_access_token()
+    if not access_token:
+        return []
+    try:
+        items = req.get(
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+            headers={"Authorization": f"Bearer {access_token}"}, timeout=8
+        ).json().get("items", [])
+        return [{"id": c.get("id"), "name": c.get("summaryOverride") or c.get("summary", c.get("id")),
+                 "primary": c.get("primary", False)} for c in items]
+    except Exception as ex:
+        logging.warning(f"calendarList failed: {ex}")
+        return []
+
+
+@app.get("/api/google-oauth/connect")
+def google_oauth_connect(request: Request):
+    """Return the Google OAuth authorization URL to redirect the user to."""
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "")
+    if not client_id:
+        raise HTTPException(400, "GOOGLE_CLIENT_ID not configured")
+    redirect_uri = "http://localhost:8000/auth/google/callback"
+    params = {
+        "client_id":     client_id,
+        "redirect_uri":  redirect_uri,
+        "response_type": "code",
+        "scope":         GOOGLE_OAUTH_SCOPES,
+        "access_type":   "offline",
+        "prompt":        "consent",
+    }
+    from urllib.parse import urlencode
+    url = GOOGLE_AUTH_URL + "?" + urlencode(params)
+    return {"auth_url": url}
+
+
+@app.get("/auth/google/callback")
+def oauth_callback(request: Request, code: str = "", error: str = ""):
+    """Handle Google OAuth callback - exchange code for tokens and save refresh_token."""
+    if error:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"/settings.html?oauth=error&reason={error}")
+    if not code:
+        raise HTTPException(400, "No code received")
+
+    client_id     = os.getenv("GOOGLE_CLIENT_ID", "")
+    client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    redirect_uri  = "http://localhost:8000/auth/google/callback"
+
+    import requests as req
+    r = req.post(GOOGLE_TOKEN_URL, data={
+        "code":          code,
+        "client_id":     client_id,
+        "client_secret": client_secret,
+        "redirect_uri":  redirect_uri,
+        "grant_type":    "authorization_code",
+    }, timeout=10)
+    r.raise_for_status()
+    tokens = r.json()
+
+    refresh_token = tokens.get("refresh_token", "")
+    if not refresh_token:
+        logging.warning("Google OAuth: no refresh_token — user may need to revoke access and reconnect")
+
+    env_path = ROOT / ".env"
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    def _set(key, val):
+        nonlocal lines
+        for i, l in enumerate(lines):
+            if l.startswith(f"{key}="):
+                lines[i] = f"{key}={val}"; return
+        lines.append(f"{key}={val}")
+
+    if refresh_token:
+        _set("GOOGLE_OAUTH_REFRESH_TOKEN", refresh_token)
+    _set("GOOGLE_OAUTH_ACCESS_TOKEN", tokens.get("access_token", ""))
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    load_dotenv(env_path, override=True)
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="http://familiekalender.local:8000/settings.html?oauth=success")
 
 
 app.mount("/", StaticFiles(directory=str(Path(__file__).parent.parent / "frontend"), html=True), name="static")

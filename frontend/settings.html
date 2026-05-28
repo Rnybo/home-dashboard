@@ -142,6 +142,94 @@
     </div>
   </div>
 
+  <!-- 6b. Google OAuth -->
+  <div class="card">
+    <h2>🔐 Google Kalender API <span style="font-size:0.7rem;font-weight:400;color:#aaa">(OAuth2)</span></h2>
+    <p class="section-note">Tilslut din Google-konto for automatisk adgang til alle dine kalendere — inkl. private. Client ID og Secret er skjulte.</p>
+
+    <details open id="oauth-setup-guide" style="margin-bottom:16px">
+      <summary style="font-size:0.82rem;font-weight:700;color:var(--blue);cursor:pointer;user-select:none;padding:8px 0">
+        📖 Opsætningsguide — klik for at folde ud/ind
+      </summary>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;font-size:0.78rem;color:#444;line-height:1.7">
+
+        <div style="background:#f0f7ff;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;padding:10px 14px">
+          <strong>Trin 1 — Opret Google Cloud projekt</strong><br>
+          Gå til <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--blue)">console.cloud.google.com</a>
+          → klik <strong>Select project</strong> → <strong>New Project</strong> → giv det et navn → <strong>Create</strong>.
+        </div>
+
+        <div style="background:#f0f7ff;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;padding:10px 14px">
+          <strong>Trin 2 — Aktivér Google Calendar API</strong><br>
+          Gå til <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" style="color:var(--blue)">APIs &amp; Services → Library → Google Calendar API</a>
+          → vælg dit projekt → klik <strong>Enable</strong>.
+        </div>
+
+        <div style="background:#f0f7ff;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;padding:10px 14px">
+          <strong>Trin 3 — OAuth Consent Screen</strong><br>
+          Gå til <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" style="color:var(--blue)">Google Auth Platform → Branding</a>:<br>
+          1. Vælg <strong>External</strong> → <strong>Create</strong><br>
+          2. Udfyld <em>App name</em> (f.eks. "Hjemmedashboard"), <em>Support email</em> og <em>Developer contact email</em><br>
+          3. Klik <strong>Save</strong><br>
+          4. <strong>Tilføj Scopes</strong> — gå til <a href="https://console.cloud.google.com/auth/scopes" target="_blank" style="color:var(--blue)">Google Auth Platform → Data Access</a>:<br>
+          &nbsp;&nbsp;• Klik <strong>Add or Remove Scopes</strong><br>
+          &nbsp;&nbsp;• Søg efter <code style="background:#e8f4fc;padding:2px 4px;border-radius:3px">calendar.events</code><br>
+          &nbsp;&nbsp;• Vælg <code style="background:#e8f4fc;padding:2px 4px;border-radius:3px">https://www.googleapis.com/auth/calendar.readonly</code><br>
+          &nbsp;&nbsp;• Klik <strong>Save</strong>
+        </div>
+
+        <div style="background:#f0f7ff;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;padding:10px 14px">
+          <strong>Trin 4 — Tilføj test-bruger</strong><br>
+          Gå til <a href="https://console.cloud.google.com/auth/audience" target="_blank" style="color:var(--blue)">Google Auth Platform → Audience</a>
+          (Google har omdøbt "OAuth consent screen" til dette):<br>
+          1. Scroll ned til <strong>Test users</strong><br>
+          2. Klik <strong>+ Add users</strong><br>
+          3. Tilføj din Gmail-adresse (f.eks. <em>din@gmail.com</em>) → <strong>Save</strong><br>
+          <span style="color:#e65100">⚠️ Uden dette får du "Access blocked" fejl ved login.</span>
+        </div>
+
+        <div style="background:#f0f7ff;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;padding:10px 14px">
+          <strong>Trin 5 — Opret OAuth Client ID</strong><br>
+          Gå til <a href="https://console.cloud.google.com/auth/clients" target="_blank" style="color:var(--blue)">Google Auth Platform → Clients</a>
+          (tidligere under "APIs &amp; Services → Credentials"):<br>
+          1. Klik <strong>+ Create Client</strong><br>
+          2. Application type: <strong>Web application</strong><br>
+          3. Under <em>Authorized redirect URIs</em> → klik <strong>+ Add URI</strong> → indtast:<br>
+          <code style="background:#e8f4fc;padding:2px 6px;border-radius:3px;font-size:0.75rem">http://localhost:8000/auth/google/callback</code><br>
+          4. Klik <strong>Create</strong> — du får nu <strong>Client ID</strong> og <strong>Client Secret</strong>.
+        </div>
+
+        <div style="background:#e8f5e9;border-left:3px solid #43a047;border-radius:0 6px 6px 0;padding:10px 14px">
+          <strong>Trin 6 — Indsæt og tilslut</strong><br>
+          Kopiér <strong>Client ID</strong> og <strong>Client Secret</strong> ind i felterne nedenfor → klik <strong>Gem indstillinger</strong> → klik <strong>Tilslut Google-konto</strong> → log ind og godkend.
+        </div>
+
+      </div>
+    </details>
+    <div class="field">
+      <label>Client ID</label>
+      <input type="password" id="google_client_id" placeholder="...apps.googleusercontent.com" autocomplete="off">
+      <div class="hint">Fra Google Cloud Console → Credentials → OAuth 2.0 Client ID</div>
+    </div>
+    <div class="field">
+      <label>Client Secret</label>
+      <input type="password" id="google_client_secret" placeholder="GOCSPX-..." autocomplete="off">
+    </div>
+    <div id="oauth-status" style="margin-top:12px;font-size:0.82rem;font-weight:600"></div>
+    <div id="google-cal-picker" style="display:none;margin-top:12px">
+      <div class="field">
+        <label>Standard kalender til nye aftaler</label>
+        <select id="google_default_calendar_id" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;color:#333">
+          <option value="primary">📅 Primær kalender</option>
+        </select>
+        <div class="hint">Nye aftaler oprettes i denne Google-kalender</div>
+      </div>
+    </div>
+    <button class="btn-gen" id="oauth-connect-btn" onclick="connectGoogleOAuth()" style="margin-top:10px;width:100%;padding:10px">
+      🔗 Tilslut Google-konto
+    </button>
+  </div>
+
   <!-- 7. ICS abonnement -->
   <div class="card">
     <h2>📅 Kalenderabonnement (ICS)</h2>
@@ -192,6 +280,19 @@
         document.getElementById('dashboard_title').value = s.dashboard_title || 'Hjem';
         document.getElementById('weather_lat').value = s.weather_lat || '';
         document.getElementById('weather_lon').value = s.weather_lon || '';
+        // Google OAuth
+        document.getElementById('google_client_id').value     = s.google_client_id     || '';
+        document.getElementById('google_client_secret').value = s.google_client_secret || '';
+        const oauthStatus = document.getElementById('oauth-status');
+        if (s.google_oauth_connected) {
+          oauthStatus.innerHTML = '<span style="color:#2e7d32">✅ Google-konto tilsluttet</span>';
+          const guide = document.getElementById('oauth-setup-guide');
+          if (guide) guide.removeAttribute('open');
+          // Load calendar list for picker
+          loadGoogleCalendars(s.google_default_calendar_id || 'primary');
+        } else {
+          oauthStatus.innerHTML = '<span style="color:#aaa">Ikke tilsluttet</span>';
+        }
         const accList = document.getElementById('accounts-list');
         accList.innerHTML = '';
         if (s.accounts && s.accounts.length) {
@@ -274,13 +375,16 @@
       })).filter(c => c.url);
 
       const payload = {
-        api_key:          document.getElementById('api_key').value.trim(),
-        anthropic_key:    document.getElementById('anthropic_key').value.trim(),
-        dashboard_title:  document.getElementById('dashboard_title').value.trim() || 'Hjem',
+        api_key:                    document.getElementById('api_key').value.trim(),
+        anthropic_key:              document.getElementById('anthropic_key').value.trim(),
+        dashboard_title:            document.getElementById('dashboard_title').value.trim() || 'Hjem',
+        google_client_id:           document.getElementById('google_client_id').value.trim(),
+        google_client_secret:       document.getElementById('google_client_secret').value.trim(),
+        google_default_calendar_id: document.getElementById('google_default_calendar_id').value.trim(),
         accounts,
         google_calendars,
-        weather_lat:      document.getElementById('weather_lat').value.trim(),
-        weather_lon:      document.getElementById('weather_lon').value.trim(),
+        weather_lat: document.getElementById('weather_lat').value.trim(),
+        weather_lon: document.getElementById('weather_lon').value.trim(),
       };
 
       try {
@@ -311,6 +415,71 @@
       t.className = 'toast visible' + (error ? ' error' : '');
       setTimeout(() => t.classList.remove('visible'), 4000);
     }
+
+    async function loadGoogleCalendars(selectedId) {
+      try {
+        const cals = await fetch('/api/google-oauth/calendars').then(r => r.json());
+        const sel = document.getElementById('google_default_calendar_id');
+        sel.innerHTML = '';
+
+        // Auto-select: prefer saved setting, then primary calendar
+        const autoId = selectedId && selectedId !== 'primary'
+          ? selectedId
+          : (cals.find(c => c.primary)?.id || 'primary');
+
+        cals.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = (c.primary ? '⭐ ' : '📅 ') + c.name;
+          if (c.id === autoId) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        if (!cals.length) {
+          sel.innerHTML = '<option value="primary">📅 Primær kalender</option>';
+        }
+        document.getElementById('google-cal-picker').style.display = 'block';
+      } catch(e) {
+        console.warn('Could not load Google calendars:', e);
+      }
+    }
+
+    async function connectGoogleOAuth() {
+      // First save credentials, then redirect to OAuth
+      const gcid = document.getElementById('google_client_id').value.trim();
+      const gcsc = document.getElementById('google_client_secret').value.trim();
+      if (!gcid || !gcsc) {
+        showToast('Udfyld Client ID og Client Secret først', true);
+        return;
+      }
+      const btn = document.getElementById('oauth-connect-btn');
+      btn.disabled = true; btn.textContent = 'Gemmer og omdirigerer...';
+      // Save first
+      try {
+        await fetch('/api/settings', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ google_client_id: gcid, google_client_secret: gcsc }),
+        });
+      } catch(e) {}
+      // Then get auth URL
+      try {
+        const res = await fetch('/api/google-oauth/connect');
+        const data = await res.json();
+        if (data.auth_url) {
+          // Backend hardcodes localhost — redirect there regardless of current host
+          const target = data.auth_url.replace(location.origin, 'http://localhost:8000');
+          window.location.href = target;
+        }
+        else showToast('Fejl: ' + JSON.stringify(data), true);
+      } catch(e) {
+        showToast('Fejl: ' + e.message, true);
+      }
+      btn.disabled = false; btn.textContent = '🔗 Tilslut Google-konto';
+    }
+
+    // Check for OAuth redirect result
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('oauth') === 'success') showToast('✅ Google-konto tilsluttet!');
+    else if (urlParams.get('oauth') === 'error') showToast('❌ Google login fejlede: ' + (urlParams.get('reason')||'ukendt'), true);
 
     load();
   </script>

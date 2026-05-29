@@ -153,49 +153,37 @@ def _run(known_hosts: list[str] | None):
     browser = None
 
     try:
-        if known_hosts:
-            log.info("Cast: forbinder direkte til %s", known_hosts)
-            chromecasts, browser = pychromecast.get_listed_chromecasts(known_hosts=known_hosts)
-        else:
-            # Ny CastBrowser API
-            log.info("Cast: starter mDNS discovery...")
-            import zeroconf
-            stop_event = threading.Event()
-            found = []
+        import zeroconf as zc_module
 
-            class _Listener(pychromecast.discovery.AbstractCastListener):
-                def add_cast(self, uuid, service):
-                    found.append(uuid)
-                def remove_cast(self, uuid, service, cast_info):
-                    pass
-                def update_cast(self, uuid, service):
-                    pass
-
-            listener = _Listener()
-            zc = zeroconf.Zeroconf()
-            browser = pychromecast.discovery.CastBrowser(listener, zc)
-            browser.start_discovery()
-            time.sleep(10)  # Vent på discovery
-            browser.stop_discovery()
-            zc.close()
-
-            if found:
-                chromecasts, _ = pychromecast.get_listed_chromecasts(
-                    uuids=found, zeroconf_instance=zeroconf.Zeroconf()
-                )
-            log.info("Cast: fandt %d enheder via mDNS", len(chromecasts))
-
-        for cc in chromecasts:
-            name = cc.name
-            log.info("Cast: tilslutter %s (%s)", name, cc.host)
-            _chromecasts[name] = cc
-            cc.register_status_listener(_StatusListener(name))
-            cc.media_controller.register_status_listener(_MediaListener(name))
-            cc.register_connection_listener(_ConnectionListener(name, cc))
-            cc.wait()
+        def _on_cast(chromecast):
+            name = chromecast.name
+            log.info("Cast: fandt %s (%s)", name, chromecast.host)
+            _chromecasts[name] = chromecast
+            chromecast.register_status_listener(_StatusListener(name))
+            chromecast.media_controller.register_status_listener(_MediaListener(name))
+            chromecast.register_connection_listener(_ConnectionListener(name, chromecast))
+            chromecast.wait()
             _notify(name, _empty_state(name))
 
-        # Hold tråden i live
+        zeroconf_instance = zc_module.Zeroconf()
+
+        if known_hosts:
+            log.info("Cast: forbinder direkte til %s", known_hosts)
+            chromecasts, browser = pychromecast.get_chromecasts(
+                known_hosts=known_hosts,
+                zeroconf_instance=zeroconf_instance,
+            )
+            for cc in chromecasts:
+                _on_cast(cc)
+        else:
+            log.info("Cast: starter mDNS discovery med callback...")
+            browser = pychromecast.get_chromecasts(
+                blocking=False,
+                callback=_on_cast,
+                zeroconf_instance=zeroconf_instance,
+            )
+
+        # Hold tråden i live — browser holder mDNS subscription aktiv
         while True:
             time.sleep(30)
 

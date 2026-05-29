@@ -168,10 +168,9 @@ async def _google_calendar_sync():
 @app.on_event("startup")
 async def startup():
     mqtt_client.connect()
-    # Cast service — known_hosts fra env eller mDNS discovery
+    # Cast service — automatisk mDNS discovery af Google Cast/Nest enheder
     from backend.cast_service import start as cast_start
-    cast_hosts = [h.strip() for h in os.getenv("CAST_HOSTS", "").split(",") if h.strip()]
-    cast_start(known_hosts=cast_hosts or None)
+    cast_start()
     asyncio.create_task(_session_keepalive())
     asyncio.create_task(_google_calendar_sync())
 

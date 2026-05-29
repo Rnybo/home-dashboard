@@ -465,4 +465,5 @@
     });
     clInit();
     loadAll();
+    castInit();
     window._dashboardLoaded = true; // fase-0 testmarkør

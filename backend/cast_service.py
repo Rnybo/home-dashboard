@@ -124,9 +124,14 @@ def control_device(device: str, action: str, **kwargs) -> bool:
         return False
     try:
         mc = cc.media_controller
-        if action == "play":    mc.play()
-        elif action == "pause": mc.pause()
-        elif action == "stop":  mc.stop()
+        if action == "play":      mc.play()
+        elif action == "pause":   mc.pause()
+        elif action == "stop":    mc.stop()
+        elif action == "next":    mc.queue_next()
+        elif action == "previous":mc.queue_prev()
+        elif action == "seek":
+            current = mc.status.current_time if mc.status else 0
+            mc.seek(max(0, current + float(kwargs.get("delta", 0))))
         elif action == "volume":
             cc.set_volume(float(kwargs.get("level", 0.5)))
         return True

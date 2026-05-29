@@ -75,16 +75,27 @@ async def cast_stream(request: Request):
 def cast_pause(device: str):
     return {"ok": control_device(device, "pause")}
 
-
 @router_auth.post("/api/cast/{device}/play")
 def cast_play(device: str):
     return {"ok": control_device(device, "play")}
-
 
 @router_auth.post("/api/cast/{device}/stop")
 def cast_stop(device: str):
     return {"ok": control_device(device, "stop")}
 
+@router_auth.post("/api/cast/{device}/next")
+def cast_next(device: str):
+    return {"ok": control_device(device, "next")}
+
+@router_auth.post("/api/cast/{device}/previous")
+def cast_previous(device: str):
+    return {"ok": control_device(device, "previous")}
+
+@router_auth.post("/api/cast/{device}/seek")
+async def cast_seek(device: str, request: Request):
+    data = await request.json()
+    delta = float(data.get("delta", 0))
+    return {"ok": control_device(device, "seek", delta=delta)}
 
 @router_auth.post("/api/cast/{device}/volume")
 async def cast_volume(device: str, request: Request):

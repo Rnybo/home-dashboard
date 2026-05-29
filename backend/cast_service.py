@@ -211,6 +211,20 @@ def control_device(device: str, action: str, **kwargs) -> bool:
         return False
 
 
+_stop_event = threading.Event()
+
+
+def stop():
+    """Stop Cast service og luk alle forbindelser."""
+    _stop_event.set()
+    for cc in list(_chromecasts.values()):
+        try:
+            cc.disconnect()
+        except Exception:
+            pass
+    log.info("Cast service stoppet")
+
+
 def start(known_hosts: list[str] | None = None):
     """
     Start Cast discovery og monitoring i baggrundstråd.
@@ -280,8 +294,8 @@ def _run(known_hosts: list[str] | None):
             )
 
         # Hold tråden i live — browser holder mDNS subscription aktiv
-        while True:
-            time.sleep(30)
+        while not _stop_event.is_set():
+            time.sleep(1)
 
     except Exception as e:
         log.error("Cast service fejl: %s", e, exc_info=True)

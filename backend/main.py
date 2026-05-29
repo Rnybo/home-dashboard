@@ -168,11 +168,16 @@ async def _google_calendar_sync():
 @app.on_event("startup")
 async def startup():
     mqtt_client.connect()
-    # Cast service — automatisk mDNS discovery af Google Cast/Nest enheder
     from backend.cast_service import start as cast_start
     cast_start()
     asyncio.create_task(_session_keepalive())
     asyncio.create_task(_google_calendar_sync())
+
+@app.on_event("shutdown")
+async def shutdown():
+    mqtt_client.disconnect()
+    from backend.cast_service import stop as cast_stop
+    cast_stop()
 
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):

@@ -3,7 +3,6 @@ routers/cast.py — Cast state endpoints + SSE stream
 """
 import asyncio
 import json
-import os
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, Request
@@ -11,7 +10,8 @@ from fastapi.responses import StreamingResponse
 
 from backend.cast_service import get_state, add_listener, control_device
 
-router = APIRouter()
+router        = APIRouter()
+router_auth   = APIRouter()  # control endpoints med API-nøgle krav
 
 # ── SSE event queue per forbundet klient ──────────────────────────────────────
 _sse_queues: list[asyncio.Queue] = []
@@ -71,22 +71,22 @@ async def cast_stream(request: Request):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-@router.post("/api/cast/{device}/pause")
+@router_auth.post("/api/cast/{device}/pause")
 def cast_pause(device: str):
     return {"ok": control_device(device, "pause")}
 
 
-@router.post("/api/cast/{device}/play")
+@router_auth.post("/api/cast/{device}/play")
 def cast_play(device: str):
     return {"ok": control_device(device, "play")}
 
 
-@router.post("/api/cast/{device}/stop")
+@router_auth.post("/api/cast/{device}/stop")
 def cast_stop(device: str):
     return {"ok": control_device(device, "stop")}
 
 
-@router.post("/api/cast/{device}/volume")
+@router_auth.post("/api/cast/{device}/volume")
 async def cast_volume(device: str, request: Request):
     data = await request.json()
     level = float(data.get("level", 0.5))

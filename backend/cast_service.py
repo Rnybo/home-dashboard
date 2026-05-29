@@ -155,15 +155,39 @@ def _run(known_hosts: list[str] | None):
     try:
         import zeroconf as zc_module
 
+        def _connect_cast(chromecast):
+            name = chromecast.name
+            try:
+                chromecast.wait(timeout=10)
+                # Force-poll initial state så idle enheder også vises
+                initial = _empty_state(name)
+                try:
+                    s = chromecast.status
+                    if s:
+                        initial["volume"] = round(s.volume_level, 2) if s.volume_level is not None else None
+                        initial["app"] = s.display_name or None
+                except Exception:
+                    pass
+                _notify(name, initial)
+                # Opdater media status hvis enheden allerede afspiller
+                try:
+                    chromecast.media_controller.update_status()
+                except Exception:
+                    pass
+            except Exception as e:
+                log.warning("Cast: kunne ikke forbinde til %s: %s", name, e)
+                _notify(name, _empty_state(name))
+
         def _on_cast(chromecast):
             name = chromecast.name
-            log.info("Cast: fandt %s (%s)", name, chromecast.host)
+            log.info("Cast: fandt %s (%s)", name, chromecast.uri)
             _chromecasts[name] = chromecast
             chromecast.register_status_listener(_StatusListener(name))
             chromecast.media_controller.register_status_listener(_MediaListener(name))
             chromecast.register_connection_listener(_ConnectionListener(name, chromecast))
-            chromecast.wait()
-            _notify(name, _empty_state(name))
+            # Forbind i separat tråd så discovery ikke blokeres
+            t = threading.Thread(target=_connect_cast, args=(chromecast,), daemon=True, name=f"cast-connect-{name}")
+            t.start()
 
         zeroconf_instance = zc_module.Zeroconf()
 

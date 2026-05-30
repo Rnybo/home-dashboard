@@ -18,6 +18,7 @@ from backend.google_utils import (
 router = APIRouter()
 
 COLORS = ["#e53935", "#8e24aa", "#1e88e5", "#43a047", "#fb8c00"]
+FAELLES_COLOR = "#e53935"  # Alle fælleskalender-events vises med samme røde farve
 
 
 @router.get("/api/google-calendar")
@@ -44,7 +45,7 @@ def google_calendar(from_date: str = "", to_date: str = ""):
         name = os.getenv(f"GOOGLE_CALENDAR_NAME{suffix}", f"Kalender {idx}")
         if url and url not in seen:
             seen.add(url)
-            ics_calendars.append({"url": url, "name": name, "color": COLORS[min(idx-1, len(COLORS)-1)]})
+            ics_calendars.append({"url": url, "name": name, "color": FAELLES_COLOR})
     ics_calendars.append({
         "url":   "https://calendar.google.com/calendar/ical/da.danish%23holiday%40group.v.calendar.google.com/public/basic.ics",
         "name":  "Helligdag",

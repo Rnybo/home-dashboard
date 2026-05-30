@@ -259,6 +259,16 @@ def _run(known_hosts: list[str] | None):
                     pass
                 _notify(name, initial)
 
+                # Vent lidt så listeners er klar, hent derefter media state.
+                # update_status() sender en GET_STATUS request — ikke en kommando
+                # der afbryder afspilning. Den triggerser new_media_status callback.
+                time.sleep(2)
+                try:
+                    chromecast.media_controller.update_status()
+                    log.info("Cast %s: media status opdatering anmodet", name)
+                except Exception as e:
+                    log.warning("Cast %s: kunne ikke hente media status: %s", name, e)
+
             except Exception as e:
                 log.warning("Cast: kunne ikke forbinde til %s: %s", name, e)
                 _notify(name, _empty_state(name))

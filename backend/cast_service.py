@@ -102,10 +102,11 @@ class _MediaListener:
 class _StatusListener:
     """
     Lytter på cast status events (volumen, app navn).
-    Opdaterer volume og app på eksisterende state uden at overskrive media info.
+    Bruger chromecast.app_display_name — samme som HA's app_name property.
     """
-    def __init__(self, name: str):
+    def __init__(self, name: str, cc):
         self.name = name
+        self._cc = cc  # reference til chromecast for app_display_name
 
     def new_cast_status(self, status):
         if not status:
@@ -113,11 +114,15 @@ class _StatusListener:
         with _lock:
             current = dict(_state.get(self.name, _empty_state(self.name)))
 
-        # Bevar media info — opdater kun volumen og app navn
         current["volume"] = round(status.volume_level, 2) if status.volume_level is not None else None
-        # app_display_name er det korrekte felt — samme som HA's app_name property
-        if status.display_name:
-            current["app"] = status.display_name
+        # Brug chromecast.app_display_name — brugervenligt navn (Spotify, YouTube Music etc.)
+        # Ref: HA's app_name property: return self._chromecast.app_display_name
+        try:
+            app_name = self._cc.app_display_name
+        except Exception:
+            app_name = status.display_name
+        if app_name:
+            current["app"] = app_name
 
         _notify(self.name, current)
 
@@ -383,7 +388,7 @@ def _run(known_hosts: list[str] | None):
             name = chromecast.name
             log.info("Cast: fandt %s (%s)", name, chromecast.uri)
             _chromecasts[name] = chromecast
-            chromecast.register_status_listener(_StatusListener(name))
+            chromecast.register_status_listener(_StatusListener(name, chromecast))
             chromecast.media_controller.register_status_listener(_MediaListener(name))
             chromecast.register_connection_listener(_ConnectionListener(name, chromecast))
             t = threading.Thread(target=_connect_cast, args=(chromecast,),

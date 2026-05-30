@@ -359,13 +359,15 @@
         <div class="row">
           <div class="field">
             <label>Brugernavn (telefon/CPR)</label>
-            <input type="text" class="acc-username" value="${username}" placeholder="f.eks. 12345678">
+            <input type="text" class="acc-username" placeholder="f.eks. 12345678">
           </div>
           <div class="field">
             <label>Fulde navn (som i MitID)</label>
-            <input type="text" class="acc-identity" value="${identity}" placeholder="f.eks. Rasmus Fogh Nybo">
+            <input type="text" class="acc-identity" placeholder="f.eks. Rasmus Fogh Nybo">
           </div>
         </div>`;
+      el.querySelector('.acc-username').value = username;
+      el.querySelector('.acc-identity').value = identity;
       document.getElementById('accounts-list').appendChild(el);
     }
 
@@ -376,12 +378,14 @@
         <button class="remove-btn" onclick="this.parentElement.remove()">✕</button>
         <div class="field">
           <label>Navn</label>
-          <input type="text" class="cal-name" value="${name}" placeholder="f.eks. Rasmus">
+          <input type="text" class="cal-name" placeholder="f.eks. Rasmus">
         </div>
         <div class="field">
           <label>ICS URL</label>
-          <input type="text" class="cal-url" value="${url}" placeholder="https://calendar.google.com/calendar/ical/...">
+          <input type="text" class="cal-url" placeholder="https://calendar.google.com/calendar/ical/...">
         </div>`;
+      el.querySelector('.cal-name').value = name;
+      el.querySelector('.cal-url').value  = url;
       document.getElementById('calendars-list').appendChild(el);
     }
 

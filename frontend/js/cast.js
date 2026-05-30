@@ -248,14 +248,26 @@ function castSetVolume(device, level) {
 function castStartWS() {
   if (castWs && castWs.readyState === WebSocket.OPEN) return;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  castWs = new WebSocket(`${proto}://${location.host}/ws/cast`);
+  const host = location.hostname + ':' + location.port;
+  castWs = new WebSocket(`${proto}://${host}/ws/cast`);
   castWs.onmessage = e => {
     try {
       const s = JSON.parse(e.data);
       if (s.device) { castState[s.device] = s; castRenderButton(); }
     } catch(err) {}
   };
-  castWs.onclose = () => { castWs = null; setTimeout(castStartWS, 10000); };
+  castWs.onclose = () => {
+    castWs = null;
+    setTimeout(async () => {
+      // Genindlæs state ved reconnect så ikonet genopstår
+      try {
+        const r = await apiFetch('/api/cast/state');
+        castState = await r.json() || {};
+        castRenderButton();
+      } catch(e) {}
+      castStartWS();
+    }, 5000);
+  };
   castWs.onerror = () => { castWs && castWs.close(); };
 }
 

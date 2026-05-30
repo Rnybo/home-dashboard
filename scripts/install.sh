@@ -74,11 +74,16 @@ else
 fi
 
 # Sørg altid for at disse pakker er installeret
+step "Tjekker kritiske pakker..."
 for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets"; do
     mod="${pkg%%:*}"; pip_pkg="${pkg##*:}"
     if ! python -c "import $mod" > /dev/null 2>&1; then
-        pip install --quiet --break-system-packages "$pip_pkg" >> "$LOG" 2>&1 \
-            && ok "$pip_pkg installeret" || warn "$pip_pkg fejlede"
+        printf "  Installerer $pip_pkg...\n"
+        pip install --break-system-packages "$pip_pkg" 2>&1 | tail -3
+        python -c "import $mod" > /dev/null 2>&1 \
+            && ok "$pip_pkg installeret" || warn "$pip_pkg fejlede — tjek output ovenfor"
+    else
+        ok "$pip_pkg OK"
     fi
 done
 
@@ -146,6 +151,11 @@ sleep 2
 # Dræb hvad end der holder port 8000 — Termux-kompatibel metode
 PID=$(ss -tlnp 2>/dev/null | awk '/:8000 /{match($0,/pid=([0-9]+)/,a); if(a[1]) print a[1]}')
 if [ -n "$PID" ]; then kill -9 "$PID" 2>/dev/null || true; sleep 1; fi
+# Fallback: dræb alle python-processer med uvicorn i kommandolinjen
+for PID in $(ps aux 2>/dev/null | grep '[u]vicorn' | awk '{print $1}'); do
+    kill -9 "$PID" 2>/dev/null || true
+done
+sleep 1
 ok "Server stoppet"
 
 step "Starter server..."

@@ -318,16 +318,20 @@ async function castShowTransferMenu(sourceDevice, anchorEl) {
       const isActive = item.dataset.active === 'true';
       try {
         if (type === 'spotify') {
+          // Direkte Spotify device ID — transfer via Spotify Connect
           await apiFetch(`/api/cast/${encodeURIComponent(sourceDevice)}/transfer`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target: item.querySelector('span:nth-child(2)').textContent.trim(),
-                                   spotify_device_id: item.dataset.spotifyId })
+            body: JSON.stringify({
+              target: item.querySelector('span:nth-child(2)').textContent.trim(),
+              spotify_device_id: item.dataset.spotifyId
+            })
           });
-        } else if (isSource || isActive) {
+        } else if (isSource) {
+          // Klik på kildeenheden selv → stop den
           await apiFetch(`/api/cast/${encodeURIComponent(item.dataset.device)}/stop`, { method: 'POST' });
         } else {
-          // Inaktiv Cast-enhed — overfør via Spotify Connect (waker enheden op)
+          // Inaktiv eller aktiv Cast-enhed → overfør til den
           const res = await apiFetch(`/api/cast/${encodeURIComponent(sourceDevice)}/transfer`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

@@ -292,10 +292,16 @@ def _push_optimistic(device: str, action: str, **kwargs):
     _notify(device, current)
 
 
+# Spotify Cast App ID — bruges til at wake Nest-enheder
+SPOTIFY_CAST_APP_ID = "CC32E753"
+
+
 def transfer_playback(source: str, target: str, spotify_device_id: str | None = None) -> dict:
     """
-    Overfør Spotify-afspilning til target.
-    Spotify device ID kan sendes direkte, eller vi finder det via Spotify API.
+    Overfør Spotify-afspilning til target Cast-enhed.
+    1. Start Spotify-appen på target via Cast (waker enheden op)
+    2. Vent på at Spotify registrerer enheden
+    3. Transfer via Spotify Connect API
     """
     src_state = _state.get(source, {})
     app = (src_state.get("app") or "").lower()
@@ -311,28 +317,58 @@ def transfer_playback(source: str, target: str, spotify_device_id: str | None = 
         if not token:
             return {"ok": False, "method": "spotify", "detail": "Spotify ikke forbundet"}
 
-        # Hent alle tilgængelige Spotify-devices
-        r = req.get("https://api.spotify.com/v1/me/player/devices",
-                    headers={"Authorization": f"Bearer {token}"}, timeout=8)
-        r.raise_for_status()
-        devices = r.json().get("devices", [])
-        log.info("Spotify transfer: target='%s' devices=%s", target,
-                 [(d["name"], d["id"][:8]) for d in devices])
-
-        # Brug direkte ID hvis sendt (fra Spotify-sektionen i transfer-menuen)
+        # Brug direkte device ID hvis sendt
         if spotify_device_id:
-            device_id = spotify_device_id
-        elif len(devices) == 1:
-            # Kun én enhed tilgængelig — brug den uanset navn
-            device_id = devices[0]["id"]
-            log.info("Spotify transfer: kun én enhed tilgængelig, bruger '%s'", devices[0]["name"])
-        else:
-            # Vælg første ikke-aktive enhed
-            match = next((d for d in devices if not d.get("is_active")), None)
+            r2 = req.put("https://api.spotify.com/v1/me/player",
+                         headers={"Authorization": f"Bearer {token}",
+                                   "Content-Type": "application/json"},
+                         json={"device_ids": [spotify_device_id], "play": True}, timeout=8)
+            log.info("Spotify transfer (direct id) response: %s", r2.status_code)
+            if r2.status_code in (200, 204):
+                return {"ok": True, "method": "spotify"}
+            return {"ok": False, "method": "spotify",
+                    "detail": f"Spotify API {r2.status_code}: {r2.text[:200]}"}
+
+        # Ingen direkte ID — wake target-enheden via Cast og poll Spotify
+        tgt_cc = _chromecasts.get(target)
+        if tgt_cc:
+            try:
+                log.info("Spotify transfer: starter Spotify-app på '%s' via Cast", target)
+                tgt_cc.start_app(SPOTIFY_CAST_APP_ID)
+            except Exception as e:
+                log.warning("Cast start_app fejl: %s", e)
+
+        # Poll Spotify i op til 10 sek for at target dukker op
+        device_id = None
+        for attempt in range(5):
+            time.sleep(2)
+            r = req.get("https://api.spotify.com/v1/me/player/devices",
+                        headers={"Authorization": f"Bearer {token}"}, timeout=8)
+            r.raise_for_status()
+            devices = r.json().get("devices", [])
+            log.info("Spotify poll %d: devices=%s", attempt + 1,
+                     [(d["name"], d["id"][:8]) for d in devices])
+
+            # Match target-navn
+            tl = target.lower()
+            match = next((d for d in devices
+                          if tl in d["name"].lower() or d["name"].lower() in tl), None)
+            if match:
+                device_id = match["id"]
+                log.info("Spotify transfer: fandt '%s' efter %d forsøg", match["name"], attempt + 1)
+                break
+
+        if not device_id:
+            # Fallback: brug første ikke-aktive device
+            r = req.get("https://api.spotify.com/v1/me/player/devices",
+                        headers={"Authorization": f"Bearer {token}"}, timeout=8)
+            devices = r.json().get("devices", [])
+            match = next((d for d in devices if not d.get("is_active")), None) or (devices[0] if devices else None)
             if not match:
-                match = devices[0]  # alle er aktive — tag den første
+                return {"ok": False, "method": "spotify",
+                        "detail": f"Target '{target}' ikke fundet i Spotify. Tilgængelige: {[d['name'] for d in devices]}"}
             device_id = match["id"]
-            log.info("Spotify transfer: valgte '%s'", match["name"])
+            log.info("Spotify transfer fallback: bruger '%s'", match["name"])
 
         r2 = req.put("https://api.spotify.com/v1/me/player",
                      headers={"Authorization": f"Bearer {token}",
@@ -343,7 +379,9 @@ def transfer_playback(source: str, target: str, spotify_device_id: str | None = 
             return {"ok": True, "method": "spotify"}
         return {"ok": False, "method": "spotify",
                 "detail": f"Spotify API {r2.status_code}: {r2.text[:200]}"}
+
     except Exception as e:
+        log.exception("Transfer fejl")
         return {"ok": False, "method": "spotify", "detail": str(e)}
 
 

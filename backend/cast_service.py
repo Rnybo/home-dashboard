@@ -2,7 +2,9 @@
 backend/cast_service.py — Google Cast / Nest device monitoring
 Opdager Cast-enheder via mDNS og abonnerer på media status events.
 Publicerer til MQTT: familieoverblik/cast/{device}/state
-Kør standalone: python -m backend.cast_service
+
+Baseret på Home Assistant's CastMediaPlayerEntity implementering:
+https://github.com/home-assistant/core/blob/dev/homeassistant/components/cast/media_player.py
 """
 import json
 import logging
@@ -27,14 +29,18 @@ except ImportError:
 
 def _empty_state(name: str) -> dict:
     return {
-        "device":  name,
-        "app":     None,
-        "state":   "IDLE",
-        "title":   None,
-        "artist":  None,
-        "album":   None,
-        "image":   None,
-        "volume":  None,
+        "device":             name,
+        "app":                None,
+        "state":              "IDLE",
+        "title":              None,
+        "artist":             None,
+        "album":              None,
+        "image":              None,
+        "volume":             None,
+        "supports_pause":     True,
+        "supports_seek":      False,
+        "supports_next":      False,
+        "supports_previous":  False,
     }
 
 
@@ -50,27 +56,54 @@ def _notify(device: str, state: dict):
 
 
 class _MediaListener:
+    """
+    Lytter på media status events fra pychromecast.
+    Bruger MediaStatus properties direkte — samme som HA's implementering.
+    new_media_status() kaldes automatisk af pychromecast via channel_connected → update_status().
+    """
     def __init__(self, name: str):
         self.name = name
 
     def new_media_status(self, status):
         if not status:
             return
+
+        # Brug MediaStatus properties — ikke rå dict-lookup (kan returnere None/tal)
+        # Ref: pychromecast/controllers/media.py MediaStatus properties
+        image = None
+        if status.images:
+            image = status.images[0].url  # MediaImage.url property
+
+        with _lock:
+            current_app = (_state.get(self.name) or {}).get("app")
+
         state = {
-            "device":  self.name,
-            "app":     status.media_metadata.get("metadataType", None),
-            "state":   status.player_state,  # PLAYING, PAUSED, IDLE, BUFFERING
-            "title":   status.media_metadata.get("title"),
-            "artist":  status.media_metadata.get("artist") or status.media_metadata.get("subtitle"),
-            "album":   status.media_metadata.get("albumName"),
-            "image":   next((i["url"] for i in status.media_metadata.get("images", []) if i.get("url")), None),
-            "volume":  None,
+            "device":            self.name,
+            "app":               current_app,  # bevar app-navn fra _StatusListener
+            "state":             status.player_state,  # PLAYING, PAUSED, IDLE, BUFFERING, UNKNOWN
+            "title":             status.title,
+            "artist":            status.artist,
+            "album":             status.album_name,
+            "image":             image,
+            "volume":            None,  # volumen kommer fra _StatusListener
+            # Capabilities — hvad enheden understøtter lige nu
+            "supports_pause":    status.supports_pause,
+            "supports_seek":     status.supports_seek,
+            "supports_next":     status.supports_queue_next,
+            "supports_previous": status.supports_queue_prev,
         }
-        log.info("Cast %s: %s — %s", self.name, state["state"], state["title"])
+        log.info("Cast %s: %s — %s af %s", self.name, status.player_state, status.title, status.artist)
         _notify(self.name, state)
+
+    def load_media_failed(self, queue_item_id: int, error_code: int):
+        log.warning("Cast %s: load_media_failed item=%s code=%s", self.name, queue_item_id, error_code)
 
 
 class _StatusListener:
+    """
+    Lytter på cast status events (volumen, app navn).
+    Opdaterer volume og app på eksisterende state uden at overskrive media info.
+    """
     def __init__(self, name: str):
         self.name = name
 
@@ -79,23 +112,29 @@ class _StatusListener:
             return
         with _lock:
             current = dict(_state.get(self.name, _empty_state(self.name)))
+
+        # Bevar media info — opdater kun volumen og app navn
         current["volume"] = round(status.volume_level, 2) if status.volume_level is not None else None
-        current["app"]    = status.display_name or current.get("app")
-        if status.status_text:
-            current["title"] = status.status_text
+        # app_display_name er det korrekte felt — samme som HA's app_name property
+        if status.display_name:
+            current["app"] = status.display_name
+
         _notify(self.name, current)
 
 
 class _ConnectionListener:
+    """
+    Lytter på forbindelsesstatus.
+    CONNECTED: intet — media status ankommer automatisk via channel_connected → update_status()
+    DISCONNECTED/LOST: nulstil state
+    """
     def __init__(self, name: str, cc):
         self.name = name
         self.cc = cc
 
     def new_connection_status(self, status):
         log.info("Cast %s forbindelsesstatus: %s", self.name, status.status)
-        if status.status == "CONNECTED":
-            pass
-        elif status.status in ("DISCONNECTED", "LOST"):
+        if status.status in ("DISCONNECTED", "LOST"):
             _notify(self.name, _empty_state(self.name))
 
 
@@ -108,71 +147,6 @@ def get_devices() -> list[str]:
     """Returnerer navne på alle kendte Cast-enheder."""
     with _lock:
         return list(_chromecasts.keys())
-
-
-def transfer_playback(source: str, target: str) -> dict:
-    """
-    Overfør afspilning fra source til target.
-    Returnerer {"ok": bool, "method": "spotify"|"media"|"error", "detail": str}
-    """
-    src_state = _state.get(source, {})
-    app = (src_state.get("app") or "").lower()
-
-    # ── Spotify: brug Transfer Playback API ───────────────────────────────────
-    if "spotify" in app:
-        try:
-            from backend.spotify_utils import get_spotify_access_token
-            import requests as req
-            token = get_spotify_access_token()
-            if not token:
-                return {"ok": False, "method": "spotify", "detail": "Spotify ikke forbundet"}
-
-            # Find Spotify device id der matcher target-navn
-            r = req.get("https://api.spotify.com/v1/me/player/devices",
-                        headers={"Authorization": f"Bearer {token}"}, timeout=8)
-            r.raise_for_status()
-            devices = r.json().get("devices", [])
-
-            # Fuzzy match på navn
-            target_lower = target.lower()
-            match = next(
-                (d for d in devices if target_lower in d["name"].lower() or d["name"].lower() in target_lower),
-                None
-            )
-            if not match:
-                names = [d["name"] for d in devices]
-                return {"ok": False, "method": "spotify", "detail": f"Ingen Spotify-enhed matcher '{target}'. Fandt: {names}"}
-
-            r2 = req.put("https://api.spotify.com/v1/me/player",
-                         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                         json={"device_ids": [match["id"]], "play": True}, timeout=8)
-            if r2.status_code in (200, 204):
-                return {"ok": True, "method": "spotify", "detail": match["name"]}
-            return {"ok": False, "method": "spotify", "detail": f"Spotify API fejl {r2.status_code}"}
-        except Exception as e:
-            return {"ok": False, "method": "spotify", "detail": str(e)}
-
-    # ── Anden media: stop source, start på target ─────────────────────────────
-    src_cc = _chromecasts.get(source)
-    tgt_cc = _chromecasts.get(target)
-    if not src_cc or not tgt_cc:
-        return {"ok": False, "method": "media", "detail": "Enhed ikke fundet"}
-    try:
-        mc = src_cc.media_controller
-        status = mc.status
-        if not status or not status.content_id:
-            return {"ok": False, "method": "media", "detail": "Ingen aktiv media URL på kildeenhed"}
-        url          = status.content_id
-        content_type = status.content_type or "video/mp4"
-        position     = status.current_time or 0
-
-        src_cc.media_controller.stop()
-
-        tgt_cc.wait(timeout=5)
-        tgt_cc.media_controller.play_media(url, content_type, current_time=position)
-        return {"ok": True, "method": "media", "detail": target}
-    except Exception as e:
-        return {"ok": False, "method": "media", "detail": str(e)}
 
 
 def get_state() -> dict:
@@ -188,40 +162,60 @@ def add_listener(cb: Callable):
 
 
 def control_device(device: str, action: str, **kwargs) -> bool:
-    """Styr en Cast-enhed: play, pause, stop, next, previous, seek, volume."""
+    """
+    Styr en Cast-enhed.
+    Tjekker supports_* flags inden kommandoer sendes — samme som HA's supported_features.
+    Sender optimistisk state-opdatering straks via WS.
+    """
     cc = _chromecasts.get(device)
     if not cc:
         log.warning("control_device: enhed '%s' ikke fundet", device)
         return False
     try:
         mc = cc.media_controller
+        ms = mc.status  # MediaStatus objekt
+
         if action == "play":
             mc.play()
         elif action == "pause":
+            if ms and not ms.supports_pause:
+                log.warning("Cast %s: pause ikke understøttet", device)
+                return False
             mc.pause()
         elif action == "stop":
             mc.stop()
         elif action == "next":
+            if not (ms and ms.supports_queue_next):
+                log.warning("Cast %s: queue_next ikke understøttet", device)
+                return False
             mc.queue_next()
         elif action == "previous":
+            if not (ms and ms.supports_queue_prev):
+                log.warning("Cast %s: queue_prev ikke understøttet", device)
+                return False
             mc.queue_prev()
         elif action == "seek":
-            current = mc.status.current_time if mc.status else 0
+            if not (ms and ms.supports_seek):
+                log.warning("Cast %s: seek ikke understøttet", device)
+                return False
+            current = ms.current_time if ms else 0
             mc.seek(max(0, current + float(kwargs.get("delta", 0))))
         elif action == "volume":
             cc.set_volume(float(kwargs.get("level", 0.5)))
 
-        # Push optimistisk state-opdatering til frontend med det samme
-        # pychromecast sender ikke altid et event tilbage ved kontrol-kald
-        _push_optimistic(device, action, cc, **kwargs)
+        # Optimistisk state-push — pychromecast sender ikke altid event tilbage
+        _push_optimistic(device, action, **kwargs)
         return True
     except Exception as e:
-        log.warning("control_device fejl: %s", e)
+        log.warning("control_device fejl %s %s: %s", device, action, e)
         return False
 
 
-def _push_optimistic(device: str, action: str, cc, **kwargs):
-    """Push øjeblikkelig state-opdatering baseret på kontrol-handling."""
+def _push_optimistic(device: str, action: str, **kwargs):
+    """
+    Push øjeblikkelig state-opdatering til frontend baseret på kontrol-handling.
+    Den rigtige event fra enheden overskriver denne når den ankommer.
+    """
     with _lock:
         current = dict(_state.get(device, _empty_state(device)))
 
@@ -245,6 +239,69 @@ def _push_optimistic(device: str, action: str, cc, **kwargs):
     _notify(device, current)
 
 
+def transfer_playback(source: str, target: str) -> dict:
+    """
+    Overfør afspilning fra source til target.
+    Spotify: via Spotify Connect API (Transfer Playback).
+    Andre: stop source, start play_media på target.
+    """
+    src_state = _state.get(source, {})
+    app = (src_state.get("app") or "").lower()
+
+    # ── Spotify Connect ───────────────────────────────────────────────────────
+    if "spotify" in app:
+        try:
+            from backend.spotify_utils import get_spotify_access_token
+            import requests as req
+            token = get_spotify_access_token()
+            if not token:
+                return {"ok": False, "method": "spotify", "detail": "Spotify ikke forbundet"}
+
+            r = req.get("https://api.spotify.com/v1/me/player/devices",
+                        headers={"Authorization": f"Bearer {token}"}, timeout=8)
+            r.raise_for_status()
+            devices = r.json().get("devices", [])
+
+            target_lower = target.lower()
+            match = next(
+                (d for d in devices if target_lower in d["name"].lower() or d["name"].lower() in target_lower),
+                None
+            )
+            if not match:
+                return {"ok": False, "method": "spotify",
+                        "detail": f"Ingen Spotify-enhed matcher '{target}'. Fandt: {[d['name'] for d in devices]}"}
+
+            r2 = req.put("https://api.spotify.com/v1/me/player",
+                         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                         json={"device_ids": [match["id"]], "play": True}, timeout=8)
+            if r2.status_code in (200, 204):
+                return {"ok": True, "method": "spotify", "detail": match["name"]}
+            return {"ok": False, "method": "spotify", "detail": f"Spotify API fejl {r2.status_code}"}
+        except Exception as e:
+            return {"ok": False, "method": "spotify", "detail": str(e)}
+
+    # ── Direkte media URL ─────────────────────────────────────────────────────
+    src_cc = _chromecasts.get(source)
+    tgt_cc = _chromecasts.get(target)
+    if not src_cc or not tgt_cc:
+        return {"ok": False, "method": "media", "detail": "Enhed ikke fundet"}
+    try:
+        mc = src_cc.media_controller
+        ms = mc.status
+        if not ms or not ms.content_id:
+            return {"ok": False, "method": "media", "detail": "Ingen aktiv media URL på kildeenhed"}
+        url          = ms.content_id
+        content_type = ms.content_type or "video/mp4"
+        position     = ms.current_time or 0
+
+        src_cc.media_controller.stop()
+        tgt_cc.wait(timeout=5)
+        tgt_cc.media_controller.play_media(url, content_type, current_time=position)
+        return {"ok": True, "method": "media", "detail": target}
+    except Exception as e:
+        return {"ok": False, "method": "media", "detail": str(e)}
+
+
 _stop_event = threading.Event()
 
 
@@ -260,61 +317,60 @@ def stop():
 
 
 def start(known_hosts: list[str] | None = None):
-    """
-    Start Cast discovery og monitoring i baggrundstråd.
-    known_hosts: liste af IP-adresser til direkte forbindelse (omgår mDNS).
-    """
+    """Start Cast discovery og monitoring i baggrundstråd."""
     if not _CAST_AVAILABLE:
-        log.warning("pychromecast ikke tilgængeligt — Cast service starter ikke")
+        log.warning("pychromecast ikke tilgængeligt — Cast deaktiveret")
         return
+    _stop_event.clear()
     t = threading.Thread(target=_run, args=(known_hosts,), daemon=True, name="cast-service")
     t.start()
     log.info("Cast service startet")
 
 
-def _run(known_hosts: list[str] | None):
-    chromecasts = []
-    browser = None
+def _connect_cast(chromecast):
+    """
+    Forbind til enhed og registrer listeners.
+    pychromecast kalder automatisk channel_connected → update_status() → new_media_status()
+    så vi behøver ikke kalde update_status() manuelt (det afbryder afspilning).
+    Vi venter kun på at status-objektet er klar og sender en initial state.
+    """
+    name = chromecast.name
+    try:
+        chromecast.wait(timeout=10)
 
+        # Læs initial cast status (volumen, app navn) — ingen netværkskald
+        initial = _empty_state(name)
+        try:
+            s = chromecast.status
+            if s:
+                initial["volume"] = round(s.volume_level, 2) if s.volume_level is not None else None
+                initial["app"]    = s.display_name or None
+        except Exception:
+            pass
+        _notify(name, initial)
+
+        # pychromecast sender new_media_status automatisk via channel_connected.
+        # Vi venter op til 5s og læser cached status — UDEN at kalde update_status()
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            try:
+                ms = chromecast.media_controller.status
+                if ms and ms.player_state not in ("UNKNOWN", "IDLE", None):
+                    log.info("Cast %s: opstartsstate=%s title=%s", name, ms.player_state, ms.title)
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+
+    except Exception as e:
+        log.warning("Cast: kunne ikke forbinde til %s: %s", name, e)
+        _notify(name, _empty_state(name))
+
+
+def _run(known_hosts: list[str] | None):
+    browser = None
     try:
         import zeroconf as zc_module
-
-        def _connect_cast(chromecast):
-            name = chromecast.name
-            try:
-                chromecast.wait(timeout=10)
-                initial = _empty_state(name)
-                try:
-                    s = chromecast.status
-                    if s:
-                        initial["volume"] = round(s.volume_level, 2) if s.volume_level is not None else None
-                        initial["app"] = s.display_name or None
-                except Exception:
-                    pass
-                _notify(name, initial)
-
-                # Læs cached media status — ingen netværkskald, afbryder ikke afspilning
-                try:
-                    ms = chromecast.media_controller.status
-                    if ms and ms.player_state and ms.player_state != "IDLE":
-                        media_state = {
-                            "device": name,
-                            "app":    initial.get("app"),
-                            "state":  ms.player_state,
-                            "title":  ms.media_metadata.get("title") if ms.media_metadata else None,
-                            "artist": (ms.media_metadata.get("artist") or ms.media_metadata.get("subtitle")) if ms.media_metadata else None,
-                            "album":  ms.media_metadata.get("albumName") if ms.media_metadata else None,
-                            "image":  next((i["url"] for i in ms.media_metadata.get("images", []) if i.get("url")), None) if ms.media_metadata else None,
-                            "volume": initial.get("volume"),
-                        }
-                        log.info("Cast %s: cached media state=%s title=%s", name, ms.player_state, media_state.get("title"))
-                        _notify(name, media_state)
-                except Exception as e:
-                    log.debug("Cast %s: ingen cached media status: %s", name, e)
-
-            except Exception as e:
-                log.warning("Cast: kunne ikke forbinde til %s: %s", name, e)
-                _notify(name, _empty_state(name))
 
         def _on_cast(chromecast):
             name = chromecast.name
@@ -323,8 +379,8 @@ def _run(known_hosts: list[str] | None):
             chromecast.register_status_listener(_StatusListener(name))
             chromecast.media_controller.register_status_listener(_MediaListener(name))
             chromecast.register_connection_listener(_ConnectionListener(name, chromecast))
-            # Forbind i separat tråd så discovery ikke blokeres
-            t = threading.Thread(target=_connect_cast, args=(chromecast,), daemon=True, name=f"cast-connect-{name}")
+            t = threading.Thread(target=_connect_cast, args=(chromecast,),
+                                 daemon=True, name=f"cast-connect-{name}")
             t.start()
 
         zeroconf_instance = zc_module.Zeroconf()
@@ -345,7 +401,6 @@ def _run(known_hosts: list[str] | None):
                 zeroconf_instance=zeroconf_instance,
             )
 
-        # Hold tråden i live — browser holder mDNS subscription aktiv
         while not _stop_event.is_set():
             time.sleep(1)
 
@@ -365,7 +420,7 @@ if __name__ == "__main__":
 
     def on_state(device, state):
         print(f"\n[{device}] {state['state']} — {state['title']} af {state['artist']}")
-        print(f"  App: {state['app']}, Volumen: {state['volume']}")
+        print(f"  App: {state['app']}, Vol: {state['volume']}, next={state['supports_next']}")
 
     add_listener(on_state)
     start()
@@ -375,4 +430,4 @@ if __name__ == "__main__":
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print("\nStoppes")
+        stop()

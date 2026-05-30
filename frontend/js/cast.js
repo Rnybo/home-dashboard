@@ -271,8 +271,8 @@ async function castShowTransferMenu(sourceDevice, anchorEl) {
   let html = '';
 
   if (isSpotify && spotifyDevices.length > 0) {
-    // Spotify afspiller — vis Spotify-enheder med direkte ID
-    html += `<div style="padding:6px 12px 4px;font-size:0.68rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em">Afspil på</div>`;
+    // Spotify-enheder med direkte ID
+    html += `<div style="padding:6px 12px 4px;font-size:0.68rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em">Spotify-enheder</div>`;
     html += spotifyDevices.map(d => {
       const isActive = d.is_active;
       const right = isActive
@@ -282,19 +282,21 @@ async function castShowTransferMenu(sourceDevice, anchorEl) {
         <span style="margin-right:6px">🎵</span><span style="flex:1">${d.name}</span>${right}
       </div>`;
     }).join('');
-  } else {
-    // Ikke-Spotify — vis kun stop-mulighed for kildeenhed
-    html += `<div style="padding:6px 12px 4px;font-size:0.68rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em">Enheder</div>`;
+  }
+
+  // Altid vis Cast-enheder — inkl. Nest-enheder der ikke er aktive i Spotify
+  if (allDevices.length > 0) {
+    html += `<div style="padding:${isSpotify && spotifyDevices.length > 0 ? '8px' : '6px'} 12px 4px;font-size:0.68rem;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.05em;${isSpotify && spotifyDevices.length > 0 ? 'border-top:0.5px solid var(--border)' : ''}">Cast-enheder</div>`;
     html += allDevices.map(d => {
       const s = castState[d];
       const isSource = d === sourceDevice;
       const isActive = s && (s.state === 'PLAYING' || s.state === 'BUFFERING' || s.state === 'PAUSED');
       const appIcon = castAppIcon(s?.app);
       let right = '';
-      if (isSource)       right = `<span style="font-size:0.72rem;color:#1DB954;font-weight:700">▶ Nu</span>`;
-      else if (isActive)  right = `<span style="font-size:0.72rem;color:#ff9800;font-weight:600">Afspiller ✕</span>`;
-      else                right = `<span style="font-size:0.72rem;color:#ccc">Ikke tilgængelig</span>`;
-      return `<div class="cast-transfer-item" data-device="${d}" data-type="cast" data-source="${isSource}" data-active="${isActive}" style="${(!isSource && !isActive) ? 'opacity:0.5;pointer-events:none' : ''}">
+      if (isSource)      right = `<span style="font-size:0.72rem;color:#1DB954;font-weight:700">▶ Nu</span>`;
+      else if (isActive) right = `<span style="font-size:0.72rem;color:#ff9800;font-weight:600">Afspiller ✕</span>`;
+      else               right = CAST_ICON_SVG;
+      return `<div class="cast-transfer-item" data-device="${d}" data-type="cast" data-source="${isSource}" data-active="${isActive}">
         <span style="margin-right:6px">${appIcon}</span><span style="flex:1">${d}</span>${right}
       </div>`;
     }).join('');

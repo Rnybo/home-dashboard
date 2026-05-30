@@ -328,11 +328,13 @@ async function castShowTransferMenu(sourceDevice, anchorEl) {
         } else if (isSource || isActive) {
           await apiFetch(`/api/cast/${encodeURIComponent(item.dataset.device)}/stop`, { method: 'POST' });
         } else {
-          await apiFetch(`/api/cast/${encodeURIComponent(sourceDevice)}/transfer`, {
+          const res = await apiFetch(`/api/cast/${encodeURIComponent(sourceDevice)}/transfer`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target: item.dataset.device })
           });
+          const data = await res.json();
+          if (!data.ok) console.warn('Transfer fejl:', data.detail);
         }
       } catch(e) { console.warn('Cast transfer/stop fejl:', e); }
     });

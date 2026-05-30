@@ -143,11 +143,18 @@ chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"
 
 # ── Trin 7: Start server ─────────────────────────────────────────────────────
-step "Starter server..."
-pkill -f mosquitto 2>/dev/null || true
+step "Stopper eksisterende server..."
 pkill -f uvicorn 2>/dev/null || true
-fuser -k 8000/tcp 2>/dev/null || true
-sleep 1
+pkill -f mosquitto 2>/dev/null || true
+# Vent til port 8000 er fri
+for i in 1 2 3 4 5; do
+    fuser -k 8000/tcp 2>/dev/null || true
+    sleep 1
+    fuser 8000/tcp > /dev/null 2>&1 || break
+done
+ok "Server stoppet"
+
+step "Starter server..."
 nohup mosquitto -c "$INSTALL_DIR/mosquitto.conf" > "$INSTALL_DIR/mosquitto.log" 2>&1 &
 sleep 2
 nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > "$INSTALL_DIR/server.log" 2>&1 &

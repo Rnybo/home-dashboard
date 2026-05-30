@@ -294,67 +294,58 @@ def _push_optimistic(device: str, action: str, **kwargs):
 
 def transfer_playback(source: str, target: str, spotify_device_id: str | None = None) -> dict:
     """
-    Overfør afspilning fra source til target.
-    Spotify: via Spotify Connect API — bruger spotify_device_id hvis angivet,
-             ellers matcher Cast-enhedsnavnet mod Spotify device-listen.
-    Andre: ikke muligt via pychromecast — ingen transfer API eksisterer.
+    Overfør Spotify-afspilning til target.
+    Spotify device ID kan sendes direkte, eller vi finder det via Spotify API.
     """
     src_state = _state.get(source, {})
     app = (src_state.get("app") or "").lower()
-    log.info("Transfer: source='%s' app='%s' known_devices=%s", source, app, list(_state.keys()))
 
-    # ── Spotify Connect ───────────────────────────────────────────────────────
-    if "spotify" in app:
-        try:
-            from backend.spotify_utils import get_spotify_access_token
-            import requests as req
-            token = get_spotify_access_token()
-            if not token:
-                return {"ok": False, "method": "spotify", "detail": "Spotify ikke forbundet"}
+    if "spotify" not in app:
+        return {"ok": False, "method": "unsupported",
+                "detail": f"Transfer understøttes kun for Spotify (app='{src_state.get('app')}')"}
 
-            # Hent alle Spotify devices — inkl. Cast-enheder der kører Spotify
-            r = req.get("https://api.spotify.com/v1/me/player/devices",
-                        headers={"Authorization": f"Bearer {token}"}, timeout=8)
-            r.raise_for_status()
-            devices = r.json().get("devices", [])
-            log.info("Spotify devices: %s", [d["name"] for d in devices])
+    try:
+        from backend.spotify_utils import get_spotify_access_token
+        import requests as req
+        token = get_spotify_access_token()
+        if not token:
+            return {"ok": False, "method": "spotify", "detail": "Spotify ikke forbundet"}
 
-            # Brug direkte device ID hvis sendt fra frontend
-            device_id   = spotify_device_id
-            device_name = target
+        # Hent alle tilgængelige Spotify-devices
+        r = req.get("https://api.spotify.com/v1/me/player/devices",
+                    headers={"Authorization": f"Bearer {token}"}, timeout=8)
+        r.raise_for_status()
+        devices = r.json().get("devices", [])
+        log.info("Spotify transfer: target='%s' devices=%s", target,
+                 [(d["name"], d["id"][:8]) for d in devices])
 
-            if not device_id:
-                # Match target Cast-enhedsnavn mod Spotify device-navne
-                target_lower = target.lower()
-                match = next(
-                    (d for d in devices
-                     if target_lower in d["name"].lower() or d["name"].lower() in target_lower),
-                    None
-                )
-                if not match:
-                    return {"ok": False, "method": "spotify",
-                            "detail": f"Ingen Spotify-enhed matcher '{target}'. "
-                                      f"Tilgængelige: {[d['name'] for d in devices]}"}
-                device_id   = match["id"]
-                device_name = match["name"]
+        # Brug direkte ID hvis sendt (fra Spotify-sektionen i transfer-menuen)
+        if spotify_device_id:
+            device_id = spotify_device_id
+        else:
+            # Fuzzy match target-navn mod Spotify devices — target er Cast-enhedsnavn
+            tl = target.lower()
+            match = next((d for d in devices
+                          if tl in d["name"].lower() or d["name"].lower() in tl), None)
+            if not match:
+                # Sidste udvej: brug det første ikke-aktive device
+                match = next((d for d in devices if not d.get("is_active")), None)
+            if not match:
+                return {"ok": False, "method": "spotify",
+                        "detail": f"Ingen Spotify-enhed fundet. Tilgængelige: {[d['name'] for d in devices]}"}
+            device_id = match["id"]
 
-            log.info("Spotify transfer → device_id=%s (%s)", device_id, device_name)
-            r2 = req.put("https://api.spotify.com/v1/me/player",
-                         headers={"Authorization": f"Bearer {token}",
-                                  "Content-Type": "application/json"},
-                         json={"device_ids": [device_id], "play": True}, timeout=8)
-            log.info("Spotify transfer response: %s %s", r2.status_code, r2.text[:200])
-            if r2.status_code in (200, 204):
-                return {"ok": True, "method": "spotify", "detail": device_name}
-            return {"ok": False, "method": "spotify",
-                    "detail": f"Spotify API fejl {r2.status_code}: {r2.text}"}
-        except Exception as e:
-            return {"ok": False, "method": "spotify", "detail": str(e)}
-
-    # ── Ikke-Spotify: ingen Cast-til-Cast transfer API ────────────────────────
-    return {"ok": False, "method": "unsupported",
-            "detail": f"Transfer ikke understøttet for app '{src_state.get('app')}'. "
-                      "Kun Spotify understøtter transfer via API."}
+        r2 = req.put("https://api.spotify.com/v1/me/player",
+                     headers={"Authorization": f"Bearer {token}",
+                               "Content-Type": "application/json"},
+                     json={"device_ids": [device_id], "play": True}, timeout=8)
+        log.info("Spotify transfer response: %s", r2.status_code)
+        if r2.status_code in (200, 204):
+            return {"ok": True, "method": "spotify"}
+        return {"ok": False, "method": "spotify",
+                "detail": f"Spotify API {r2.status_code}: {r2.text[:200]}"}
+    except Exception as e:
+        return {"ok": False, "method": "spotify", "detail": str(e)}
 
 
 _stop_event = threading.Event()

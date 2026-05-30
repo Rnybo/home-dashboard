@@ -71,20 +71,16 @@ if ! python -c "import fastapi" > /dev/null 2>&1; then
     else warn "Nogle Python pakker fejlede — tjek $LOG"; fi
 else
     skip "Python pakker"
-    # Sørg for paho-mqtt og websockets er installeret selv om andre pakker allerede er der
-    if ! python -c "import paho.mqtt" > /dev/null 2>&1; then
-        pip install --quiet --break-system-packages paho-mqtt >> "$LOG" 2>&1 \
-            && ok "paho-mqtt installeret" || warn "paho-mqtt fejlede"
-    fi
-    if ! python -c "import pychromecast" > /dev/null 2>&1; then
-        pip install --quiet --break-system-packages pychromecast >> "$LOG" 2>&1 \
-            && ok "pychromecast installeret" || warn "pychromecast fejlede"
-    fi
-    if ! python -c "import websockets" > /dev/null 2>&1; then
-        pip install --quiet --break-system-packages websockets >> "$LOG" 2>&1 \
-            && ok "websockets installeret" || warn "websockets fejlede"
-    fi
 fi
+
+# Sørg altid for at disse pakker er installeret
+for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets"; do
+    mod="${pkg%%:*}"; pip_pkg="${pkg##*:}"
+    if ! python -c "import $mod" > /dev/null 2>&1; then
+        pip install --quiet --break-system-packages "$pip_pkg" >> "$LOG" 2>&1 \
+            && ok "$pip_pkg installeret" || warn "$pip_pkg fejlede"
+    fi
+done
 
 # ── Trin 4: Node.js / Playwright ─────────────────────────────────────────────
 if [ ! -d "$INSTALL_DIR/node_modules/playwright-core" ]; then
@@ -146,12 +142,10 @@ ok "Auto-start konfigureret"
 step "Stopper eksisterende server..."
 pkill -f uvicorn 2>/dev/null || true
 pkill -f mosquitto 2>/dev/null || true
-# Vent til port 8000 er fri
-for i in 1 2 3 4 5; do
-    fuser -k 8000/tcp 2>/dev/null || true
-    sleep 1
-    fuser 8000/tcp > /dev/null 2>&1 || break
-done
+sleep 2
+# Dræb hvad end der holder port 8000 — Termux-kompatibel metode
+PID=$(ss -tlnp 2>/dev/null | awk '/:8000 /{match($0,/pid=([0-9]+)/,a); if(a[1]) print a[1]}')
+if [ -n "$PID" ]; then kill -9 "$PID" 2>/dev/null || true; sleep 1; fi
 ok "Server stoppet"
 
 step "Starter server..."

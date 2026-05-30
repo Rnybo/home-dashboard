@@ -259,15 +259,24 @@ def _run(known_hosts: list[str] | None):
                     pass
                 _notify(name, initial)
 
-                # Vent lidt så listeners er klar, hent derefter media state.
-                # update_status() sender en GET_STATUS request — ikke en kommando
-                # der afbryder afspilning. Den triggerser new_media_status callback.
-                time.sleep(2)
+                # Læs cached media status — ingen netværkskald, afbryder ikke afspilning
                 try:
-                    chromecast.media_controller.update_status()
-                    log.info("Cast %s: media status opdatering anmodet", name)
+                    ms = chromecast.media_controller.status
+                    if ms and ms.player_state and ms.player_state != "IDLE":
+                        media_state = {
+                            "device": name,
+                            "app":    initial.get("app"),
+                            "state":  ms.player_state,
+                            "title":  ms.media_metadata.get("title") if ms.media_metadata else None,
+                            "artist": (ms.media_metadata.get("artist") or ms.media_metadata.get("subtitle")) if ms.media_metadata else None,
+                            "album":  ms.media_metadata.get("albumName") if ms.media_metadata else None,
+                            "image":  next((i["url"] for i in ms.media_metadata.get("images", []) if i.get("url")), None) if ms.media_metadata else None,
+                            "volume": initial.get("volume"),
+                        }
+                        log.info("Cast %s: cached media state=%s title=%s", name, ms.player_state, media_state.get("title"))
+                        _notify(name, media_state)
                 except Exception as e:
-                    log.warning("Cast %s: kunne ikke hente media status: %s", name, e)
+                    log.debug("Cast %s: ingen cached media status: %s", name, e)
 
             except Exception as e:
                 log.warning("Cast: kunne ikke forbinde til %s: %s", name, e)

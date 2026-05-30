@@ -301,6 +301,7 @@ def transfer_playback(source: str, target: str, spotify_device_id: str | None = 
     """
     src_state = _state.get(source, {})
     app = (src_state.get("app") or "").lower()
+    log.info("Transfer: source='%s' app='%s' known_devices=%s", source, app, list(_state.keys()))
 
     # ── Spotify Connect ───────────────────────────────────────────────────────
     if "spotify" in app:

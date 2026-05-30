@@ -195,20 +195,23 @@ async def cast_ws(websocket: WebSocket):
 
 @router_auth.post("/api/cast/{device}/transfer")
 async def cast_transfer_ep(device: str, request: Request):
+    import logging
+    log = logging.getLogger("cast_router")
     data = await request.json()
     target = data.get("target", "")
     spotify_device_id = data.get("spotify_device_id")
+    log.info("TRANSFER endpoint: device='%s' target='%s' spotify_id=%s",
+             device, target, spotify_device_id)
     if not target:
         raise HTTPException(400, "target required")
     if _is_mock():
         _mock_transfer(device, target)
         return {"ok": True, "method": "mock"}
-    # Kør i thread så polling ikke blokerer event loop
-    import asyncio
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(
         None, lambda: transfer_playback(device, target, spotify_device_id)
     )
+    log.info("TRANSFER result: %s", result)
     return result
 
 

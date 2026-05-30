@@ -322,18 +322,17 @@ def transfer_playback(source: str, target: str, spotify_device_id: str | None = 
         # Brug direkte ID hvis sendt (fra Spotify-sektionen i transfer-menuen)
         if spotify_device_id:
             device_id = spotify_device_id
+        elif len(devices) == 1:
+            # Kun én enhed tilgængelig — brug den uanset navn
+            device_id = devices[0]["id"]
+            log.info("Spotify transfer: kun én enhed tilgængelig, bruger '%s'", devices[0]["name"])
         else:
-            # Fuzzy match target-navn mod Spotify devices — target er Cast-enhedsnavn
-            tl = target.lower()
-            match = next((d for d in devices
-                          if tl in d["name"].lower() or d["name"].lower() in tl), None)
+            # Vælg første ikke-aktive enhed
+            match = next((d for d in devices if not d.get("is_active")), None)
             if not match:
-                # Sidste udvej: brug det første ikke-aktive device
-                match = next((d for d in devices if not d.get("is_active")), None)
-            if not match:
-                return {"ok": False, "method": "spotify",
-                        "detail": f"Ingen Spotify-enhed fundet. Tilgængelige: {[d['name'] for d in devices]}"}
+                match = devices[0]  # alle er aktive — tag den første
             device_id = match["id"]
+            log.info("Spotify transfer: valgte '%s'", match["name"])
 
         r2 = req.put("https://api.spotify.com/v1/me/player",
                      headers={"Authorization": f"Bearer {token}",

@@ -67,3 +67,18 @@ def spotify_callback(code: str = "", error: str = ""):
 def spotify_status():
     connected = is_spotify_connected()
     return {"connected": connected}
+
+
+@router.get("/api/spotify/devices")
+def spotify_devices():
+    """Returnerer Spotify-enheder — bruges til at matche Cast-enhedsnavne."""
+    token = get_spotify_access_token()
+    if not token:
+        return {"devices": []}
+    try:
+        r = req.get("https://api.spotify.com/v1/me/player/devices",
+                    headers={"Authorization": f"Bearer {token}"}, timeout=8)
+        r.raise_for_status()
+        return {"devices": r.json().get("devices", [])}
+    except Exception:
+        return {"devices": []}

@@ -239,10 +239,10 @@ def _push_optimistic(device: str, action: str, **kwargs):
     _notify(device, current)
 
 
-def transfer_playback(source: str, target: str) -> dict:
+def transfer_playback(source: str, target: str, spotify_device_id: str | None = None) -> dict:
     """
     Overfør afspilning fra source til target.
-    Spotify: via Spotify Connect API (Transfer Playback).
+    Spotify: via Spotify Connect API — bruger spotify_device_id hvis angivet, ellers fuzzy match på navn.
     Andre: stop source, start play_media på target.
     """
     src_state = _state.get(source, {})
@@ -257,26 +257,33 @@ def transfer_playback(source: str, target: str) -> dict:
             if not token:
                 return {"ok": False, "method": "spotify", "detail": "Spotify ikke forbundet"}
 
-            r = req.get("https://api.spotify.com/v1/me/player/devices",
-                        headers={"Authorization": f"Bearer {token}"}, timeout=8)
-            r.raise_for_status()
-            devices = r.json().get("devices", [])
+            # Brug direkte device ID hvis vi har det (fra /api/spotify/devices)
+            device_id = spotify_device_id
+            device_name = target
 
-            target_lower = target.lower()
-            match = next(
-                (d for d in devices if target_lower in d["name"].lower() or d["name"].lower() in target_lower),
-                None
-            )
-            if not match:
-                return {"ok": False, "method": "spotify",
-                        "detail": f"Ingen Spotify-enhed matcher '{target}'. Fandt: {[d['name'] for d in devices]}"}
+            if not device_id:
+                # Fuzzy match på navn som fallback
+                r = req.get("https://api.spotify.com/v1/me/player/devices",
+                            headers={"Authorization": f"Bearer {token}"}, timeout=8)
+                r.raise_for_status()
+                devices = r.json().get("devices", [])
+                target_lower = target.lower()
+                match = next(
+                    (d for d in devices if target_lower in d["name"].lower() or d["name"].lower() in target_lower),
+                    None
+                )
+                if not match:
+                    return {"ok": False, "method": "spotify",
+                            "detail": f"Ingen Spotify-enhed matcher '{target}'. Fandt: {[d['name'] for d in devices]}"}
+                device_id   = match["id"]
+                device_name = match["name"]
 
             r2 = req.put("https://api.spotify.com/v1/me/player",
                          headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                         json={"device_ids": [match["id"]], "play": True}, timeout=8)
+                         json={"device_ids": [device_id], "play": True}, timeout=8)
             if r2.status_code in (200, 204):
-                return {"ok": True, "method": "spotify", "detail": match["name"]}
-            return {"ok": False, "method": "spotify", "detail": f"Spotify API fejl {r2.status_code}"}
+                return {"ok": True, "method": "spotify", "detail": device_name}
+            return {"ok": False, "method": "spotify", "detail": f"Spotify API fejl {r2.status_code}: {r2.text}"}
         except Exception as e:
             return {"ok": False, "method": "spotify", "detail": str(e)}
 

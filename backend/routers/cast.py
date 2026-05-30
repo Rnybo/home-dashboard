@@ -197,12 +197,13 @@ async def cast_ws(websocket: WebSocket):
 async def cast_transfer_ep(device: str, request: Request):
     data = await request.json()
     target = data.get("target", "")
+    spotify_device_id = data.get("spotify_device_id")  # direkte Spotify device ID
     if not target:
         raise HTTPException(400, "target required")
     if _is_mock():
         _mock_transfer(device, target)
         return {"ok": True, "method": "mock"}
-    return transfer_playback(device, target)
+    return transfer_playback(device, target, spotify_device_id=spotify_device_id)
 
 
 @router_auth.post("/api/cast/{device}/pause")

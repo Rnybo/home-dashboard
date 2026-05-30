@@ -464,6 +464,5 @@
       if (e.key === 'config_updated') initConfig();
     });
     clInit();
-    loadAll();
-    castInit();
+    loadAll().then(() => castInit());
     window._dashboardLoaded = true; // fase-0 testmarkør

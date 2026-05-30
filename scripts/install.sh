@@ -75,13 +75,14 @@ fi
 
 # Sørg altid for at disse pakker er installeret
 step "Tjekker kritiske pakker..."
+PIP="$(command -v pip3 || command -v pip)"
 for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets"; do
     mod="${pkg%%:*}"; pip_pkg="${pkg##*:}"
     if ! python -c "import $mod" > /dev/null 2>&1; then
-        printf "  Installerer $pip_pkg...\n"
-        pip install --break-system-packages "$pip_pkg" 2>&1 | tail -3
+        printf "  Installerer $pip_pkg via $PIP...\n"
+        $PIP install --break-system-packages "$pip_pkg" 2>&1 | tail -5
         python -c "import $mod" > /dev/null 2>&1 \
-            && ok "$pip_pkg installeret" || warn "$pip_pkg fejlede — tjek output ovenfor"
+            && ok "$pip_pkg installeret" || warn "$pip_pkg fejlede"
     else
         ok "$pip_pkg OK"
     fi

@@ -278,11 +278,23 @@ async function castInit() {
   try {
     const r = await apiFetch('/api/cast/state');
     const data = await r.json();
-    console.log('[cast] init state:', JSON.stringify(data));
     castState = data || {};
     castRenderButton();
-  } catch(e) {
-    console.warn('[cast] init failed:', e);
-  }
+  } catch(e) {}
   castStartWS();
+
+  // Poll de første 30 sek for at fange enheder der forbinder langsomt (mDNS discovery)
+  let polls = 0;
+  const pollTimer = setInterval(async () => {
+    polls++;
+    try {
+      const r = await apiFetch('/api/cast/state');
+      const fresh = await r.json();
+      if (fresh && Object.keys(fresh).length > 0) {
+        castState = fresh;
+        castRenderButton();
+      }
+    } catch(e) {}
+    if (polls >= 3) clearInterval(pollTimer);
+  }, 10000);
 }

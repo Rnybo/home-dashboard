@@ -249,7 +249,6 @@ def _run(known_hosts: list[str] | None):
             name = chromecast.name
             try:
                 chromecast.wait(timeout=10)
-                # Force-poll initial state så idle enheder også vises
                 initial = _empty_state(name)
                 try:
                     s = chromecast.status

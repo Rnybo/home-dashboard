@@ -389,13 +389,17 @@ def _connect_cast(chromecast):
 
 def _run(known_hosts: list[str] | None):
     """Cast service hovedløkke — genstarter automatisk ved fejl."""
+    import zeroconf as zc_module
+
     while not _stop_event.is_set():
         browser = None
+        zeroconf_instance = None
         try:
-            import zeroconf as zc_module
-
             def _on_cast(chromecast):
                 name = chromecast.name
+                # Spring over enheder vi allerede kender — undgå dobbelt-registrering
+                if name in _chromecasts:
+                    return
                 log.info("Cast: fandt %s (%s)", name, chromecast.uri)
                 _chromecasts[name] = chromecast
                 chromecast.register_status_listener(_StatusListener(name, chromecast))
@@ -434,6 +438,14 @@ def _run(known_hosts: list[str] | None):
                     browser.stop_discovery()
                 except Exception:
                     pass
+            if zeroconf_instance:
+                try:
+                    zeroconf_instance.close()
+                except Exception:
+                    pass
+            # Ryd op i kendte enheder så de kan re-registreres korrekt ved genstart
+            with _lock:
+                _chromecasts.clear()
 
         if not _stop_event.is_set():
             time.sleep(30)

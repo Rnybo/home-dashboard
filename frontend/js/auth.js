@@ -118,7 +118,7 @@
             setTimeout(() => overlay.classList.remove('open'), 3000);
           }
         } catch(e) { /* ignore poll errors */ }
-      }, 2000);
+      }, 1000);
     }
 
     function cancelMitIDLogin() {

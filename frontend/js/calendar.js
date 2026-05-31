@@ -428,7 +428,7 @@
       html += `</div>`;
 
       days.forEach((day,i) => {
-        const isToday = isSameDay(day,today), dateStr = day.toISOString().split('T')[0];
+        const isToday = isSameDay(day,today), dateStr = `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
         html += `<div class="day-col ${isToday?'today':''} ${isWeekend?'weekend':''}" style="height:${totalH}px;grid-row:2" data-date="${dateStr}" onclick="onDayColClick(event, this)">`;
         for (let h=START_H; h<=END_H; h++) {

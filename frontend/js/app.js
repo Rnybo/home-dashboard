@@ -20,7 +20,7 @@
     }
 
     async function loadCalendar() {
-      const days=getWeekDays(), from=localDateStr(days[0]), to=localDateStr(days[6]);
+      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
       try {
         const res = await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
         if (res.status === 401) {
@@ -33,7 +33,7 @@
       } catch(e) {}
     }
     async function loadPresence() {
-      const days=getWeekDays(), from=localDateStr(days[0]), to=localDateStr(days[6]);
+      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
       try {
         const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
         if(res.status!==200) return; presenceData={};

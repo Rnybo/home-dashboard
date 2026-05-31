@@ -116,7 +116,6 @@
     }
     function isSameDay(a,b) { return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
     function pct(min) { return ((min - START_H*60) / (HOURS*60)) * 100; }
-    function localDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
     let googleEvents = [];
     let weatherData = [];

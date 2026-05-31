@@ -165,6 +165,10 @@ sleep 2
 nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > "$INSTALL_DIR/server.log" 2>&1 &
 sleep 3
 
+# Dagligt log-oprydningsjob (kører kl. 03:00 — fjerner logs ældre end 1 dag)
+CRON_JOB="0 3 * * * find $INSTALL_DIR -maxdepth 1 -name '*.log' -mtime +1 -delete; [ -f /sdcard/familieoverblik_install.log ] && find /sdcard -maxdepth 1 -name 'familieoverblik_install.log' -mtime +1 -delete 2>/dev/null; true"
+( crontab -l 2>/dev/null | grep -v 'familieoverblik_install\|home-dashboard.*\.log'; echo "$CRON_JOB" ) | crontab - 2>/dev/null || true
+
 if pgrep -f uvicorn > /dev/null; then
     ok "Server kører!"
     printf "\n==================================================\n"

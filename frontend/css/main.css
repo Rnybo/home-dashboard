@@ -444,7 +444,7 @@
 #presence-edit-modal {
   background:#fff; border-radius:14px; padding:22px 20px 18px;
   width:min(94vw, 380px); box-shadow:0 8px 32px rgba(0,0,0,0.18);
-  position:relative; max-height:90vh; overflow-y:auto;
+  position:relative;
 }
 #presence-edit-modal h2 { margin:0 0 4px; font-size:1.05rem; }
 #presence-edit-close {

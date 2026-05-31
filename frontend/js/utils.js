@@ -7,9 +7,9 @@
       const days = getWeekDays();
       // Always fetch from today regardless of week offset
       const today = new Date();
-      const from = today.toISOString().split('T')[0];
+      const from = localDateStr(today);
       const toDate = new Date(today); toDate.setDate(toDate.getDate() + 90);
-      const to = toDate.toISOString().split('T')[0];
+      const to = localDateStr(toDate);
       try {
         googleEvents = await apiFetch(`/api/google-calendar?from_date=${from}&to_date=${to}`).then(r => r.json());
         const custom = await apiFetch('/api/custom-events').then(r => r.json()).catch(() => []);

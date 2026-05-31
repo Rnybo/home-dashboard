@@ -17,7 +17,7 @@
       const el = document.getElementById('today-widget');
       if (!el || !CHILDREN.length) return;
       const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = localDateStr(today);
       const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
       let html = '';
       CHILDREN.forEach(child => {

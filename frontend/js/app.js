@@ -109,10 +109,10 @@
 
         // Presence bars render differently — small indicators, not full events
         if (e._presence) {
-          const clickHandler = e._tplData
-            ? `onclick="(function(){const d=JSON.parse(this.dataset.tpl);openPresenceEdit(d.childId,d.date,d.entryTime,d.exitTime,d.exitWith,d.comment)}).call(this)" data-tpl='${e._tplData}' style="cursor:pointer;"`
+          const clickAttr = e._tplData
+            ? `onclick="(function(){const d=JSON.parse(this.dataset.tpl);openPresenceEdit(d.childId,d.date,d.entryTime,d.exitTime,d.exitWith,d.comment)}).call(this)" data-tpl='${e._tplData}'`
             : '';
-          html += `<div class="presence-bar" ${clickHandler} style="top:${topPct}%;height:14px;min-height:14px;left:calc(2px + ${l}%);width:calc(${w}% - 4px);right:auto;${e._style}">${e._label}</div>`;
+          html += `<div class="presence-bar" ${clickAttr} style="top:${topPct}%;height:14px;min-height:14px;left:calc(2px + ${l}%);width:calc(${w}% - 4px);right:auto;cursor:pointer;${e._style}">${e._label}</div>`;
           return;
         }
         const title = e.title||'(ingen titel)';

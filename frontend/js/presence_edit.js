@@ -79,47 +79,64 @@ async function openPresenceEdit(childId, date, entryTime, exitTime, exitWith, co
 }
 
 async function _loadPickupResponsibles() {
-  const datalist = document.getElementById('presence-exitwith-list');
-  datalist.innerHTML = '';
-
-  if (_pickupCache) {
-    _fillDatalist(datalist, _pickupCache);
-    return;
-  }
-
+  if (_pickupCache) { _fillDatalist(_pickupCache); return; }
   try {
     const allIds = CHILDREN.map(c => c.id).join(',');
     const res = await apiFetch(`/api/presence/pickup-responsibles?child_ids=${allIds}`);
     if (!res.ok) return;
     _pickupCache = await res.json();
-    _fillDatalist(datalist, _pickupCache);
-  } catch (e) {
-    // Ikke kritisk — fritekst virker stadig
-  }
+    _fillDatalist(_pickupCache);
+  } catch (e) { /* fritekst virker stadig */ }
 }
 
-function _fillDatalist(datalist, data) {
-  // Saml unikke navne på tværs af alle børn
-  const seen = new Set();
+// Alle suggestions til custom dropdown (sættes når pickup-responsibles hentes)
+let _peOptions = { related: [], suggestions: [] };
+
+function _fillDatalist(data) {
+  // Saml unikke navne på tværs af alle børn — til custom dropdown
+  const relatedSeen = new Set(), suggSeen = new Set();
+  _peOptions = { related: [], suggestions: [] };
   for (const entry of data) {
     for (const p of (entry.relatedPersons || [])) {
       const label = p.relation ? `${p.name} (${p.relation})` : p.name;
-      if (!seen.has(label)) {
-        seen.add(label);
-        const opt = document.createElement('option');
-        opt.value = label;
-        datalist.appendChild(opt);
-      }
+      if (!relatedSeen.has(label)) { relatedSeen.add(label); _peOptions.related.push(label); }
     }
     for (const s of (entry.pickupSuggestions || [])) {
-      if (!seen.has(s.pickupName)) {
-        seen.add(s.pickupName);
-        const opt = document.createElement('option');
-        opt.value = s.pickupName;
-        datalist.appendChild(opt);
-      }
+      if (!suggSeen.has(s.pickupName)) { suggSeen.add(s.pickupName); _peOptions.suggestions.push(s.pickupName); }
     }
   }
+}
+
+function peFilterDropdown(query) {
+  const dd = document.getElementById('pe-exitwith-dropdown');
+  const q = (query || '').toLowerCase();
+  const allOptions = [
+    ..._peOptions.related.map(v => ({ v, section: 'Pårørende' })),
+    ..._peOptions.suggestions.map(v => ({ v, section: 'Forslag' })),
+  ];
+  const filtered = q ? allOptions.filter(o => o.v.toLowerCase().includes(q)) : allOptions;
+  if (!filtered.length) { dd.classList.remove('open'); return; }
+
+  let html = '', lastSection = null;
+  for (const o of filtered) {
+    if (o.section !== lastSection) {
+      html += `<div class="pe-dd-section">${o.section}</div>`;
+      lastSection = o.section;
+    }
+    html += `<div class="pe-dd-item" onmousedown="peSelectOption('${o.v.replace(/'/g,"&#39;")}')">${o.v}</div>`;
+  }
+  dd.innerHTML = html;
+  dd.classList.add('open');
+}
+
+function peSelectOption(val) {
+  document.getElementById('presence-edit-exitwith').value = val;
+  peHideDropdown();
+}
+
+function peHideDropdown() {
+  const dd = document.getElementById('pe-exitwith-dropdown');
+  if (dd) dd.classList.remove('open');
 }
 
 function closePresenceEdit(e) {

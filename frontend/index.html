@@ -159,8 +159,11 @@
       </div>
       <div class="presence-edit-row">
         <label>Hentes af</label>
-        <input type="text" id="presence-edit-exitwith" list="presence-exitwith-list" placeholder="Fritekst eller vælg…" autocomplete="off">
-        <datalist id="presence-exitwith-list"></datalist>
+        <div style="position:relative">
+          <input type="text" id="presence-edit-exitwith" placeholder="Fritekst eller vælg…" autocomplete="off"
+            oninput="peFilterDropdown(this.value)" onfocus="peFilterDropdown(this.value)" onblur="setTimeout(peHideDropdown,150)">
+          <div id="pe-exitwith-dropdown"></div>
+        </div>
       </div>
       <div class="presence-edit-row">
         <label>Kommentar</label>

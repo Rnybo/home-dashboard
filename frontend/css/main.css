@@ -483,3 +483,20 @@
 .presence-sibling-label input[type=checkbox] {
   width:16px; height:16px; accent-color:#1e88e5; flex-shrink:0;
 }
+#pe-exitwith-dropdown {
+  display:none; position:absolute; top:100%; left:0; right:0; z-index:200;
+  background:#fff; border:1px solid #ddd; border-radius:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.12); overflow:hidden; margin-top:2px;
+}
+#pe-exitwith-dropdown.open { display:block; }
+.pe-dd-item {
+  padding:9px 12px; font-size:0.88rem; color:#222; cursor:pointer;
+  border-bottom:1px solid #f0f0f0;
+}
+.pe-dd-item:last-child { border-bottom:none; }
+.pe-dd-item:hover { background:#f0f6ff; color:#1e88e5; }
+.pe-dd-section {
+  padding:5px 12px 2px; font-size:0.67rem; font-weight:700;
+  color:#aaa; text-transform:uppercase; letter-spacing:.06em;
+  background:#fafafa; border-bottom:1px solid #f0f0f0;
+}

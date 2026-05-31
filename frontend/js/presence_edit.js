@@ -123,7 +123,7 @@ function peFilterDropdown(query) {
       html += `<div class="pe-dd-section">${o.section}</div>`;
       lastSection = o.section;
     }
-    html += `<div class="pe-dd-item" onmousedown="peSelectOption('${o.v.replace(/'/g,"&#39;")}')">${o.v}</div>`;
+    html += `<div class="pe-dd-item" onmousedown="peSelectOption('${o.v.replace(/'/g,"&#39;")}')" ontouchstart="peSelectOption('${o.v.replace(/'/g,"&#39;")}')">${o.v}</div>`;
   }
   dd.innerHTML = html;
   dd.classList.add('open');

@@ -21,63 +21,61 @@
 
     async function loadCalendar() {
       const days = getWeekDays();
-      // Hent fra 30 dage bagud til 60 dage frem fra første dag i ugen
-      const from = new Date(days[0]); from.setDate(from.getDate() - 30);
-      const to   = new Date(days[6]); to.setDate(to.getDate() + 60);
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr   = to.toISOString().split('T')[0];
-      try {
-        const res = await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${fromStr}&to_date=${toStr}`);
-        if (res.status === 401) {
-          try { const c=localStorage.getItem('ls_events'); if(c){ allEvents=JSON.parse(c); renderWeek(); renderTodayWidget(); } } catch(e) {}
-          return;
-        }
-        allEvents = normalizeAulaEvents(await res.json());
-        try { localStorage.setItem('ls_events', JSON.stringify(allEvents)); } catch(e) {}
-        renderWeek(); renderTodayWidget();
-      } catch(e) {}
+      const today = new Date().toISOString().split('T')[0];
+      const fromStr = days[0].toISOString().split('T')[0];
+      const toDate  = new Date(days[6]); toDate.setDate(toDate.getDate() + 30);
+      const toStr   = toDate.toISOString().split('T')[0];
+      // Aula accepterer ikke datoer i fortiden
+      const safeFrom = fromStr < today ? today : fromStr;
+      await cacheFetch('calendar',
+        () => apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${safeFrom}&to_date=${toStr}`)
+              .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+              .then(data => normalizeAulaEvents(data)),
+        (data) => { allEvents = data; renderWeek(); renderTodayWidget(); }
+      );
     }
+
     async function loadPresence() {
       const days = getWeekDays();
-      // Hent presence for samme interval som kalender
-      const from = new Date(days[0]); from.setDate(from.getDate() - 30);
-      const to   = new Date(days[6]); to.setDate(to.getDate() + 60);
-      const fromStr = from.toISOString().split('T')[0];
-      const toStr   = to.toISOString().split('T')[0];
-      try {
-        const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${fromStr}&to_date=${toStr}`);
-        if(res.status!==200) return; presenceData={};
-        for (const t of await res.json()) presenceData[t.institutionProfile.id]=t.dayTemplates||[];
-        try{localStorage.setItem('ls_presence',JSON.stringify(presenceData));}catch(e){}
-        renderWeek(); renderTodayWidget();
-      } catch(e) {}
+      const today = new Date().toISOString().split('T')[0];
+      const fromStr = days[0].toISOString().split('T')[0];
+      const toDate  = new Date(days[6]); toDate.setDate(toDate.getDate() + 30);
+      const toStr   = toDate.toISOString().split('T')[0];
+      const safeFrom = fromStr < today ? today : fromStr;
+      await cacheFetch('presence',
+        () => apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${safeFrom}&to_date=${toStr}`)
+              .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+              .then(data => {
+                const pd = {};
+                for (const t of data) pd[t.institutionProfile.id] = t.dayTemplates || [];
+                return pd;
+              }),
+        (data) => { presenceData = data; renderWeek(); renderTodayWidget(); }
+      );
     }
 
     // ── Boot ──
     let pollTimer=null, sessionWasExpired=false;
     async function loadAll() {
       await initConfig();
-      const valid=await checkSession();
-      if (valid) {
-        if (sessionWasExpired) { window.location.reload(); return; }
-        await loadProfileConfig();
-        loadCalendar(); loadPresence(); loadMessages(); loadOverview(); loadGoogleCalendar(); loadWeather(); loadRoutes();
-        schedulePoll(5*60*1000);
-      } else {
-        sessionWasExpired = true;
-        // Restore cached Aula data from localStorage
-        try{const c=localStorage.getItem('ls_children');if(c){CHILDREN=JSON.parse(c);INST_PROFILE_IDS=JSON.parse(localStorage.getItem('ls_inst_ids')||'[]');
-          document.getElementById('child-tabs').innerHTML=[...CHILDREN.map((c,i)=>`<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})">${c.photoUrl?`<img src="${aulaImg(c.photoUrl)}" alt="${c.name}" onerror="this.style.display='none'">`:''}${c.name}</div>`),
-          ...GOOGLE_TABS.map((g,i)=>`<div class="tab" onclick="switchGoogleTab(${i})" style="border-left:3px solid ${g.color}"><span style="color:${g.color}">📅</span> ${g.name}</div>`)].join('');}}catch(e){}
-        try{const e=localStorage.getItem('ls_events');if(e){allEvents=JSON.parse(e);if(!Array.isArray(allEvents))allEvents=[];}}catch(e){}
-        try{const p=localStorage.getItem('ls_presence');if(p){presenceData=JSON.parse(p)||{};}}catch(e){}
-        try{const t=localStorage.getItem('ls_threads');if(t){cachedThreads=JSON.parse(t);if(!Array.isArray(cachedThreads))cachedThreads=[];renderMessages('messages-cal');}}catch(e){}
-        try{const p=localStorage.getItem('ls_posts');if(p){window._cachedPosts=JSON.parse(p);if(!Array.isArray(window._cachedPosts))window._cachedPosts=[];renderSidebarOverview();renderOverviewPosts(window._cachedPosts);}}catch(e){}
-        try{const d=localStorage.getItem('ls_dates');const b=localStorage.getItem('ls_bdays');if(d||b){renderOverviewEvents(d?JSON.parse(d):[],b?JSON.parse(b):[]);}}catch(e){}
-        if(CHILDREN.length){renderWeek();renderTodayWidget();}
-        loadGoogleCalendar(); loadWeather(); loadRoutes();
-      }
-      schedulePoll(5*60*1000);
+      const valid = await checkSession();
+      if (valid && sessionWasExpired) { window.location.reload(); return; }
+      if (valid) await loadProfileConfig();
+
+      // Hent alt parallelt — cacheFetch viser cached data straks og opdaterer bagefter
+      await Promise.all([
+        loadCalendar(),
+        loadPresence(),
+        loadMessages(),
+        loadOverview(),
+        loadGoogleCalendar(),
+        loadWeather(),
+        loadRoutes(),
+      ]);
+      renderWeek();
+      renderTodayWidget();
+      calScrollToNow();
+      schedulePoll(5 * 60 * 1000);
     }
     // ── Event overlap layout ──────────────────────────────────────────────────
     function layoutEvents(events) {

@@ -170,25 +170,28 @@
     }
 
     async function loadWeather() {
-      try { weatherData = await apiFetch('/api/weather').then(r => r.json()); renderWeek(); }
-      catch(e) { weatherData = []; }
+      await cacheFetch('weather',
+        () => apiFetch('/api/weather').then(r => r.json()),
+        (data) => { weatherData = data; }
+      );
     }
 
     async function loadGoogleCalendar() {
-      const days = getWeekDays();
-      // Always fetch from today regardless of week offset
       const today = new Date();
-      const from = today.toISOString().split('T')[0];
-      const toDate = new Date(today); toDate.setDate(toDate.getDate() + 90);
-      const to = toDate.toISOString().split('T')[0];
-      try {
-        googleEvents = await apiFetch(`/api/google-calendar?from_date=${from}&to_date=${to}`).then(r => r.json());
-        const custom = await apiFetch('/api/custom-events').then(r => r.json()).catch(() => []);
-        custom.forEach(e => googleEvents.push({ ...e, allDay: !e.start.includes('T'), custom: true }));
-      } catch(e) { googleEvents = []; }
-      renderWeek();
-      renderUpcomingGoogleEvents();
-      renderTodayWidget();
+      const fromDate = new Date(today); fromDate.setDate(fromDate.getDate() - 30);
+      const toDate   = new Date(today); toDate.setDate(toDate.getDate() + 90);
+      const fromStr  = fromDate.toISOString().split('T')[0];
+      const toStr    = toDate.toISOString().split('T')[0];
+      await cacheFetch('google',
+        async () => {
+          const [gcal, custom] = await Promise.all([
+            apiFetch(`/api/google-calendar?from_date=${fromStr}&to_date=${toStr}`).then(r => r.json()),
+            apiFetch('/api/custom-events').then(r => r.json()).catch(() => []),
+          ]);
+          return [...gcal, ...custom.map(e => ({ ...e, allDay: !e.start.includes('T'), custom: true }))];
+        },
+        (data) => { googleEvents = data; renderUpcomingGoogleEvents(); }
+      );
     }
     async function loadProfileConfig() {
       try {

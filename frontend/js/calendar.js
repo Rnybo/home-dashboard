@@ -3,25 +3,44 @@
       activeGoogleTab = -1;
       document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
       renderWeek();
+      calScrollToNow();
     }
     function switchGoogleTab(idx) {
       activeGoogleTab = idx;
       const allTabs = document.querySelectorAll('#child-tabs .tab');
       allTabs.forEach((t,i) => t.classList.toggle('active', i === CHILDREN.length + idx));
       renderWeek();
+      calScrollToNow();
     }
     function changeWeek(delta) {
       weekOffset += delta;
-      // Render straks fra cache — ingen ventetid
       renderWeek();
-      // Hent nyt hvis den nye uge er uden for det cachede interval
       const days = getWeekDays();
+      const now = new Date();
+      if (days.some(d => isSameDay(d, now))) {
+        calScrollToNow();
+      } else {
+        // Anden uge: scroll til 07:00
+        const wrap = document.querySelector('.timetable-wrap');
+        if (wrap) {
+          const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
+          wrap.scrollTop = 7 * hourH;
+        }
+      }
       const weekStart = days[0], weekEnd = days[6];
       const cacheFrom = allEvents.length ? new Date(Math.min(...allEvents.map(e => new Date(e.start||e.startDateTime)))) : null;
       const cacheTo   = allEvents.length ? new Date(Math.max(...allEvents.map(e => new Date(e.start||e.startDateTime)))) : null;
       const needsFetch = !cacheFrom || weekStart < cacheFrom || weekEnd > cacheTo;
       if (needsFetch) { loadCalendar(); loadPresence(); }
       loadGoogleCalendar();
+    }
+
+    // Scroll til nu -1 time — sættes direkte efter renderWeek er færdig
+    function calScrollToNow() {
+      const wrap = document.querySelector('.timetable-wrap');
+      if (!wrap) return;
+      const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
+      wrap.scrollTop = Math.max(0, new Date().getHours() - 1) * hourH;
     }
 
     // ── Today widget ──
@@ -519,12 +538,15 @@
       });
       document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap');
-      const now = new Date();
+      // Gem scroll — calUpdateWrapHeight og innerHTML kan nulstille scrollTop
+      const savedScroll = wrap.scrollTop;
       calUpdateWrapHeight(wrap);
-      if (!wrap.dataset.scrolled) {
-        const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
-        wrap.scrollTop = scrollToHour * hourH;
-        wrap.dataset.scrolled = '1';
+      // Gendan scroll altid — renderWeek må aldrig nulstille brugerens position
+      if (wrap.scrollTop !== savedScroll) wrap.scrollTop = savedScroll;
+      // Scroll-lytter registreres kun én gang
+      if (!wrap._scrollListenerAdded) {
+        wrap._scrollListenerAdded = true;
+        wrap.addEventListener('scroll', () => {}, { passive: true });
       }
     }
 
@@ -534,11 +556,15 @@
       if (!wrap) return;
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
       const isPortrait = window.innerHeight > window.innerWidth;
+      // Gem scrollTop før height-ændring — Chrome nulstiller den ellers
+      const savedScroll = wrap.scrollTop;
       wrap.style.maxHeight = '';
       const wrapRect = wrap.getBoundingClientRect();
       const availH = window.innerHeight - wrapRect.top - 10;
       const maxH = isPortrait ? hourH * 10 : availH;
       wrap.style.maxHeight = Math.max(maxH, hourH * 6) + 'px';
+      // Gendan scroll hvis den blev nulstillet
+      if (savedScroll > 0 && wrap.scrollTop === 0) wrap.scrollTop = savedScroll;
     }
 
     // Opdater kalender-højde når sidebar vokser (data ankommer asynkront)

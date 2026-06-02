@@ -370,6 +370,9 @@
       .top-nav { display: none; }
       .bottom-nav { display: flex; }
       body { padding: 8px; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+      /* Kalender må ikke overskride viewport-bredden i portrait */
+      .timetable-wrap { overflow-x: hidden; }
+      .timetable { min-width: 0; }
     }
 
     /* ── Portrait tablet specifik ── */
@@ -392,7 +395,6 @@
       body { padding: 6px; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); gap: 6px; }
       header h1 { font-size: 1rem; }
       header #clock { font-size: 0.75rem; }
-      .timetable { min-width: 460px; }
       .day-header { font-size: 0.65rem; }
       .day-header .date-num { font-size: 0.82rem; }
       .day-header.today .date-num { width: 20px; height: 20px; font-size: 0.72rem; }

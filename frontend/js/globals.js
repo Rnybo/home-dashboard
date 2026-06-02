@@ -56,7 +56,7 @@
       return `linear-gradient(135deg, ${stops})`;
     }
     const AULA_VIEWS   = ['overview', 'gallery', 'klasse', 'msg'];
-    const FAMILY_VIEWS = ['family-kids', 'family-adults', 'app-tal', 'app-nyheder', 'app-regnespil'];
+    const FAMILY_VIEWS = ['family-kids', 'family-adults', 'app-tal', 'app-nyheder', 'app-regnespil', 'app-huske'];
     const VIEWS = ['cal', 'overview', 'gallery', 'klasse', 'msg'];
 
     function toggleAulaMenu(e) {
@@ -97,6 +97,7 @@
       if (view === 'app-tal')         renderTalApp();
       if (view === 'app-nyheder')     renderNyhedApp();
       if (view === 'app-regnespil')   renderRegnespil();
+      if (view === 'app-huske')       renderHuskespil();
       // Bottom nav
       document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();

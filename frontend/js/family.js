@@ -287,11 +287,20 @@ function rsNewRound() {
   rs.b = 1 + Math.floor(Math.random() * (maxN - rs.a + 1));
   rs.answer = rs.a + rs.b;
 
-  // Three options: correct + two wrong (unique, 1–18)
+  // Pick ONE emoji for the whole round
+  rs.emoji = RS_EMOJIS[Math.floor(Math.random() * RS_EMOJIS.length)];
+
+  // Three options: correct + two wrong (unique, close to correct so it's educational)
   const wrong = new Set();
-  while (wrong.size < 2) {
-    let w = 1 + Math.floor(Math.random() * 18);
-    if (w !== rs.answer) wrong.add(w);
+  let attempts = 0;
+  while (wrong.size < 2 && attempts < 100) {
+    attempts++;
+    // Bias wrong answers to be close (±1–3) so bubbles are countable
+    const delta = (Math.random() < 0.7)
+      ? (Math.floor(Math.random() * 3) + 1) * (Math.random() < 0.5 ? 1 : -1)
+      : Math.floor(Math.random() * 5) + 1;
+    const w = rs.answer + delta;
+    if (w >= 1 && w !== rs.answer) wrong.add(w);
   }
   rs.options = shuffle([rs.answer, ...wrong]);
 
@@ -303,17 +312,16 @@ function rsRenderRound() {
   const opts = document.getElementById('rs-options');
   if (!eq || !opts) return;
 
-  const emoji = RS_EMOJIS[rs.a % RS_EMOJIS.length];
-  const emoji2 = RS_EMOJIS[(rs.b + 3) % RS_EMOJIS.length];
+  const em = rs.emoji;
 
   eq.innerHTML = `
     <div class="rs-group">
-      <div class="rs-bubbles">${emoji.repeat(rs.a)}</div>
+      <div class="rs-bubbles">${em.repeat(rs.a)}</div>
       <div class="rs-num">${rs.a}</div>
     </div>
     <div class="rs-plus">+</div>
     <div class="rs-group">
-      <div class="rs-bubbles">${emoji2.repeat(rs.b)}</div>
+      <div class="rs-bubbles">${em.repeat(rs.b)}</div>
       <div class="rs-num">${rs.b}</div>
     </div>
     <div class="rs-equals">=</div>
@@ -322,16 +330,14 @@ function rsRenderRound() {
     </div>`;
 
   opts.innerHTML = rs.options.map(v => {
-    const em = RS_EMOJIS[(v + 6) % RS_EMOJIS.length];
     return `<div class="rs-option" data-val="${v}" id="rs-opt-${v}">
-      <div class="rs-opt-bubbles">${em.repeat(Math.min(v, 9))}${v > 9 ? `<span class="rs-opt-extra">+${v-9}</span>` : ''}</div>
+      <div class="rs-opt-bubbles">${em.repeat(v)}</div>
       <div class="rs-opt-num">${v}</div>
     </div>`;
   }).join('');
 
   rsUpdateStars();
   rsBindDrag();
-  rsBindDrop();
 }
 
 // ── Stjerner ──────────────────────────────────────────────────────────────────
@@ -365,8 +371,7 @@ function rsPointerDown(e) {
   // Lav en "ghost" der følger fingeren
   rsGhost = document.createElement('div');
   rsGhost.className = 'rs-ghost';
-  const em = RS_EMOJIS[(val + 6) % RS_EMOJIS.length];
-  rsGhost.innerHTML = `<div class="rs-opt-bubbles">${em.repeat(Math.min(val,9))}${val>9?`<span class="rs-opt-extra">+${val-9}</span>`:''}</div><div class="rs-opt-num">${val}</div>`;
+  rsGhost.innerHTML = `<div class="rs-opt-bubbles">${rs.emoji.repeat(val)}</div><div class="rs-opt-num">${val}</div>`;
   rsGhost.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
   document.body.appendChild(rsGhost);
 

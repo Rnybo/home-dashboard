@@ -218,14 +218,12 @@ function renderRegnespil() {
     ? `<div class="rs-setup-section">
         <div class="rs-setup-label">Hvem spiller?</div>
         <div class="rs-child-row">
-          ${CHILDREN.map(c => {
+          ${CHILDREN.map((c, i) => {
             const active = rs.childName === c.name;
-            const photo  = c._photoUrl ? aulaImg(c._photoUrl) : '';
+            const photo  = (c._photoUrl || c.photoUrl) ? aulaImg(c._photoUrl || c.photoUrl) : '';
             return `<button class="rs-child-btn ${active ? 'rs-child-active' : ''}"
-              onclick="rsSelectChild('${c.name.replace(/'/g,"\\'")}','${photo}')">
-              ${photo
-                ? `<img class="rs-child-img" src="${photo}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-                : ''}
+              onclick="rsSelectChild(${i})">
+              ${photo ? `<img class="rs-child-img" src="${photo}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
               <div class="rs-child-initials" style="${photo ? 'display:none' : ''}">${c.name.charAt(0)}</div>
               <span class="rs-child-name">${c.name}</span>
             </button>`;
@@ -280,11 +278,13 @@ function renderRegnespil() {
     </div>`;
 }
 
-function rsSelectChild(name, photo) {
-  rs.childName  = name;
-  rs.childPhoto = photo;
-  document.querySelectorAll('.rs-child-btn').forEach(b =>
-    b.classList.toggle('rs-child-active', b.querySelector('.rs-child-name')?.textContent === name));
+function rsSelectChild(idx) {
+  const c = CHILDREN[idx];
+  if (!c) return;
+  rs.childName  = c.name;
+  rs.childPhoto = (c._photoUrl || c.photoUrl) ? aulaImg(c._photoUrl || c.photoUrl) : '';
+  document.querySelectorAll('.rs-child-btn').forEach((b, i) =>
+    b.classList.toggle('rs-child-active', i === idx));
 }
 
 function rsSelectLevel(id) {

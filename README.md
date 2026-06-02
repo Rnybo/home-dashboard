@@ -15,6 +15,8 @@ A family dashboard for the Danish school platform Aula, designed for a wall-moun
 - **Notifications** — Badge indicators for unread messages, new posts, new albums; per-view dot indicators in Aula dropdown
 - **Offline support** — When Aula session expires, all data is served from localStorage cache
 - **Settings page** — Configure everything via browser at `/settings.html` — no terminal needed
+- **Spotify search** — Search songs, albums, playlists and podcasts directly from the cast widget (requires active Spotify playback)
+- **Familie** — Optional dropdown with Børn and Voksne pages; configured via Settings → Familie Apps (shown only when at least one app is enabled)
 
 ## Quick Install (Android/Termux)
 

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Aula Dashboard</title>
   <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/family.css">
 </head><body>
   <header>
     <h1>🏠 Familieoverblik</h1>
@@ -38,6 +39,14 @@
         <div class="aula-dd-item" onclick="switchAulaView('gallery');event.stopPropagation()">🖼️ Galleri</div>
         <div class="aula-dd-item" onclick="switchAulaView('klasse');event.stopPropagation()">👥 Klasse</div>
         <div class="aula-dd-item" onclick="switchAulaView('msg');event.stopPropagation()">📬 Beskeder</div>
+      </div>
+    </div>
+    <div class="top-nav-btn" onclick="toggleFamilyMenu(event)" id="family-nav-btn" style="display:none">👨‍👩‍👧 Familie ▾
+      <div id="family-dropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;
+        background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
+        z-index:50;min-width:140px;overflow:hidden">
+        <div class="aula-dd-item" id="family-dd-kids" onclick="switchView('family-kids');event.stopPropagation()" style="display:none">🧒 Børn</div>
+        <div class="aula-dd-item" id="family-dd-adults" onclick="switchView('family-adults');event.stopPropagation()" style="display:none">🧑 Voksne</div>
       </div>
     </div>
   </div>
@@ -102,6 +111,24 @@
       <div id="messages-full" class="loading">Henter...</div>
     </div>
   </div>
+
+  <!-- Familie views -->
+  <div class="view" id="view-family-kids">
+    <div class="family-page-card">
+      <h2>🧒 Børn</h2>
+      <div id="family-kids-grid" class="family-app-grid"></div>
+    </div>
+  </div>
+  <div class="view" id="view-family-adults">
+    <div class="family-page-card">
+      <h2>🧑 Voksne</h2>
+      <div id="family-adults-grid" class="family-app-grid"></div>
+    </div>
+  </div>
+
+  <!-- Familie app views -->
+  <div class="view" id="view-app-tal"></div>
+  <div class="view" id="view-app-nyheder"></div>
 
   <!-- Mobile bottom nav -->
   <nav class="bottom-nav">
@@ -300,6 +327,7 @@
   <script src="/js/auth.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/cast.js"></script>
+  <script src="/js/family.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

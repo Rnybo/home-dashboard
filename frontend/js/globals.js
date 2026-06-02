@@ -55,7 +55,8 @@
       const stops = colors.map((c, i) => `${c} ${i*pct}%, ${c} ${(i+1)*pct}%`).join(', ');
       return `linear-gradient(135deg, ${stops})`;
     }
-    const AULA_VIEWS = ['overview', 'gallery', 'klasse', 'msg'];
+    const AULA_VIEWS   = ['overview', 'gallery', 'klasse', 'msg'];
+    const FAMILY_VIEWS = ['family-kids', 'family-adults', 'app-tal', 'app-nyheder'];
     const VIEWS = ['cal', 'overview', 'gallery', 'klasse', 'msg'];
 
     function toggleAulaMenu(e) {
@@ -76,16 +77,25 @@
       currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-' + view).classList.add('active');
-      // Top nav — Kalender or Aula active
+      // Top nav — Kalender or Aula or Familie active
       const calBtn = document.querySelector('.top-nav-btn:first-child');
       const aulaBtn = document.getElementById('aula-nav-btn');
+      const famBtn  = document.getElementById('family-nav-btn');
       if (calBtn) calBtn.classList.toggle('active', view === 'cal');
       if (aulaBtn) aulaBtn.classList.toggle('active', AULA_VIEWS.includes(view));
+      if (famBtn)  famBtn.classList.toggle('active', FAMILY_VIEWS.includes(view));
       // Dropdown items active state
       document.querySelectorAll('.aula-dd-item').forEach(item => {
         const v = item.getAttribute('onclick').match(/'(\w+)'/)?.[1];
         item.classList.toggle('active', v === view);
       });
+      // Family dropdown close + render
+      const famDD = document.getElementById('family-dropdown');
+      if (famDD) famDD.style.display = 'none';
+      if (view === 'family-kids')   renderFamilyPage('kids');
+      if (view === 'family-adults') renderFamilyPage('adults');
+      if (view === 'app-tal')       renderTalApp();
+      if (view === 'app-nyheder')   renderNyhedApp();
       // Bottom nav
       document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();
@@ -206,3 +216,15 @@
     }
 
     let activeGoogleTab = -1; // -1 = aula tab active, >=0 = google tab index
+
+// ── Dev mock helpers ──────────────────────────────────────────────────────────
+function castMockSpotify() {
+  castState['Stue TV'] = {
+    device: 'Stue TV', app: 'Spotify', state: 'PLAYING',
+    title: 'Bohemian Rhapsody', artist: 'Queen', album: 'A Night at the Opera',
+    image: 'https://i.scdn.co/image/ab67616d0000b27358591cfc5e3044be8d1c21cc',
+    volume: 0.6, duration: 354, current_time: 45,
+    last_updated: Date.now() / 1000, supports_seek: true,
+  };
+  castRenderButton();
+}

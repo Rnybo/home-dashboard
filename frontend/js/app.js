@@ -20,9 +20,14 @@
     }
 
     async function loadCalendar() {
-      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
+      const days = getWeekDays();
+      // Hent fra 30 dage bagud til 60 dage frem fra første dag i ugen
+      const from = new Date(days[0]); from.setDate(from.getDate() - 30);
+      const to   = new Date(days[6]); to.setDate(to.getDate() + 60);
+      const fromStr = from.toISOString().split('T')[0];
+      const toStr   = to.toISOString().split('T')[0];
       try {
-        const res = await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
+        const res = await apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${fromStr}&to_date=${toStr}`);
         if (res.status === 401) {
           try { const c=localStorage.getItem('ls_events'); if(c){ allEvents=JSON.parse(c); renderWeek(); renderTodayWidget(); } } catch(e) {}
           return;
@@ -33,9 +38,14 @@
       } catch(e) {}
     }
     async function loadPresence() {
-      const days=getWeekDays(), from=days[0].toISOString().split('T')[0], to=days[6].toISOString().split('T')[0];
+      const days = getWeekDays();
+      // Hent presence for samme interval som kalender
+      const from = new Date(days[0]); from.setDate(from.getDate() - 30);
+      const to   = new Date(days[6]); to.setDate(to.getDate() + 60);
+      const fromStr = from.toISOString().split('T')[0];
+      const toStr   = to.toISOString().split('T')[0];
       try {
-        const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${from}&to_date=${to}`);
+        const res=await apiFetch(`/api/presence?inst_profile_ids=${getChildIds()}&from_date=${fromStr}&to_date=${toStr}`);
         if(res.status!==200) return; presenceData={};
         for (const t of await res.json()) presenceData[t.institutionProfile.id]=t.dayTemplates||[];
         try{localStorage.setItem('ls_presence',JSON.stringify(presenceData));}catch(e){}

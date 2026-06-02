@@ -10,7 +10,19 @@
       allTabs.forEach((t,i) => t.classList.toggle('active', i === CHILDREN.length + idx));
       renderWeek();
     }
-    function changeWeek(delta) { weekOffset += delta; loadCalendar(); loadPresence(); loadGoogleCalendar(); }
+    function changeWeek(delta) {
+      weekOffset += delta;
+      // Render straks fra cache — ingen ventetid
+      renderWeek();
+      // Hent nyt hvis den nye uge er uden for det cachede interval
+      const days = getWeekDays();
+      const weekStart = days[0], weekEnd = days[6];
+      const cacheFrom = allEvents.length ? new Date(Math.min(...allEvents.map(e => new Date(e.start||e.startDateTime)))) : null;
+      const cacheTo   = allEvents.length ? new Date(Math.max(...allEvents.map(e => new Date(e.start||e.startDateTime)))) : null;
+      const needsFetch = !cacheFrom || weekStart < cacheFrom || weekEnd > cacheTo;
+      if (needsFetch) { loadCalendar(); loadPresence(); }
+      loadGoogleCalendar();
+    }
 
     // ── Today widget ──
     function renderTodayWidget() {
@@ -507,27 +519,35 @@
       });
       document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap');
-      const sidebar = document.getElementById('messages-panel-cal');
       const now = new Date();
-      wrap.style.maxHeight = '';
-      const wrapRect = wrap.getBoundingClientRect();
-      const isPortrait = window.innerHeight > window.innerWidth;
-      let maxH;
-      if (isPortrait) {
-        // Portrait: vis 10 timer
-        maxH = hourH * 10;
-      } else {
-        // Landscape: match sidebarens højde
-        const sidebarH = sidebar ? sidebar.offsetHeight : 0;
-        const byWindow = window.innerHeight - wrapRect.top - 10;
-        maxH = sidebarH > 100
-          ? Math.min(sidebarH - (wrapRect.top - sidebar.getBoundingClientRect().top), byWindow)
-          : byWindow;
-      }
-      wrap.style.maxHeight = Math.max(maxH, hourH * 6) + 'px';
+      calUpdateWrapHeight(wrap);
       if (!wrap.dataset.scrolled) {
         const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
         wrap.scrollTop = scrollToHour * hourH;
         wrap.dataset.scrolled = '1';
       }
     }
+
+    // Beregn og sæt maxHeight på timetable-wrap uafhængigt af sidebar-indhold
+    function calUpdateWrapHeight(wrap) {
+      wrap = wrap || document.querySelector('.timetable-wrap');
+      if (!wrap) return;
+      const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
+      const isPortrait = window.innerHeight > window.innerWidth;
+      wrap.style.maxHeight = '';
+      const wrapRect = wrap.getBoundingClientRect();
+      const availH = window.innerHeight - wrapRect.top - 10;
+      const maxH = isPortrait ? hourH * 10 : availH;
+      wrap.style.maxHeight = Math.max(maxH, hourH * 6) + 'px';
+    }
+
+    // Opdater kalender-højde når sidebar vokser (data ankommer asynkront)
+    (function initSidebarObserver() {
+      const sidebar = document.getElementById('messages-panel-cal');
+      if (!sidebar || !window.ResizeObserver) return;
+      let debounce;
+      new ResizeObserver(() => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => calUpdateWrapHeight(), 50);
+      }).observe(sidebar);
+    })();

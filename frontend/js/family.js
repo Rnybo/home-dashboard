@@ -334,7 +334,12 @@ function rsStartGame() {
         <div class="rs-equation" id="rs-equation"></div>
         <div class="rs-options" id="rs-options"></div>
       </div>
-      <div class="rs-feedback" id="rs-feedback" style="display:none"></div>
+    </div>
+    <div class="rs-fb-overlay" id="rs-fb-overlay" onclick="rsFbOverlayClick(event)" style="display:none">
+      <div class="rs-fb-modal" id="rs-fb-modal">
+        <div class="rs-fb-msg" id="rs-fb-msg"></div>
+        <button class="rs-fb-next" onclick="rsDismissFeedback()">Næste spørgsmål →</button>
+      </div>
     </div>`;
 
   rsNewRound();
@@ -492,44 +497,59 @@ function rsCheckAnswer(val) {
   rs.answered = true; rs.total++;
   const correct = val === rs.answer;
   const dz = document.getElementById('rs-dropzone');
-  const fb = document.getElementById('rs-feedback');
   const n  = rs.childName;
 
   if (correct) {
     rs.score++; rs.streak++;
     if (dz) { dz.innerHTML = `<span class="rs-dz-answer rs-dz-correct">${val}</span>`; dz.classList.add('rs-dz-filled-correct'); }
     rsBurst(dz);
-    if (fb) {
-      const msgs = n ? [
-        `Godt klaret, ${n}! 👏`,
-        `Sejt, ${n}! 🌟`,
-        `Du er skarp, ${n}! 🎉`,
-        `Fantastisk, ${n}! 🏆`,
-        `Wow ${n}, det er rigtigt! ⭐`,
-        `Brilliant, ${n}! 🎊`,
-        `Ja! Godt gået ${n}! 🥳`,
-        `${n} er en matematiker! 🚀`,
-      ] : [
-        'Fantastisk! 🎉','Super! ⭐','Bravo! 🌟','Perfekt! 🎊','Dygtig! 🏆',
-      ];
-      fb.innerHTML = msgs[Math.floor(Math.random() * msgs.length)];
-      fb.className = 'rs-feedback rs-feedback-correct'; fb.style.display = 'block';
-    }
+    const msgs = n ? [
+      `Godt klaret, ${n}! 👏`,
+      `Sejt, ${n}! 🌟`,
+      `Du er skarp, ${n}! 🎉`,
+      `Fantastisk, ${n}! 🏆`,
+      `Wow ${n}, det er rigtigt! ⭐`,
+      `Brilliant, ${n}! 🎊`,
+      `Ja! Godt gået ${n}! 🥳`,
+      `${n} er en matematiker! 🚀`,
+    ] : ['Fantastisk! 🎉','Super! ⭐','Bravo! 🌟','Perfekt! 🎊','Dygtig! 🏆'];
+    rsShowFeedback(msgs[Math.floor(Math.random() * msgs.length)], true);
   } else {
     rs.streak = 0;
     if (dz) { dz.innerHTML = `<span class="rs-dz-answer rs-dz-wrong">${rs.answer}</span>`; dz.classList.add('rs-dz-filled-wrong'); }
     const wo = document.getElementById(`rs-opt-${val}`);
     if (wo) { wo.classList.add('rs-shake'); setTimeout(() => wo.classList.remove('rs-shake'), 500); }
-    if (fb) {
-      fb.innerHTML = n
-        ? `Prøv igen, ${n} — svaret er ${rs.answer} 💪`
-        : `Ikke helt — svaret er ${rs.answer} 💪`;
-      fb.className = 'rs-feedback rs-feedback-wrong'; fb.style.display = 'block';
-    }
+    rsShowFeedback(n
+      ? `Prøv igen, ${n} — svaret er ${rs.answer} 💪`
+      : `Ikke helt — svaret er ${rs.answer} 💪`, false);
   }
   document.getElementById('rs-score').textContent = rs.score;
   rsUpdateStars();
-  setTimeout(() => { if (fb) fb.style.display = 'none'; rsNewRound(); }, correct ? 1600 : 2000);
+}
+
+function rsShowFeedback(msg, correct) {
+  const overlay = document.getElementById('rs-fb-overlay');
+  const modal   = document.getElementById('rs-fb-modal');
+  const msgEl   = document.getElementById('rs-fb-msg');
+  if (!overlay || !msgEl) return;
+  msgEl.innerHTML = msg;
+  overlay.style.display = 'flex';
+  modal.className = 'rs-fb-modal ' + (correct ? 'rs-fb-correct' : 'rs-fb-wrong');
+  // lille bounce-animation
+  modal.classList.remove('rs-fb-bounce');
+  void modal.offsetWidth;
+  modal.classList.add('rs-fb-bounce');
+}
+
+function rsDismissFeedback() {
+  const overlay = document.getElementById('rs-fb-overlay');
+  if (overlay) overlay.style.display = 'none';
+  rsNewRound();
+}
+
+function rsFbOverlayClick(e) {
+  // Luk kun ved klik på baggrunden (ikke på selve modalen)
+  if (e.target === document.getElementById('rs-fb-overlay')) rsDismissFeedback();
 }
 
 // ── Konfetti ──────────────────────────────────────────────────────────────────

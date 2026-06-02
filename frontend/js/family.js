@@ -206,10 +206,10 @@ function rsBubbles(n, emoji) {
   return `${emoji}<span class="rs-badge">×${n}</span>`;
 }
 
-// Vis bobler i svarkortet — max 6 synlige, resten som +N
+// Vis bobler i svarkortet — op til 9 vises, over 9 ingen bobler
 function rsOptBubbles(n, emoji) {
-  if (n <= 6) return emoji.repeat(n);
-  return `${emoji.repeat(6)}<span class="rs-badge">+${n - 6}</span>`;
+  if (n <= 9) return emoji.repeat(n);
+  return '';
 }
 
 // ── Opsætningsskærm ───────────────────────────────────────────────────────────
@@ -423,11 +423,13 @@ function rsRenderRound() {
     <div class="rs-equals">=</div>
     <div class="rs-dropzone" id="rs-dropzone"><span class="rs-dz-hint">?</span></div>`;
 
-  opts.innerHTML = rs.options.map(v => `
-    <div class="rs-option" data-val="${v}" id="rs-opt-${v}">
-      ${showBubbles ? `<div class="rs-opt-bubbles">${rsOptBubbles(v, em)}</div>` : ''}
+  opts.innerHTML = rs.options.map(v => {
+    const bubbleHtml = showBubbles ? rsOptBubbles(v, em) : '';
+    return `<div class="rs-option" data-val="${v}" id="rs-opt-${v}">
+      ${bubbleHtml ? `<div class="rs-opt-bubbles">${bubbleHtml}</div>` : ''}
       <div class="rs-opt-num">${v}</div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   rsUpdateStars();
   rsBindDrag();
@@ -459,7 +461,8 @@ function rsPointerDown(e) {
 
   rsGhost = document.createElement('div');
   rsGhost.className = 'rs-ghost';
-  rsGhost.innerHTML = `${showBubbles ? `<div class="rs-opt-bubbles">${rsOptBubbles(val, rs.emoji)}</div>` : ''}<div class="rs-opt-num">${val}</div>`;
+  const ghostBubbles = showBubbles ? rsOptBubbles(val, rs.emoji) : '';
+  rsGhost.innerHTML = `${ghostBubbles ? `<div class="rs-opt-bubbles">${ghostBubbles}</div>` : ''}<div class="rs-opt-num">${val}</div>`;
   rsGhost.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
   document.body.appendChild(rsGhost);
 

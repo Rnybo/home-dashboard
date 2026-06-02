@@ -5,11 +5,12 @@
 
 const FAMILY_APPS = {
   kids: [
-    { id: 'tal',      label: 'Tal',          icon: '🔢', comingSoon: false },
-    { id: 'spell',    label: 'Stavespil',     icon: '🔤', comingSoon: true  },
-    { id: 'wordgame', label: 'Ordleg',        icon: '🃏', comingSoon: true  },
-    { id: 'drawing',  label: 'Tegnesjov',     icon: '🎨', comingSoon: true  },
-    { id: 'memory',   label: 'Memory',        icon: '🧠', comingSoon: true  },
+    { id: 'regnespil', label: 'Regnespil',   icon: '➕', comingSoon: false },
+    { id: 'tal',       label: 'Tal',          icon: '🔢', comingSoon: false },
+    { id: 'spell',     label: 'Stavespil',    icon: '🔤', comingSoon: true  },
+    { id: 'wordgame',  label: 'Ordleg',       icon: '🃏', comingSoon: true  },
+    { id: 'drawing',   label: 'Tegnesjov',    icon: '🎨', comingSoon: true  },
+    { id: 'memory',    label: 'Memory',       icon: '🧠', comingSoon: true  },
   ],
   adults: [
     { id: 'nyheder',  label: 'Nyheder',       icon: '📰', comingSoon: false },
@@ -236,6 +237,265 @@ function formatNyhedDate(dateStr) {
     if (diff < 1440) return `${Math.floor(diff/60)} timer siden`;
     return d.toLocaleDateString('da-DK', { weekday: 'short', day: 'numeric', month: 'short' });
   } catch(e) { return ''; }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// APP: REGNESPIL — Træk svaret til lighedstegnet
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Emoji-sæt per talstørrelse — bruges til at vise kugler visuelt
+const RS_EMOJIS = ['🍎','🌟','🐠','🦋','🌸','🍭','🎈','🐸','🍓','🔵','🟡','🟠'];
+
+let rs = {
+  a: 0, b: 0,          // de to led
+  answer: 0,           // korrekt svar
+  options: [],         // de tre svarmuligheder (tal)
+  score: 0,
+  streak: 0,
+  total: 0,
+  dragging: null,      // { value, el, startX, startY, origRect }
+  answered: false,
+};
+
+function renderRegnespil() {
+  const el = document.getElementById('view-app-regnespil');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="rs-shell">
+      <div class="rs-topbar">
+        <button class="family-back-btn" onclick="familyAppBack('family-kids')" style="padding:0;margin:0">← Tilbage</button>
+        <div class="rs-score-row">
+          <span id="rs-stars"></span>
+          <span class="rs-score-label">Point: <strong id="rs-score">0</strong></span>
+        </div>
+      </div>
+      <div class="rs-stage" id="rs-stage">
+        <div class="rs-equation" id="rs-equation"></div>
+        <div class="rs-options" id="rs-options"></div>
+      </div>
+      <div class="rs-feedback" id="rs-feedback" style="display:none"></div>
+    </div>`;
+  rs.score = 0; rs.streak = 0; rs.total = 0;
+  rsNewRound();
+}
+
+function rsNewRound() {
+  rs.answered = false;
+  // Difficulty: scale max number with streak
+  const maxN = Math.min(5 + Math.floor(rs.streak / 3), 9);
+  rs.a = 1 + Math.floor(Math.random() * maxN);
+  rs.b = 1 + Math.floor(Math.random() * (maxN - rs.a + 1));
+  rs.answer = rs.a + rs.b;
+
+  // Three options: correct + two wrong (unique, 1–18)
+  const wrong = new Set();
+  while (wrong.size < 2) {
+    let w = 1 + Math.floor(Math.random() * 18);
+    if (w !== rs.answer) wrong.add(w);
+  }
+  rs.options = shuffle([rs.answer, ...wrong]);
+
+  rsRenderRound();
+}
+
+function rsRenderRound() {
+  const eq   = document.getElementById('rs-equation');
+  const opts = document.getElementById('rs-options');
+  if (!eq || !opts) return;
+
+  const emoji = RS_EMOJIS[rs.a % RS_EMOJIS.length];
+  const emoji2 = RS_EMOJIS[(rs.b + 3) % RS_EMOJIS.length];
+
+  eq.innerHTML = `
+    <div class="rs-group">
+      <div class="rs-bubbles">${emoji.repeat(rs.a)}</div>
+      <div class="rs-num">${rs.a}</div>
+    </div>
+    <div class="rs-plus">+</div>
+    <div class="rs-group">
+      <div class="rs-bubbles">${emoji2.repeat(rs.b)}</div>
+      <div class="rs-num">${rs.b}</div>
+    </div>
+    <div class="rs-equals">=</div>
+    <div class="rs-dropzone" id="rs-dropzone">
+      <span class="rs-dz-hint">?</span>
+    </div>`;
+
+  opts.innerHTML = rs.options.map(v => {
+    const em = RS_EMOJIS[(v + 6) % RS_EMOJIS.length];
+    return `<div class="rs-option" data-val="${v}" id="rs-opt-${v}">
+      <div class="rs-opt-bubbles">${em.repeat(Math.min(v, 9))}${v > 9 ? `<span class="rs-opt-extra">+${v-9}</span>` : ''}</div>
+      <div class="rs-opt-num">${v}</div>
+    </div>`;
+  }).join('');
+
+  rsUpdateStars();
+  rsBindDrag();
+  rsBindDrop();
+}
+
+// ── Stjerner ──────────────────────────────────────────────────────────────────
+function rsUpdateStars() {
+  const el = document.getElementById('rs-stars');
+  if (!el) return;
+  const stars = Math.min(rs.streak, 5);
+  el.innerHTML = '⭐'.repeat(stars) + '☆'.repeat(5 - stars);
+}
+
+// ── Drag & Drop (pointer events — virker på touch og mus) ────────────────────
+function rsBindDrag() {
+  document.querySelectorAll('.rs-option').forEach(opt => {
+    opt.addEventListener('pointerdown', rsPointerDown, { passive: false });
+  });
+}
+
+function rsBindDrop() {
+  // handled in pointermove/up via overlap detection
+}
+
+let rsGhost = null; // flydende kopi mens man trækker
+
+function rsPointerDown(e) {
+  if (rs.answered) return;
+  e.preventDefault();
+  const opt = e.currentTarget;
+  const val = parseInt(opt.dataset.val);
+  const rect = opt.getBoundingClientRect();
+
+  // Lav en "ghost" der følger fingeren
+  rsGhost = document.createElement('div');
+  rsGhost.className = 'rs-ghost';
+  const em = RS_EMOJIS[(val + 6) % RS_EMOJIS.length];
+  rsGhost.innerHTML = `<div class="rs-opt-bubbles">${em.repeat(Math.min(val,9))}${val>9?`<span class="rs-opt-extra">+${val-9}</span>`:''}</div><div class="rs-opt-num">${val}</div>`;
+  rsGhost.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
+  document.body.appendChild(rsGhost);
+
+  rs.dragging = { val, opt, startX: e.clientX, startY: e.clientY, origTop: rect.top, origLeft: rect.left };
+  opt.classList.add('rs-dragging-src');
+
+  document.addEventListener('pointermove', rsPointerMove, { passive: false });
+  document.addEventListener('pointerup',   rsPointerUp);
+}
+
+function rsPointerMove(e) {
+  if (!rsGhost || !rs.dragging) return;
+  e.preventDefault();
+  const dx = e.clientX - rs.dragging.startX;
+  const dy = e.clientY - rs.dragging.startY;
+  rsGhost.style.left = (rs.dragging.origLeft + dx) + 'px';
+  rsGhost.style.top  = (rs.dragging.origTop  + dy) + 'px';
+
+  // Highlight dropzone ved overlap
+  const dz   = document.getElementById('rs-dropzone');
+  const dzR  = dz ? dz.getBoundingClientRect() : null;
+  const ghostR = rsGhost.getBoundingClientRect();
+  if (dz && dzR) {
+    const over = ghostR.left < dzR.right && ghostR.right > dzR.left &&
+                 ghostR.top  < dzR.bottom && ghostR.bottom > dzR.top;
+    dz.classList.toggle('rs-dz-hover', over);
+  }
+}
+
+function rsPointerUp(e) {
+  document.removeEventListener('pointermove', rsPointerMove);
+  document.removeEventListener('pointerup',   rsPointerUp);
+  if (!rsGhost || !rs.dragging) return;
+
+  const dz   = document.getElementById('rs-dropzone');
+  const dzR  = dz ? dz.getBoundingClientRect() : null;
+  const ghostR = rsGhost.getBoundingClientRect();
+
+  const dropped = dz && dzR &&
+    ghostR.left < dzR.right && ghostR.right > dzR.left &&
+    ghostR.top  < dzR.bottom && ghostR.bottom > dzR.top;
+
+  rsGhost.remove(); rsGhost = null;
+  rs.dragging.opt.classList.remove('rs-dragging-src');
+
+  if (dropped) {
+    rsCheckAnswer(rs.dragging.val);
+  }
+  rs.dragging = null;
+}
+
+// ── Facit ─────────────────────────────────────────────────────────────────────
+function rsCheckAnswer(val) {
+  if (rs.answered) return;
+  rs.answered = true;
+  rs.total++;
+
+  const correct = val === rs.answer;
+  const dz = document.getElementById('rs-dropzone');
+  const fb = document.getElementById('rs-feedback');
+
+  if (correct) {
+    rs.score++;
+    rs.streak++;
+    if (dz) {
+      dz.innerHTML = `<span class="rs-dz-answer rs-dz-correct">${val}</span>`;
+      dz.classList.add('rs-dz-filled-correct');
+    }
+    rsBurst(dz);
+    if (fb) {
+      const msgs = ['Fantastisk! 🎉','Super! ⭐','Bravo! 🌟','Perfekt! 🎊','Dygtig! 🏆'];
+      fb.textContent = msgs[Math.floor(Math.random() * msgs.length)];
+      fb.className = 'rs-feedback rs-feedback-correct';
+      fb.style.display = 'block';
+    }
+  } else {
+    rs.streak = 0;
+    // Show correct answer in dropzone
+    if (dz) {
+      dz.innerHTML = `<span class="rs-dz-answer rs-dz-wrong">${rs.answer}</span>`;
+      dz.classList.add('rs-dz-filled-wrong');
+    }
+    // Shake wrong option
+    const wrongOpt = document.getElementById(`rs-opt-${val}`);
+    if (wrongOpt) { wrongOpt.classList.add('rs-shake'); setTimeout(() => wrongOpt.classList.remove('rs-shake'), 500); }
+    if (fb) {
+      fb.textContent = `Ikke helt — svaret er ${rs.answer} 💪`;
+      fb.className = 'rs-feedback rs-feedback-wrong';
+      fb.style.display = 'block';
+    }
+  }
+
+  document.getElementById('rs-score').textContent = rs.score;
+  rsUpdateStars();
+
+  // Næste opgave efter pause
+  setTimeout(() => {
+    if (fb) fb.style.display = 'none';
+    rsNewRound();
+  }, correct ? 1400 : 2000);
+}
+
+// ── Konfetti-burst ved rigtigt svar ──────────────────────────────────────────
+function rsBurst(anchor) {
+  const stage = document.getElementById('rs-stage');
+  if (!stage || !anchor) return;
+  const rect = anchor.getBoundingClientRect();
+  const stageR = stage.getBoundingClientRect();
+  const cx = rect.left + rect.width/2  - stageR.left;
+  const cy = rect.top  + rect.height/2 - stageR.top;
+  const colors = ['#FFD700','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7'];
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'rs-particle';
+    p.style.cssText = `left:${cx}px;top:${cy}px;background:${colors[i%colors.length]};
+      --dx:${(Math.random()-0.5)*200}px;--dy:${-(40+Math.random()*160)}px;
+      --rot:${Math.random()*720}deg;`;
+    stage.appendChild(p);
+    setTimeout(() => p.remove(), 900);
+  }
+}
+
+// ── Hjælper ───────────────────────────────────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

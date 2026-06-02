@@ -56,7 +56,7 @@
       return `linear-gradient(135deg, ${stops})`;
     }
     const AULA_VIEWS   = ['overview', 'gallery', 'klasse', 'msg'];
-    const FAMILY_VIEWS = ['family-kids', 'family-adults', 'app-tal', 'app-nyheder'];
+    const FAMILY_VIEWS = ['family-kids', 'family-adults', 'app-tal', 'app-nyheder', 'app-regnespil'];
     const VIEWS = ['cal', 'overview', 'gallery', 'klasse', 'msg'];
 
     function toggleAulaMenu(e) {
@@ -94,8 +94,9 @@
       if (famDD) famDD.style.display = 'none';
       if (view === 'family-kids')   renderFamilyPage('kids');
       if (view === 'family-adults') renderFamilyPage('adults');
-      if (view === 'app-tal')       renderTalApp();
-      if (view === 'app-nyheder')   renderNyhedApp();
+      if (view === 'app-tal')         renderTalApp();
+      if (view === 'app-nyheder')     renderNyhedApp();
+      if (view === 'app-regnespil')   renderRegnespil();
       // Bottom nav
       document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();

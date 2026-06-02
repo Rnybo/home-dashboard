@@ -206,10 +206,10 @@ function rsBubbles(n, emoji) {
   return `${emoji}<span class="rs-badge">×${n}</span>`;
 }
 
-// Vis bobler i svarkortet — op til 9 vises, over 9 ingen bobler
+// Vis bobler i svarkortet — op til 9 vises fuldt, over 9 vises emoji ×N
 function rsOptBubbles(n, emoji) {
   if (n <= 9) return emoji.repeat(n);
-  return '';
+  return `${emoji}<span class="rs-badge">×${n}</span>`;
 }
 
 // ── Opsætningsskærm ───────────────────────────────────────────────────────────

@@ -509,15 +509,23 @@
       const wrap = document.querySelector('.timetable-wrap');
       const sidebar = document.getElementById('messages-panel-cal');
       const now = new Date();
-      // maxHeight = sidebarens naturlige højde så kalender og sidebar matcher
       wrap.style.maxHeight = '';
-      const sidebarH = sidebar ? sidebar.offsetHeight : 0;
       const wrapRect = wrap.getBoundingClientRect();
-      const byWindow = window.innerHeight - wrapRect.top - 10;
-      const targetH = sidebarH > 100 ? sidebarH - (wrapRect.top - sidebar.getBoundingClientRect().top) : byWindow;
-      wrap.style.maxHeight = Math.max(Math.min(targetH, byWindow), hourH * 6) + 'px';
+      const isPortrait = window.innerHeight > window.innerWidth;
+      let maxH;
+      if (isPortrait) {
+        // Portrait: vis 10 timer
+        maxH = hourH * 10;
+      } else {
+        // Landscape: match sidebarens højde
+        const sidebarH = sidebar ? sidebar.offsetHeight : 0;
+        const byWindow = window.innerHeight - wrapRect.top - 10;
+        maxH = sidebarH > 100
+          ? Math.min(sidebarH - (wrapRect.top - sidebar.getBoundingClientRect().top), byWindow)
+          : byWindow;
+      }
+      wrap.style.maxHeight = Math.max(maxH, hourH * 6) + 'px';
       if (!wrap.dataset.scrolled) {
-        // Scroll til 1 time før nuværende tidspunkt
         const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
         wrap.scrollTop = scrollToHour * hourH;
         wrap.dataset.scrolled = '1';

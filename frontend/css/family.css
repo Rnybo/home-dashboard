@@ -451,3 +451,182 @@
   touch-action:manipulation; width:100%;
 }
 .mem-back-btn:hover { background:rgba(255,255,255,0.05); color:#e2e8f0; }
+
+/* Match-toast */
+.mem-toast {
+  position:absolute; top:60px; left:50%; transform:translateX(-50%);
+  background:rgba(74,222,128,0.95); color:#14532d;
+  font-size:1.1rem; font-weight:800;
+  padding:10px 24px; border-radius:20px;
+  box-shadow:0 4px 16px rgba(0,0,0,0.3);
+  pointer-events:none; z-index:50;
+  animation:memToastIn .25s cubic-bezier(.34,1.56,.64,1);
+  white-space:nowrap;
+}
+@keyframes memToastIn {
+  from { opacity:0; transform:translateX(-50%) translateY(-10px) scale(.85); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0)     scale(1); }
+}
+
+/* Hvem spiller — horisontal scrollbar */
+.mem-child-row {
+  display:flex; gap:12px;
+  flex-wrap:nowrap; overflow-x:auto;
+  padding-bottom:6px;
+  scrollbar-width:none;
+}
+.mem-child-row::-webkit-scrollbar { display:none; }
+
+/* Tilføj spiller-knap */
+.mem-add-player-btn {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:10px 14px; border-radius:16px; border:2px dashed rgba(255,255,255,0.2);
+  background:transparent; color:#94a3b8; cursor:pointer;
+  font-size:.85rem; font-weight:700; touch-action:manipulation;
+  min-width:70px; flex-shrink:0; transition:all .15s;
+}
+.mem-add-player-btn:hover { border-color:rgba(255,255,255,.4); color:#e2e8f0; }
+
+/* Tur-dialog */
+.mem-turn-overlay {
+  position:absolute; inset:0; z-index:200;
+  background:rgba(0,0,0,0.6);
+  display:flex; align-items:center; justify-content:center;
+  border-radius:var(--radius);
+}
+.mem-turn-modal {
+  background:linear-gradient(135deg,#1e1b4b,#312e81);
+  border:2px solid rgba(255,255,255,0.15);
+  border-radius:24px; padding:32px 28px 24px;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  width:min(320px,85vw);
+  box-shadow:0 16px 48px rgba(0,0,0,0.5);
+  animation:rsFbBounce .35s cubic-bezier(.34,1.56,.64,1);
+}
+.mem-turn-photo {
+  width:90px; height:90px; border-radius:50%; object-fit:cover;
+  border:3px solid #fbbf24; box-shadow:0 0 0 4px rgba(251,191,36,.3);
+}
+.mem-turn-initials {
+  width:90px; height:90px; border-radius:50%;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  color:#fff; font-size:2.2rem; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  border:3px solid #fbbf24; box-shadow:0 0 0 4px rgba(251,191,36,.3);
+}
+.mem-turn-text {
+  font-size:1.2rem; color:#e2e8f0; text-align:center; line-height:1.5;
+}
+.mem-turn-text strong { color:#fbbf24; font-size:1.5rem; display:block; }
+.mem-turn-btn {
+  background:#fbbf24; color:#1e1b4b; border:none;
+  border-radius:14px; padding:12px 32px;
+  font-size:1rem; font-weight:800; cursor:pointer;
+  touch-action:manipulation; transition:transform .1s;
+}
+.mem-turn-btn:active { transform:scale(.96); }
+
+.mem-skip-btn {
+  background:transparent; color:#94a3b8;
+  border:1px solid rgba(255,255,255,0.15); border-radius:12px;
+  padding:8px 20px; font-size:.85rem; font-weight:700;
+  cursor:pointer; touch-action:manipulation; transition:all .15s;
+  width:100%;
+}
+.mem-skip-btn:hover { background:rgba(255,255,255,0.07); color:#e2e8f0; }
+
+/* × fjern-knap på custom spillere */
+.mem-player-remove {
+  position:absolute; top:4px; right:4px;
+  width:18px; height:18px; border-radius:50%;
+  background:rgba(239,68,68,0.8); color:#fff;
+  font-size:.7rem; font-weight:900; line-height:18px; text-align:center;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+
+/* ── Billedvælger bar ───────────────────────────────────────────────────── */
+.mem-picker-bar {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 14px; border-radius:12px;
+  background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1);
+}
+.mem-picker-status { font-size:.85rem; font-weight:700; color:#94a3b8; }
+.mem-picker-incomplete { color:#f59e0b; }
+.mem-picker-open-btn {
+  background:rgba(99,102,241,0.2); color:#a5b4fc;
+  border:1px solid rgba(99,102,241,0.4); border-radius:10px;
+  padding:7px 14px; font-size:.82rem; font-weight:700;
+  cursor:pointer; white-space:nowrap; touch-action:manipulation;
+  transition:all .15s; flex-shrink:0;
+}
+.mem-picker-open-btn:hover { background:rgba(99,102,241,0.35); color:#c7d2fe; }
+
+/* ── Billedvælger overlay ───────────────────────────────────────────────── */
+.mem-picker-overlay {
+  position:absolute; inset:0; z-index:300;
+  background:rgba(0,0,0,0.75);
+  display:flex; align-items:center; justify-content:center;
+  border-radius:var(--radius);
+}
+.mem-picker-modal {
+  background:#1e1b4b; border:1.5px solid rgba(255,255,255,0.15);
+  border-radius:20px; width:min(520px,95vw); max-height:85vh;
+  display:flex; flex-direction:column; overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.6);
+}
+.mem-picker-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border-bottom:1px solid rgba(255,255,255,0.1); flex-shrink:0;
+}
+.mem-picker-title { font-size:1rem; font-weight:800; color:#e2e8f0; }
+.mem-picker-count {
+  font-size:1.1rem; font-weight:900; color:#fbbf24;
+  background:rgba(251,191,36,0.15); border:1.5px solid rgba(251,191,36,0.3);
+  border-radius:20px; padding:3px 14px; min-width:60px; text-align:center;
+}
+/* Grid med alle 32 billeder */
+.mem-pick-grid {
+  flex:1; overflow-y:auto; padding:12px;
+  display:grid; grid-template-columns:repeat(4,1fr); gap:8px;
+  scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.1) transparent;
+}
+.mem-pick-card {
+  position:relative; border-radius:10px; overflow:hidden; cursor:pointer;
+  border:2.5px solid transparent; transition:all .15s; aspect-ratio:1;
+  background:#0f0f2a;
+}
+.mem-pick-card img { width:100%; height:80%; object-fit:cover; display:block; }
+.mem-pick-card span {
+  display:block; text-align:center; font-size:clamp(.5rem,.9vw,.65rem);
+  font-weight:700; color:#94a3b8; padding:2px 2px 4px; line-height:1.2;
+  height:20%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.mem-pick-card:hover { border-color:rgba(99,102,241,0.5); transform:scale(1.04); }
+.mem-pick-sel { border-color:#6366f1 !important; background:rgba(99,102,241,0.15); }
+.mem-pick-sel img { opacity:.75; }
+.mem-pick-check {
+  position:absolute; top:4px; right:4px; display:none;
+  width:22px; height:22px; border-radius:50%;
+  background:#6366f1; color:#fff; font-size:.75rem; font-weight:900;
+  align-items:center; justify-content:center;
+}
+.mem-pick-sel .mem-pick-check { display:flex; }
+
+.mem-picker-footer {
+  display:flex; gap:10px; padding:12px 16px;
+  border-top:1px solid rgba(255,255,255,0.1); flex-shrink:0;
+}
+.mem-picker-cancel {
+  flex:1; background:transparent; color:#94a3b8;
+  border:1px solid rgba(255,255,255,0.15); border-radius:12px;
+  padding:11px; font-size:.9rem; font-weight:700; cursor:pointer;
+  touch-action:manipulation;
+}
+.mem-picker-cancel:hover { background:rgba(255,255,255,0.07); }
+.mem-picker-confirm {
+  flex:2; background:#6366f1; color:#fff; border:none;
+  border-radius:12px; padding:11px; font-size:.9rem; font-weight:800;
+  cursor:pointer; touch-action:manipulation; transition:all .15s;
+}
+.mem-picker-confirm:disabled { background:#374151; color:#6b7280; cursor:not-allowed; }
+.mem-picker-confirm:not(:disabled):hover { background:#4f46e5; }

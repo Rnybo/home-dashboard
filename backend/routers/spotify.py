@@ -82,3 +82,79 @@ def spotify_devices():
         return {"devices": r.json().get("devices", [])}
     except Exception:
         return {"devices": []}
+
+
+@router.get("/api/spotify/search")
+def spotify_search(q: str = "", type: str = "track"):
+    """Søg i Spotify. type: track, album, playlist, show (podcast)."""
+    token = get_spotify_access_token()
+    if not token:
+        raise HTTPException(401, "Spotify ikke forbundet")
+    if not q.strip() or len(q.strip()) < 2:
+        return {"items": []}
+    allowed = {"track", "album", "playlist", "show"}
+    types = ",".join(t for t in type.split(",") if t in allowed) or "track"
+    try:
+        r = req.get("https://api.spotify.com/v1/search",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params={"q": q, "type": types, "limit": 10},
+                    timeout=8)
+        if not r.ok:
+            import logging
+            logging.getLogger("spotify").error(f"Search {r.status_code}: {r.text}")
+            raise HTTPException(r.status_code, r.text)
+        data = r.json()
+        items = []
+        for t in (data.get("tracks",    {}).get("items") or []):
+            items.append({"type": "track",    "uri": t["uri"],
+                          "name": t["name"],  "sub": ", ".join(a["name"] for a in t["artists"]),
+                          "image": (t["album"]["images"] or [{}])[-1].get("url","")})
+        for a in (data.get("albums",    {}).get("items") or []):
+            items.append({"type": "album",    "uri": a["uri"],
+                          "name": a["name"],  "sub": ", ".join(a2["name"] for a2 in a["artists"]),
+                          "image": (a["images"] or [{}])[-1].get("url","")})
+        for p in (data.get("playlists", {}).get("items") or []):
+            if not p: continue
+            items.append({"type": "playlist", "uri": p["uri"],
+                          "name": p["name"],  "sub": p.get("owner",{}).get("display_name",""),
+                          "image": ((p.get("images") or [{}])[-1] or {}).get("url","")})
+        for s in (data.get("shows",     {}).get("items") or []):
+            if not s: continue
+            items.append({"type": "show",     "uri": s["uri"],
+                          "name": s["name"],  "sub": s.get("publisher",""),
+                          "image": ((s.get("images") or [{}])[-1] or {}).get("url","")})
+        return {"items": items}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, str(e))
+
+
+@router.post("/api/spotify/play")
+async def spotify_play(request: Request):
+    """Afspil en URI på en given Spotify-enhed."""
+    token = get_spotify_access_token()
+    if not token:
+        raise HTTPException(401, "Spotify ikke forbundet")
+    body = await request.json()
+    uri: str = body.get("uri", "")
+    device_id: str = body.get("device_id", "")
+    if not uri:
+        raise HTTPException(400, "uri mangler")
+    # Tracks afspilles som liste; alt andet som context
+    if uri.startswith("spotify:track:"):
+        payload = {"uris": [uri]}
+    else:
+        payload = {"context_uri": uri}
+    params = {"device_id": device_id} if device_id else {}
+    try:
+        r = req.put("https://api.spotify.com/v1/me/player/play",
+                    headers={"Authorization": f"Bearer {token}"},
+                    params=params, json=payload, timeout=8)
+        if r.status_code not in (200, 204):
+            raise HTTPException(r.status_code, r.text)
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))

@@ -51,8 +51,8 @@
     .view.active { display: flex; }
 
     /* ── Calendar view ── */
-    #view-cal { flex-direction: row; }
-    .left { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+    #view-cal { flex-direction: row; align-items: start; }
+    .left { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; overflow: hidden; }
     .tabs { display: flex; gap: 8px; flex-shrink: 0; }
     .tab { padding: 7px 18px; border-radius: 8px; background: #fff; color: var(--blue);
       cursor: pointer; font-size: 0.9rem; font-weight: 600; border: 2px solid var(--border);
@@ -60,15 +60,15 @@
     .tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
     .tab img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(0,95,168,0.2); }
     .tab.active img { border-color: rgba(255,255,255,0.7); }
-    .week-card { background: #fff; border-radius: var(--radius); padding: 12px;
-      flex: 1; overflow: hidden; border: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+    .week-card { background: #fff; border-radius: var(--radius); padding: 12px 12px 0;
+      flex: 1; display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--border); }
     .week-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-shrink: 0; }
     .week-nav h2 { flex: 1; margin: 0; font-size: 0.85rem; color: var(--blue);
       text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
     .week-nav button { background: var(--blue-light); border: 1px solid var(--border); border-radius: 6px;
       color: var(--blue); font-size: 1rem; cursor: pointer; padding: 4px 14px; font-weight: 700; }
     .week-nav button:hover { background: var(--blue-mid); }
-    .timetable-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
+    .timetable-wrap { flex: 1; overflow-y: auto; overflow-x: auto; min-height: 0; }
     .timetable { display: grid; grid-template-columns: var(--time-col) repeat(7, 1fr); min-width: 600px; }
     .day-col.weekend { background: #fafafa; }
     .day-col.today.weekend { background: #f5faff; }
@@ -184,9 +184,16 @@
 
     /* ── Messages panel ── */
     .messages-card { background: #fff; border-radius: var(--radius); padding: 12px;
-      overflow-y: auto; border: 1px solid var(--border); display: flex; flex-direction: column; width: 300px; flex-shrink: 0; }
+      border: 1px solid var(--border); display: flex; flex-direction: column;
+      width: 300px; flex-shrink: 0; align-self: start; }
     .messages-card h2 { font-size: 0.85rem; color: var(--blue); text-transform: uppercase;
       letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; flex-shrink: 0; }
+    .sidebar-more-link {
+      font-size: 0.75rem; font-weight: 600; color: var(--blue);
+      cursor: pointer; padding: 5px 0 2px;
+      opacity: 0.75; transition: opacity .15s;
+    }
+    .sidebar-more-link:hover { opacity: 1; text-decoration: underline; }
     .msg-item { padding: 9px 0; border-bottom: 1px solid #e8f0f7; font-size: 0.82rem; cursor: pointer; }
     .msg-item:hover { background: #f0f7ff; border-radius: 4px; padding-left: 4px; }
     .msg-item:last-child { border-bottom: none; }
@@ -318,13 +325,33 @@
     .klasse-birthday { font-size: 0.75rem; color: #888; padding: 4px 0 6px; display: flex; align-items: center; gap: 6px; }
     .klasse-loading-contacts { font-size: 0.78rem; color: #bbb; font-style: italic; padding: 8px 0; }
 
-    /* ── Mobile ── */
+    /* ── Bottom nav (portrait) ── */
     .bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0;
-      background: #fff; border-top: 1px solid var(--border); z-index: 50; }
-    .bottom-nav button { flex: 1; padding: 10px 0; background: none; border: none; font-size: 0.75rem;
-      color: #888; cursor: pointer; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+      background: #fff; border-top: 1px solid var(--border); z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom); }
+    .bottom-nav button {
+      flex: 1; padding: 10px 0 8px; background: none; border: none;
+      font-size: 0.72rem; color: #888; cursor: pointer; font-weight: 600;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      position: relative; touch-action: manipulation;
+    }
     .bottom-nav button.active { color: var(--blue); }
-    .bottom-nav button span.icon { font-size: 1.2rem; }
+    .bottom-nav button span.icon { font-size: 1.2rem; line-height: 1; }
+    /* Dropdown åbner OPAD */
+    .bnav-menu {
+      position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      background: #fff; border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.14);
+      min-width: 150px; overflow: hidden; z-index: 200;
+      margin-bottom: 6px;
+    }
+    .bnav-menu-item {
+      padding: 11px 16px; font-size: 0.85rem; font-weight: 600;
+      color: var(--blue); cursor: pointer; white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .bnav-menu-item:last-child { border-bottom: none; }
+    .bnav-menu-item:hover, .bnav-menu-item:active { background: var(--blue-light); }
 
     @media (min-width: 900px) { body { max-width: 1500px; margin: 0 auto; } }
     @media (max-width: 899px) {
@@ -518,3 +545,117 @@
 }
 .sp-result:last-child { border-bottom:none; }
 .sp-result:hover { background:#f9fffe; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   KALENDER — LANDSCAPE OG COMPACT PORTRAIT
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Landscape tablet (fx Samsung A11 1280×800) ─────────────────────────── */
+@media (orientation: landscape) and (max-height: 860px) {
+
+  /* Komprimér time-højden markant */
+  :root { --hour-h: 32px; --time-col: 36px; }
+
+  /* Header slankere */
+  header { padding: 5px 12px; }
+  header h1 { font-size: 1rem; }
+  header #clock { font-size: 0.82rem; }
+
+  /* Nav tabs komprimerede */
+  .top-nav-btn { padding: 5px 12px; font-size: 0.8rem; }
+
+  /* Cal-view: weeks til venstre, messages skjult i kompakt landscape */
+  #view-cal { flex-direction: row; gap: 8px; }
+
+  /* Ugelabel + nav slankere */
+  .week-card { padding: 8px; }
+  .week-nav  { margin-bottom: 6px; }
+  .week-nav h2 { font-size: 0.75rem; }
+  .week-nav button { padding: 3px 10px; font-size: 0.88rem; }
+
+  /* Dag-headers: komprimér vejr + dato */
+  .day-header { font-size: 0.7rem; }
+  .day-header .date-num { font-size: 0.9rem; }
+  .day-header.today .date-num { width: 22px; height: 22px; font-size: 0.8rem; }
+  .day-header .allday-badges { height: 20px; }
+
+  /* Vejr-row (hvis tilføjet via JS) */
+  .wx-spacer, .th-spacer { min-height: unset; }
+
+  /* Time labels slankere */
+  .hour-label { font-size: 0.6rem; }
+
+  /* Events: kortere tekst */
+  .cal-event { font-size: 0.62rem; padding: 2px 4px; border-radius: 4px; }
+  .cal-event .ev-time { font-size: 0.56rem; }
+
+  /* Messages-panel: komprimér i landscape */
+  .messages-card { width: 220px; flex-shrink: 0; font-size: 0.78rem; }
+  .messages-card h2 { font-size: 0.72rem; margin-bottom: 6px; }
+  .msg-item { padding: 6px 0; font-size: 0.75rem; }
+  .event-item { padding: 5px 0; font-size: 0.75rem; }
+  .event-date { font-size: 0.65rem; padding: 3px 6px; }
+
+  /* Tabs: scroll horisontalt hvis mange */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 5px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 5px 10px; font-size: 0.78rem; white-space: nowrap; }
+  .tab img { width: 20px; height: 20px; }
+
+  /* Today-widget: komprimér */
+  #today-widget { gap: 5px; }
+  .today-card { padding: 7px 10px; }
+  .today-card .tc-name { font-size: 0.62rem; margin-bottom: 3px; }
+  .today-card .tc-row  { font-size: 0.72rem; gap: 4px; margin-bottom: 2px; }
+  .today-card .tc-time { font-size: 0.72rem; min-width: 32px; }
+
+  /* Body padding reduceret */
+  body { padding: 6px; gap: 6px; }
+  .left { gap: 5px; }
+}
+
+/* ── Ekstra kompakt landscape (lav skærm, fx 600px høj) ─────────────────── */
+@media (orientation: landscape) and (max-height: 620px) {
+  :root { --hour-h: 26px; --time-col: 32px; }
+  body { padding: 4px; gap: 4px; }
+  header { padding: 4px 10px; }
+  .week-card { padding: 6px 8px; }
+  .week-nav  { margin-bottom: 4px; }
+  .day-header .allday-badges { height: 16px; }
+  .day-header .wx-row { display: none; } /* vejr skjules helt */
+  .tabs { gap: 4px; }
+  .tab { padding: 4px 8px; font-size: 0.72rem; }
+}
+
+/* ── Portrait tablet — giv kalenderen mere luft ──────────────────────────── */
+@media (orientation: portrait) and (max-width: 900px) {
+  :root { --hour-h: 40px; --time-col: 38px; }
+
+  #view-cal { flex-direction: column; }
+
+  /* Messages til bunden, begrænset højde */
+  .messages-card { width: 100%; max-height: 180px; flex-shrink: 0; }
+
+  /* Tabs: scroll horisontalt */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 6px 10px; font-size: 0.8rem; white-space: nowrap; flex-shrink: 0; }
+
+  /* Day headers: lidt kompaktere */
+  .day-header { font-size: 0.7rem; padding: 3px 2px; }
+  .day-header .date-num { font-size: 0.92rem; }
+  .day-header .allday-badges { height: 22px; }
+
+  .cal-event { font-size: 0.65rem; }
+
+  body { padding: 6px; gap: 6px; }
+}
+
+/* ── Telefon portrait ────────────────────────────────────────────────────── */
+@media (max-width: 599px) and (orientation: portrait) {
+  :root { --hour-h: 40px; --time-col: 34px; }
+  .timetable { min-width: 460px; }
+  .day-header { font-size: 0.65rem; }
+  .day-header .date-num { font-size: 0.82rem; }
+  .day-header.today .date-num { width: 20px; height: 20px; font-size: 0.72rem; }
+}

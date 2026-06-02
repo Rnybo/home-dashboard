@@ -132,12 +132,27 @@
   <div class="view" id="view-app-regnespil"></div>
   <div class="view" id="view-app-huske"></div>
 
-  <!-- Mobile bottom nav -->
+  <!-- Portrait bottom nav (samme menustruktur som top nav) -->
   <nav class="bottom-nav">
-    <button class="active" id="nav-cal" onclick="switchView('cal')"><span class="icon">📅</span>Kalender</button>
-    <button id="nav-overview" onclick="switchView('overview')"><span class="icon">🏠</span>Overblik</button>
-    <button id="nav-gallery" onclick="switchView('gallery')"><span class="icon">🖼️</span>Galleri</button>
-    <button id="nav-msg" onclick="switchView('msg')"><span class="icon">📬</span>Beskeder</button>
+    <button id="bnav-cal" onclick="switchView('cal')">
+      <span class="icon">📅</span>Kalender
+    </button>
+    <button id="bnav-aula" onclick="toggleBnavMenu('bnav-aula-menu', event)">
+      <span class="icon">📚</span>Aula ▾
+      <div id="bnav-aula-menu" class="bnav-menu" style="display:none">
+        <div class="bnav-menu-item" onclick="switchAulaView('overview');event.stopPropagation()">🏠 Overblik</div>
+        <div class="bnav-menu-item" onclick="switchAulaView('gallery');event.stopPropagation()">🖼️ Galleri</div>
+        <div class="bnav-menu-item" onclick="switchAulaView('klasse');event.stopPropagation()">👥 Klasse</div>
+        <div class="bnav-menu-item" onclick="switchAulaView('msg');event.stopPropagation()">📬 Beskeder</div>
+      </div>
+    </button>
+    <button id="bnav-family" onclick="toggleBnavMenu('bnav-family-menu', event)" style="display:none">
+      <span class="icon">👨‍👩‍👧</span>Familie ▾
+      <div id="bnav-family-menu" class="bnav-menu" style="display:none">
+        <div id="bnav-family-kids" class="bnav-menu-item" onclick="switchView('family-kids');event.stopPropagation()" style="display:none">🧒 Børn</div>
+        <div id="bnav-family-adults" class="bnav-menu-item" onclick="switchView('family-adults');event.stopPropagation()" style="display:none">🧑 Voksne</div>
+      </div>
+    </button>
   </nav>
 
   <!-- Message modal -->

@@ -30,10 +30,16 @@ function updateFamilyNav() {
   const btn      = document.getElementById('family-nav-btn');
   const ddKids   = document.getElementById('family-dd-kids');
   const ddAdults = document.getElementById('family-dd-adults');
-  if (!btn) return;
-  btn.style.display = (cfg.kids.length || cfg.adults.length) ? '' : 'none';
+  if (btn) btn.style.display = (cfg.kids.length || cfg.adults.length) ? '' : 'none';
   if (ddKids)   ddKids.style.display   = cfg.kids.length   ? '' : 'none';
   if (ddAdults) ddAdults.style.display = cfg.adults.length ? '' : 'none';
+  // Synkroniser bottom nav Familie-knap
+  const bnavFamily = document.getElementById('bnav-family');
+  const bnavKids   = document.getElementById('bnav-family-kids');
+  const bnavAdults = document.getElementById('bnav-family-adults');
+  if (bnavFamily) bnavFamily.style.display = (cfg.kids.length || cfg.adults.length) ? '' : 'none';
+  if (bnavKids)   bnavKids.style.display   = cfg.kids.length   ? '' : 'none';
+  if (bnavAdults) bnavAdults.style.display = cfg.adults.length ? '' : 'none';
 }
 
 function toggleFamilyMenu(e) {
@@ -72,6 +78,26 @@ function renderFamilyPage(type) {
 
 function openFamilyApp(id)         { switchView('app-' + id); }
 function familyAppBack(parentView) { switchView(parentView); }
+
+function toggleBnavMenu(menuId, e) {
+  e.stopPropagation();
+  // Luk alle andre bnav-menuer
+  document.querySelectorAll('.bnav-menu').forEach(m => {
+    if (m.id !== menuId) m.style.display = 'none';
+  });
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const open = menu.style.display !== 'block';
+  menu.style.display = open ? 'block' : 'none';
+  if (open) {
+    setTimeout(() => {
+      document.addEventListener('click', function h() {
+        document.querySelectorAll('.bnav-menu').forEach(m => m.style.display = 'none');
+        document.removeEventListener('click', h);
+      });
+    }, 0);
+  }
+}
 
 // Deles af regnespil og huskespil
 function shuffle(arr) {

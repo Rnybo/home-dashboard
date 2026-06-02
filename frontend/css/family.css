@@ -370,17 +370,21 @@
 .mem-board {
   flex:1; display:grid;
   grid-template-columns:repeat(var(--mem-cols), 1fr);
-  gap:clamp(4px, 1vw, 10px);
-  padding:clamp(6px, 1.5vw, 14px);
-  align-content:center; overflow:hidden;
+  grid-auto-rows:1fr;
+  gap:clamp(3px, 0.8vw, 8px);
+  padding:clamp(4px, 1vw, 10px);
+  overflow:hidden;
+  /* Kortene skalerer til at passe i den tilgængelige højde */
+  container-type:size;
 }
 
 /* Kort */
 .mem-card {
-  aspect-ratio:1;
+  /* aspect-ratio fjernet — kortet fylder cellen, som grid styrer */
   perspective:600px;
   cursor:pointer;
   touch-action:manipulation;
+  min-width:0; min-height:0;
 }
 .mem-card-inner {
   width:100%; height:100%;
@@ -630,3 +634,122 @@
 }
 .mem-picker-confirm:disabled { background:#374151; color:#6b7280; cursor:not-allowed; }
 .mem-picker-confirm:not(:disabled):hover { background:#4f46e5; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LANDSCAPE MODE  –  kompakt layout når skærmen er bred og lav (tablet landscape)
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 620px) {
+
+  /* ── Regnespil opsætning ─────────────────────────────────────────────── */
+  .rs-setup-shell { overflow-y: auto; }
+
+  .rs-setup-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 10px 16px;
+    padding: 8px 16px 12px;
+    align-items: start;
+  }
+
+  /* Hvem spiller: fuld bredde øverst */
+  .rs-setup-body > .rs-setup-section:first-child { grid-column: 1 / -1; }
+
+  /* Niveau og regneart side om side */
+  .rs-level-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .rs-level-btn  { padding: 8px 6px; }
+  .rs-level-icon { font-size: 1.4rem; }
+  .rs-level-name { font-size: .75rem; }
+  .rs-level-desc { display: none; }
+
+  .rs-ops-grid   { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .rs-op-btn     { padding: 8px 10px; gap: 6px; font-size: .8rem; }
+
+  /* Start-knap: fuld bredde */
+  .rs-setup-body > .rs-start-btn { grid-column: 1 / -1; padding: 10px; }
+
+  /* ── Regnespil spil ──────────────────────────────────────────────────── */
+  .rs-topbar { padding: 6px 14px 4px; }
+  .rs-stage {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 16px 8px;
+    gap: clamp(10px, 3vw, 24px);
+  }
+
+  /* Ligning og svarmuligheder side om side */
+  .rs-equation {
+    gap: clamp(4px, 1.5vw, 12px);
+    flex-shrink: 0;
+  }
+  .rs-num   { font-size: clamp(1.4rem, 4vw, 2.2rem); padding: 3px 10px; }
+  .rs-plus  { font-size: clamp(1.4rem, 4vw, 2.2rem); }
+  .rs-equals{ font-size: clamp(1.4rem, 4vw, 2.2rem); }
+  .rs-bubbles { max-width: 90px; font-size: clamp(.9rem, 2.5vw, 1.3rem); }
+
+  .rs-dropzone {
+    width: clamp(54px, 12vw, 80px);
+    height: clamp(54px, 12vw, 80px);
+  }
+
+  .rs-options {
+    flex-direction: column;
+    gap: clamp(6px, 1.5vw, 12px);
+    flex-shrink: 0;
+  }
+  .rs-option {
+    min-width: clamp(80px, 18vw, 120px);
+    padding: 8px 12px;
+  }
+  .rs-opt-bubbles { font-size: clamp(.8rem, 2vw, 1rem); min-height: 1.5em; }
+  .rs-opt-num     { font-size: clamp(1.2rem, 3.5vw, 1.8rem); }
+
+  /* Feedback-modal */
+  .rs-fb-modal { padding: 16px 20px 14px; gap: 10px; }
+  .rs-fb-msg   { font-size: 1.1rem; }
+
+  /* ── Huskespil opsætning ─────────────────────────────────────────────── */
+  .mem-setup-shell { overflow-y: auto; }
+
+  .mem-setup-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+    padding: 8px 14px 12px;
+    align-items: start;
+  }
+
+  /* Hvem spiller: fuld bredde */
+  .mem-setup-body > .mem-setup-section:first-child { grid-column: 1 / -1; }
+
+  /* Picker-bar og start-knap: fuld bredde */
+  .mem-picker-bar { grid-column: 1 / -1; padding: 7px 12px; }
+  .mem-setup-body > .rs-start-btn { grid-column: 1 / -1; padding: 10px; }
+
+  .mem-cat-btn { padding: 8px 4px; }
+  .mem-cat-btn .mem-cat-icon { font-size: 1.2rem; }
+  .mem-cat-btn .mem-cat-label { font-size: .65rem; }
+
+  .mem-grid-btn { padding: 8px 10px; }
+
+  /* Tur-dialog og win: kompakt */
+  .mem-turn-modal { padding: 18px 20px 16px; gap: 10px; }
+  .mem-turn-photo, .mem-turn-initials { width: 64px; height: 64px; font-size: 1.6rem; }
+  .mem-turn-text { font-size: 1rem; }
+  .mem-turn-text strong { font-size: 1.2rem; }
+
+  /* ── Huskespil bræt ──────────────────────────────────────────────────── */
+  .mem-topbar { padding: 6px 12px 5px; }
+  .mem-board  { gap: 3px; padding: 4px; }
+
+  /* Spillere i scoreboard: komprimér */
+  .mem-player      { padding: 4px 8px; gap: 5px; }
+  .mem-player-img,
+  .mem-player-init { width: 28px; height: 28px; font-size: .75rem; }
+  .mem-player-name { font-size: .72rem; }
+  .mem-player-score{ font-size: .9rem; }
+
+  /* Billedvælger: 6 kolonner på bred skærm */
+  .mem-pick-grid { grid-template-columns: repeat(6, 1fr); }
+}

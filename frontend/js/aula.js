@@ -49,12 +49,12 @@
     function renderMessages(elId) {
       const el=document.getElementById(elId);
       if (!cachedThreads.length) { el.textContent='Ingen beskeder'; return; }
-      const limit = elId === 'messages-cal' ? 3 : 20;
+      const limit = elId === 'messages-cal' ? 1 : 20;
       el.innerHTML=cachedThreads.slice(0,limit).map(t => `
         <div class="msg-item ${t.read?'':'unread'}" onclick="openMsg(${t.id},'${(t.subject||'').replace(/'/g,"\\'")}')">
           <div class="subject">${t.read?'':' 🔴 '}${t.subject||'(ingen emne)'}</div>
           <div class="meta">${t.read?'✓ Læst':'● Ulæst'}</div>
-        </div>`).join('');
+        </div>`).join('') + (elId === 'messages-cal' ? `<div class="sidebar-more-link" onclick="switchAulaView('msg')">Se alle beskeder →</div>` : '');
     }
     function openGoogleEvent(idx) {
       const e = _upcomingEvents[idx]; if (!e) return;

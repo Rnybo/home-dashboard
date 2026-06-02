@@ -157,7 +157,7 @@
     function renderSidebarOverview() {
       const el = document.getElementById('sidebar-overview');
       if (!el) return;
-      const posts = (window._cachedPosts || []).slice(0, 3);
+      const posts = (window._cachedPosts || []).slice(0, 1);
       if (!posts.length) { el.innerHTML = '<span class="loading">Ingen opslag</span>'; return; }
       el.innerHTML = posts.map(p => {
         const date = new Date(p.timestamp).toLocaleDateString('da-DK', {day:'numeric', month:'short'});
@@ -166,7 +166,7 @@
           <div class="subject">${important}${p.title||'(ingen titel)'}</div>
           <div class="meta">${p.ownerProfile?.fullName||''} · ${date}</div>
         </div>`;
-      }).join('');
+      }).join('') + `<div class="sidebar-more-link" onclick="switchAulaView('overview')">Se alle opslag →</div>`;
     }
 
     function openPost(postId) {
@@ -507,9 +507,17 @@
       });
       document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap');
+      const sidebar = document.getElementById('messages-panel-cal');
       const now = new Date();
-      wrap.style.maxHeight = (hourH * 10) + 'px';
+      // maxHeight = sidebarens naturlige højde så kalender og sidebar matcher
+      wrap.style.maxHeight = '';
+      const sidebarH = sidebar ? sidebar.offsetHeight : 0;
+      const wrapRect = wrap.getBoundingClientRect();
+      const byWindow = window.innerHeight - wrapRect.top - 10;
+      const targetH = sidebarH > 100 ? sidebarH - (wrapRect.top - sidebar.getBoundingClientRect().top) : byWindow;
+      wrap.style.maxHeight = Math.max(Math.min(targetH, byWindow), hourH * 6) + 'px';
       if (!wrap.dataset.scrolled) {
+        // Scroll til 1 time før nuværende tidspunkt
         const scrollToHour = days.some(d => isSameDay(d, now)) ? Math.max(0, now.getHours() - 1) : 7;
         wrap.scrollTop = scrollToHour * hourH;
         wrap.dataset.scrolled = '1';

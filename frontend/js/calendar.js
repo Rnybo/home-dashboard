@@ -556,14 +556,15 @@
       if (!wrap) return;
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
       const isPortrait = window.innerHeight > window.innerWidth;
-      // Gem scrollTop før height-ændring — Chrome nulstiller den ellers
       const savedScroll = wrap.scrollTop;
       wrap.style.maxHeight = '';
+      // Brug altid window.innerHeight minus body-padding — ikke wrapRect.top
+      // wrapRect.top varierer med fane og header-indhold
+      const bodyPadBottom = parseInt(getComputedStyle(document.body).paddingBottom) || 0;
       const wrapRect = wrap.getBoundingClientRect();
-      const availH = window.innerHeight - wrapRect.top - 10;
-      const maxH = isPortrait ? hourH * 10 : availH;
+      const availH = window.innerHeight - wrapRect.top - bodyPadBottom - 10;
+      const maxH = isPortrait ? hourH * 10 : Math.max(availH, hourH * 6);
       wrap.style.maxHeight = Math.max(maxH, hourH * 6) + 'px';
-      // Gendan scroll hvis den blev nulstillet
       if (savedScroll > 0 && wrap.scrollTop === 0) wrap.scrollTop = savedScroll;
     }
 

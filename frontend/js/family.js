@@ -196,6 +196,8 @@ let rs = {
   level: 'seed',
   ops: ['plus'],
   phase: 'setup',
+  childName: '',
+  childPhoto: '',
 };
 
 // Vis N bobler — over 9 vises emoji + ×N badge
@@ -210,6 +212,33 @@ function renderRegnespil() {
   if (!el) return;
   rs.phase = 'setup';
 
+  // Børn fra Aula (CHILDREN er global) — fallback til manuel tekstinput
+  const hasChildren = typeof CHILDREN !== 'undefined' && CHILDREN.length > 0;
+  const childSection = hasChildren
+    ? `<div class="rs-setup-section">
+        <div class="rs-setup-label">Hvem spiller?</div>
+        <div class="rs-child-row">
+          ${CHILDREN.map(c => {
+            const active = rs.childName === c.name;
+            const photo  = c._photoUrl ? aulaImg(c._photoUrl) : '';
+            return `<button class="rs-child-btn ${active ? 'rs-child-active' : ''}"
+              onclick="rsSelectChild('${c.name.replace(/'/g,"\\'")}','${photo}')">
+              ${photo
+                ? `<img class="rs-child-img" src="${photo}" alt="${c.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+                : ''}
+              <div class="rs-child-initials" style="${photo ? 'display:none' : ''}">${c.name.charAt(0)}</div>
+              <span class="rs-child-name">${c.name}</span>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>`
+    : `<div class="rs-setup-section">
+        <div class="rs-setup-label">Hvem spiller?</div>
+        <input class="rs-name-input" type="text" placeholder="Skriv navn…"
+          value="${rs.childName}"
+          oninput="rs.childName=this.value.trim();rs.childPhoto=''">
+      </div>`;
+
   el.innerHTML = `
     <div class="rs-shell rs-setup-shell">
       <div class="rs-topbar">
@@ -217,6 +246,8 @@ function renderRegnespil() {
         <span class="rs-setup-title">🎮 Regnespil</span>
       </div>
       <div class="rs-setup-body">
+
+        ${childSection}
 
         <div class="rs-setup-section">
           <div class="rs-setup-label">Vælg sværhedsgrad</div>
@@ -249,6 +280,13 @@ function renderRegnespil() {
     </div>`;
 }
 
+function rsSelectChild(name, photo) {
+  rs.childName  = name;
+  rs.childPhoto = photo;
+  document.querySelectorAll('.rs-child-btn').forEach(b =>
+    b.classList.toggle('rs-child-active', b.querySelector('.rs-child-name')?.textContent === name));
+}
+
 function rsSelectLevel(id) {
   rs.level = id;
   document.querySelectorAll('.rs-level-btn').forEach(b => b.classList.toggle('rs-level-active', b.dataset.level === id));
@@ -272,11 +310,21 @@ function rsStartGame() {
   if (!el) return;
   const lv = RS_LEVELS.find(l => l.id === rs.level);
 
+  const playerBadge = rs.childName
+    ? `<div class="rs-player-badge">
+        ${rs.childPhoto
+          ? `<img class="rs-player-img" src="${rs.childPhoto}" alt="${rs.childName}">`
+          : `<div class="rs-player-initials">${rs.childName.charAt(0)}</div>`}
+        <span class="rs-player-name">${rs.childName}</span>
+      </div>`
+    : '';
+
   el.innerHTML = `
     <div class="rs-shell">
       <div class="rs-topbar">
         <button class="family-back-btn" onclick="renderRegnespil()" style="padding:0;margin:0">← Indstillinger</button>
         <div class="rs-score-row">
+          ${playerBadge}
           <span class="rs-level-chip" style="background:${lv.color}22;color:${lv.color};border-color:${lv.color}55">${lv.icon} ${lv.label}</span>
           <span id="rs-stars"></span>
           <span class="rs-score-label">Point: <strong id="rs-score">0</strong></span>
@@ -445,13 +493,26 @@ function rsCheckAnswer(val) {
   const correct = val === rs.answer;
   const dz = document.getElementById('rs-dropzone');
   const fb = document.getElementById('rs-feedback');
+  const n  = rs.childName;
 
   if (correct) {
     rs.score++; rs.streak++;
     if (dz) { dz.innerHTML = `<span class="rs-dz-answer rs-dz-correct">${val}</span>`; dz.classList.add('rs-dz-filled-correct'); }
     rsBurst(dz);
     if (fb) {
-      fb.textContent = ['Fantastisk! 🎉','Super! ⭐','Bravo! 🌟','Perfekt! 🎊','Dygtig! 🏆'][Math.floor(Math.random()*5)];
+      const msgs = n ? [
+        `Godt klaret, ${n}! 👏`,
+        `Sejt, ${n}! 🌟`,
+        `Du er skarp, ${n}! 🎉`,
+        `Fantastisk, ${n}! 🏆`,
+        `Wow ${n}, det er rigtigt! ⭐`,
+        `Brilliant, ${n}! 🎊`,
+        `Ja! Godt gået ${n}! 🥳`,
+        `${n} er en matematiker! 🚀`,
+      ] : [
+        'Fantastisk! 🎉','Super! ⭐','Bravo! 🌟','Perfekt! 🎊','Dygtig! 🏆',
+      ];
+      fb.innerHTML = msgs[Math.floor(Math.random() * msgs.length)];
       fb.className = 'rs-feedback rs-feedback-correct'; fb.style.display = 'block';
     }
   } else {
@@ -459,11 +520,16 @@ function rsCheckAnswer(val) {
     if (dz) { dz.innerHTML = `<span class="rs-dz-answer rs-dz-wrong">${rs.answer}</span>`; dz.classList.add('rs-dz-filled-wrong'); }
     const wo = document.getElementById(`rs-opt-${val}`);
     if (wo) { wo.classList.add('rs-shake'); setTimeout(() => wo.classList.remove('rs-shake'), 500); }
-    if (fb) { fb.textContent = `Ikke helt — svaret er ${rs.answer} 💪`; fb.className = 'rs-feedback rs-feedback-wrong'; fb.style.display = 'block'; }
+    if (fb) {
+      fb.innerHTML = n
+        ? `Prøv igen, ${n} — svaret er ${rs.answer} 💪`
+        : `Ikke helt — svaret er ${rs.answer} 💪`;
+      fb.className = 'rs-feedback rs-feedback-wrong'; fb.style.display = 'block';
+    }
   }
   document.getElementById('rs-score').textContent = rs.score;
   rsUpdateStars();
-  setTimeout(() => { if (fb) fb.style.display = 'none'; rsNewRound(); }, correct ? 1400 : 2000);
+  setTimeout(() => { if (fb) fb.style.display = 'none'; rsNewRound(); }, correct ? 1600 : 2000);
 }
 
 // ── Konfetti ──────────────────────────────────────────────────────────────────

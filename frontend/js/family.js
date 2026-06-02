@@ -504,15 +504,15 @@ function rsCheckAnswer(val) {
     if (dz) { dz.innerHTML = `<span class="rs-dz-answer rs-dz-correct">${val}</span>`; dz.classList.add('rs-dz-filled-correct'); }
     rsBurst(dz);
     const msgs = n ? [
-      `Godt klaret, ${n}! 👏`,
-      `Sejt, ${n}! 🌟`,
-      `Du er skarp, ${n}! 🎉`,
-      `Fantastisk, ${n}! 🏆`,
-      `Wow ${n}, det er rigtigt! ⭐`,
-      `Brilliant, ${n}! 🎊`,
-      `Ja! Godt gået ${n}! 🥳`,
-      `${n} er en matematiker! 🚀`,
-    ] : ['Fantastisk! 🎉','Super! ⭐','Bravo! 🌟','Perfekt! 🎊','Dygtig! 🏆'];
+      `Flot, ${n}! 🌟`,
+      `Godt, ${n}! 👏`,
+      `Genial, ${n}! 🚀`,
+      `Perfekt, ${n}! ⭐`,
+      `Sejt, ${n}! 🎉`,
+      `Dygtig, ${n}! 🏆`,
+      `Skarp, ${n}! 🎊`,
+      `Brilliant, ${n}! 🥳`,
+    ] : ['Flot! 🌟','Godt! 👏','Perfekt! ⭐','Sejt! 🎉','Dygtig! 🏆'];
     rsShowFeedback(msgs[Math.floor(Math.random() * msgs.length)], true);
   } else {
     rs.streak = 0;

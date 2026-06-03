@@ -208,6 +208,7 @@ from backend.routers import google as google_router
 from backend.routers import aula as aula_router
 from backend.routers import settings as settings_router
 from backend.routers import spotify as spotify_router
+from backend.routers import news as news_router
 from backend.routers.cast import router as cast_router, router_auth as cast_router_auth
 app.include_router(custom_router.router)
 app.include_router(weather_router.router, dependencies=[Depends(check_api_key)])
@@ -215,6 +216,7 @@ app.include_router(google_router.router, dependencies=[Depends(check_api_key)])
 app.include_router(aula_router.router, dependencies=[Depends(check_api_key)])
 app.include_router(settings_router.router)
 app.include_router(spotify_router.router)
+app.include_router(news_router.router)
 app.include_router(cast_router)
 app.include_router(cast_router_auth, dependencies=[Depends(check_api_key)])  # ingen auth — settings bruges fra settings.html uden API-nøgle
 

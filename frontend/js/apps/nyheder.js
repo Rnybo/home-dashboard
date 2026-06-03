@@ -18,16 +18,9 @@ async function loadNyheder(force) {
   if (!force && nyhedItems) { renderNyhedList(nyhedItems); return; }
   listEl.innerHTML = '<div class="nyhed-loading">Henter nyheder…</div>';
   try {
-    const FEED = 'https://www.dr.dk/nyheder/service/feeds/allenyheder';
-    const res  = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(FEED), { signal: AbortSignal.timeout(8000) });
-    const json = await res.json();
-    const doc  = new DOMParser().parseFromString(json.contents, 'text/xml');
-    nyhedItems = [...doc.querySelectorAll('item')].slice(0, 15).map(item => ({
-      title: item.querySelector('title')?.textContent || '',
-      link:  item.querySelector('link')?.textContent  || '',
-      date:  item.querySelector('pubDate')?.textContent || '',
-      img:   item.querySelector('enclosure')?.getAttribute('url') || item.querySelector('thumbnail')?.getAttribute('url') || '',
-    }));
+    const res = await fetch('/api/news/dr', { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(res.status);
+    nyhedItems = await res.json();
     renderNyhedList(nyhedItems);
   } catch(e) {
     listEl.innerHTML = '<div class="nyhed-loading" style="color:#c00">Kunne ikke hente nyheder.</div>';

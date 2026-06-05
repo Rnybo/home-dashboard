@@ -1,21 +1,18 @@
 ﻿    function switchTab(idx) {
       activeTab = idx;
       activeGoogleTab = -1;
-      _calScrolledToNow = false;
       document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
       renderWeek();
       calScrollToNow();
     }
     function switchGoogleTab(idx) {
       activeGoogleTab = idx;
-      _calScrolledToNow = false;
       const allTabs = document.querySelectorAll('#child-tabs .tab');
       allTabs.forEach((t,i) => t.classList.toggle('active', i === CHILDREN.length + idx));
       renderWeek();
       calScrollToNow();
     }
     function changeWeek(delta) {
-      _calScrolledToNow = false;
       weekOffset += delta;
       renderWeek();
       const days = getWeekDays();
@@ -38,15 +35,12 @@
       loadGoogleCalendar();
     }
 
-    // Scroll til nu -1 time — sættes direkte efter renderWeek er færdig
-    let _calScrolledToNow = false;
-
-    function calScrollToNow(delay = 0) {
-      const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
-      const target = Math.max(0, new Date().getHours() - 1) * hourH;
+    // Scroll til nu -1 time
+    function calScrollToNow() {
       const wrap = document.querySelector('.timetable-wrap');
-      if (wrap) { wrap.scrollTop = target; }
-      _calScrolledToNow = true;
+      if (!wrap) return;
+      const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
+      wrap.scrollTop = Math.max(0, new Date().getHours() - 1) * hourH;
     }
 
     // ── Today widget ──
@@ -542,15 +536,12 @@
         if (isToday) { const nm=new Date().getHours()*60+new Date().getMinutes(); if(nm>=START_H*60&&nm<=END_H*60) html+=`<div class="now-line" style="top:${pct(nm)}%"></div>`; }
         html += `</div>`;
       });
-      document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap');
-      const savedScroll = wrap.scrollTop;
+      const prevScroll = wrap ? wrap.scrollTop : 0;
+      document.getElementById('timetable').innerHTML = html;
       calUpdateWrapHeight(wrap);
-      if (_calScrolledToNow) {
-        // Vi har allerede scrollet til nu — bevar position
-        if (wrap.scrollTop !== savedScroll) wrap.scrollTop = savedScroll;
-      }
-      // Scroll-lytter registreres kun én gang
+      // Bevar scroll efter innerHTML-nulstilling — men lad calScrollToNow overskrive ved behov
+      if (prevScroll > 0 && wrap.scrollTop === 0) wrap.scrollTop = prevScroll;
       if (!wrap._scrollListenerAdded) {
         wrap._scrollListenerAdded = true;
         wrap.addEventListener('scroll', () => {}, { passive: true });

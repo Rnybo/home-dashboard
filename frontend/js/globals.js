@@ -78,7 +78,7 @@
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-' + view).classList.add('active');
       // Scroll kalender til nu — viewet er nu display:flex så scroll virker
-      if (view === 'cal') { _calScrolledToNow = false; renderWeek(); calScrollToNow(); }
+      if (view === 'cal') { renderWeek(); calScrollToNow(); }
       // Top nav — Kalender or Aula or Familie active
       const calBtn = document.querySelector('.top-nav-btn:first-child');
       const aulaBtn = document.getElementById('aula-nav-btn');

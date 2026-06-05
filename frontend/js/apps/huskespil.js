@@ -208,7 +208,7 @@ function memOpenPicker() {
     + '</div>'
     + '</div>';
   overlay.addEventListener('click', e => { if (e.target===overlay) memClosePicker(); });
-  shell.appendChild(overlay);
+  document.body.appendChild(overlay);
   // Gem temp-valg på overlay
   overlay._selected = selected;
 }

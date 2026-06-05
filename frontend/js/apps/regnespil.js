@@ -173,8 +173,9 @@ function rsPointerDown(e) {
   document.body.appendChild(rsGhost);
   rs.dragging = { val, opt, startX: e.clientX, startY: e.clientY, origTop: rect.top, origLeft: rect.left };
   opt.classList.add('rs-dragging-src');
-  document.addEventListener('pointermove', rsPointerMove, { passive: false });
-  document.addEventListener('pointerup',   rsPointerUp);
+  document.addEventListener('pointermove',  rsPointerMove,  { passive: false });
+  document.addEventListener('pointerup',    rsPointerUp);
+  document.addEventListener('pointercancel', rsPointerCancel);
 }
 function rsPointerMove(e) {
   if (!rsGhost || !rs.dragging) return; e.preventDefault();
@@ -185,8 +186,9 @@ function rsPointerMove(e) {
     dz.classList.toggle('rs-dz-hover', gR.left<dzR.right && gR.right>dzR.left && gR.top<dzR.bottom && gR.bottom>dzR.top); }
 }
 function rsPointerUp(e) {
-  document.removeEventListener('pointermove', rsPointerMove);
-  document.removeEventListener('pointerup',   rsPointerUp);
+  document.removeEventListener('pointermove',  rsPointerMove);
+  document.removeEventListener('pointerup',    rsPointerUp);
+  document.removeEventListener('pointercancel', rsPointerCancel);
   if (!rsGhost || !rs.dragging) return;
   const dz = document.getElementById('rs-dropzone'), dzR = dz?.getBoundingClientRect(), gR = rsGhost.getBoundingClientRect();
   const dropped = dz && dzR && gR.left<dzR.right && gR.right>dzR.left && gR.top<dzR.bottom && gR.bottom>dzR.top;
@@ -194,6 +196,13 @@ function rsPointerUp(e) {
   rs.dragging.opt.classList.remove('rs-dragging-src');
   if (dropped) rsCheckAnswer(rs.dragging.val);
   rs.dragging = null;
+}
+function rsPointerCancel() {
+  document.removeEventListener('pointermove',  rsPointerMove);
+  document.removeEventListener('pointerup',    rsPointerUp);
+  document.removeEventListener('pointercancel', rsPointerCancel);
+  if (rsGhost) { rsGhost.remove(); rsGhost = null; }
+  if (rs.dragging) { rs.dragging.opt.classList.remove('rs-dragging-src'); rs.dragging = null; }
 }
 
 function rsCheckAnswer(val) {

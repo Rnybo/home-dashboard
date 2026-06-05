@@ -255,8 +255,9 @@ function ssPointerDown(e) {
   document.body.appendChild(ssGhost);
   ss.dragging = { tileData, tile, startX: e.clientX, startY: e.clientY, origTop: rect.top, origLeft: rect.left };
   tile.classList.add('rs-dragging-src');
-  document.addEventListener('pointermove', ssPointerMove, { passive: false });
-  document.addEventListener('pointerup',   ssPointerUp);
+  document.addEventListener('pointermove',  ssPointerMove,  { passive: false });
+  document.addEventListener('pointerup',    ssPointerUp);
+  document.addEventListener('pointercancel', ssPointerCancel);
 }
 
 function ssPointerMove(e) {
@@ -271,8 +272,9 @@ function ssPointerMove(e) {
 }
 
 function ssPointerUp(e) {
-  document.removeEventListener('pointermove', ssPointerMove);
-  document.removeEventListener('pointerup',   ssPointerUp);
+  document.removeEventListener('pointermove',  ssPointerMove);
+  document.removeEventListener('pointerup',    ssPointerUp);
+  document.removeEventListener('pointercancel', ssPointerCancel);
   if (!ssGhost || !ss.dragging) return;
   const gr = ssGhost.getBoundingClientRect();
   let droppedSlot = null;
@@ -285,6 +287,17 @@ function ssPointerUp(e) {
   document.querySelectorAll('.ss-slot-empty').forEach(s => s.classList.remove('rs-dz-hover'));
   if (droppedSlot) ssPlaceTile(ss.dragging.tileData, droppedSlot.id);
   ss.dragging = null;
+}
+function ssPointerCancel() {
+  document.removeEventListener('pointermove',  ssPointerMove);
+  document.removeEventListener('pointerup',    ssPointerUp);
+  document.removeEventListener('pointercancel', ssPointerCancel);
+  if (ssGhost) { ssGhost.remove(); ssGhost = null; }
+  if (ss.dragging) {
+    ss.dragging.tile.classList.remove('rs-dragging-src');
+    document.querySelectorAll('.ss-slot-empty').forEach(s => s.classList.remove('rs-dz-hover'));
+    ss.dragging = null;
+  }
 }
 
 function ssPlaceTile(tileData, slotId) {

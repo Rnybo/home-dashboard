@@ -45,8 +45,8 @@
       <div id="family-dropdown" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;
         background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);
         z-index:50;min-width:140px;overflow:hidden">
-        <div class="aula-dd-item" id="family-dd-kids" onclick="switchView('family-kids');event.stopPropagation()" style="display:none">🧒 Børn</div>
-        <div class="aula-dd-item" id="family-dd-adults" onclick="switchView('family-adults');event.stopPropagation()" style="display:none">🧑 Voksne</div>
+        <div class="aula-dd-item" id="family-dd-kids" onclick="switchView('family-kids');document.getElementById('family-dropdown').style.display='none';event.stopPropagation()" style="display:none">🧒 Børn</div>
+        <div class="aula-dd-item" id="family-dd-adults" onclick="switchView('family-adults');document.getElementById('family-dropdown').style.display='none';event.stopPropagation()" style="display:none">🧑 Voksne</div>
       </div>
     </div>
   </div>

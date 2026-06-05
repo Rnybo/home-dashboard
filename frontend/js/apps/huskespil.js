@@ -227,7 +227,12 @@ function memPickerToggle(el, word, needed) {
   const countEl = document.getElementById('mem-pick-count');
   if (countEl) countEl.textContent = sel.size + '/' + needed;
   const confirmBtn = document.getElementById('mem-pick-confirm');
-  if (confirmBtn) confirmBtn.disabled = (sel.size !== needed);
+  if (confirmBtn) {
+    confirmBtn.disabled = (sel.size !== needed);
+    confirmBtn.textContent = sel.size === needed
+      ? 'Brug disse ' + needed + ' billeder ✓'
+      : 'Vælg ' + sel.size + '/' + needed + ' billeder';
+  }
 }
 
 function memConfirmPicker(needed) {

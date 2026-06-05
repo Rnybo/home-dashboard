@@ -150,8 +150,8 @@
     <button id="bnav-family" onclick="toggleBnavMenu('bnav-family-menu', event)" style="display:none">
       <span class="icon">👨‍👩‍👧</span>Familie ▾
       <div id="bnav-family-menu" class="bnav-menu" style="display:none">
-        <div id="bnav-family-kids" class="bnav-menu-item" onclick="switchView('family-kids');event.stopPropagation()" style="display:none">🧒 Børn</div>
-        <div id="bnav-family-adults" class="bnav-menu-item" onclick="switchView('family-adults');event.stopPropagation()" style="display:none">🧑 Voksne</div>
+        <div id="bnav-family-kids" class="bnav-menu-item" onclick="switchView('family-kids');document.getElementById('bnav-family-menu').style.display='none';event.stopPropagation()" style="display:none">🧒 Børn</div>
+        <div id="bnav-family-adults" class="bnav-menu-item" onclick="switchView('family-adults');document.getElementById('bnav-family-menu').style.display='none';event.stopPropagation()" style="display:none">🧑 Voksne</div>
       </div>
     </button>
   </nav>

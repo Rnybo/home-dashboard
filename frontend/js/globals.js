@@ -66,6 +66,8 @@
     }
     function switchAulaView(view) {
       document.getElementById('aula-dropdown').style.display = 'none';
+      const bnavAula = document.getElementById('bnav-aula-menu');
+      if (bnavAula) bnavAula.style.display = 'none';
       switchView(view);
     }
     document.addEventListener('click', () => {

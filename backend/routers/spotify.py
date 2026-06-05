@@ -133,6 +133,8 @@ def spotify_search(q: str = "", type: str = "track"):
 @router.post("/api/spotify/play")
 async def spotify_play(request: Request):
     """Afspil en URI på en given Spotify-enhed."""
+    import logging
+    log = logging.getLogger("spotify")
     token = get_spotify_access_token()
     if not token:
         raise HTTPException(401, "Spotify ikke forbundet")
@@ -141,16 +143,18 @@ async def spotify_play(request: Request):
     device_id: str = body.get("device_id", "")
     if not uri:
         raise HTTPException(400, "uri mangler")
-    # Tracks afspilles som liste; alt andet som context
-    if uri.startswith("spotify:track:"):
-        payload = {"uris": [uri]}
-    else:
-        payload = {"context_uri": uri}
-    params = {"device_id": device_id} if device_id else {}
+
+    log.info(f"play uri={uri} device_id={device_id!r}")
+
+    payload = {"uris": [uri]} if uri.startswith("spotify:track:") else {"context_uri": uri}
+    params  = {"device_id": device_id} if device_id else {}
     try:
         r = req.put("https://api.spotify.com/v1/me/player/play",
                     headers={"Authorization": f"Bearer {token}"},
                     params=params, json=payload, timeout=8)
+        log.info(f"play response {r.status_code}: {r.text[:300]}")
+        if r.status_code == 404 and not device_id:
+            raise HTTPException(404, "no_active_device")
         if r.status_code not in (200, 204):
             raise HTTPException(r.status_code, r.text)
         return {"ok": True}

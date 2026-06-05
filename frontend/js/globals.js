@@ -77,6 +77,8 @@
       currentView = view;
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       document.getElementById('view-' + view).classList.add('active');
+      // Scroll kalender til nu — viewet er nu display:flex så scroll virker
+      if (view === 'cal') { _calScrolledToNow = false; renderWeek(); calScrollToNow(); }
       // Top nav — Kalender or Aula or Familie active
       const calBtn = document.querySelector('.top-nav-btn:first-child');
       const aulaBtn = document.getElementById('aula-nav-btn');
@@ -98,6 +100,7 @@
       if (view === 'app-nyheder')     renderNyhedApp();
       if (view === 'app-regnespil')   renderRegnespil();
       if (view === 'app-huske')       renderHuskespil();
+      if (view === 'app-spell')       renderStavespil();
       // Bottom nav
       document.querySelectorAll('.bottom-nav button').forEach((b,i) => b.classList.toggle('active', VIEWS[i] === view));
       if (view === 'gallery' && !galleryLoaded) loadGallery();
@@ -185,7 +188,8 @@
       await cacheFetch('google',
         async () => {
           const [gcal, custom] = await Promise.all([
-            apiFetch(`/api/google-calendar?from_date=${fromStr}&to_date=${toStr}`).then(r => r.json()),
+            apiFetch(`/api/google-calendar?from_date=${fromStr}&to_date=${toStr}`)
+              .then(r => r.ok ? r.json() : []).catch(() => []),
             apiFetch('/api/custom-events').then(r => r.json()).catch(() => []),
           ]);
           return [...gcal, ...custom.map(e => ({ ...e, allDay: !e.start.includes('T'), custom: true }))];

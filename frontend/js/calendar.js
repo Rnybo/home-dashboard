@@ -1,18 +1,21 @@
 ﻿    function switchTab(idx) {
       activeTab = idx;
       activeGoogleTab = -1;
+      _calScrolledToNow = false;
       document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
       renderWeek();
       calScrollToNow();
     }
     function switchGoogleTab(idx) {
       activeGoogleTab = idx;
+      _calScrolledToNow = false;
       const allTabs = document.querySelectorAll('#child-tabs .tab');
       allTabs.forEach((t,i) => t.classList.toggle('active', i === CHILDREN.length + idx));
       renderWeek();
       calScrollToNow();
     }
     function changeWeek(delta) {
+      _calScrolledToNow = false;
       weekOffset += delta;
       renderWeek();
       const days = getWeekDays();
@@ -36,11 +39,14 @@
     }
 
     // Scroll til nu -1 time — sættes direkte efter renderWeek er færdig
-    function calScrollToNow() {
-      const wrap = document.querySelector('.timetable-wrap');
-      if (!wrap) return;
+    let _calScrolledToNow = false;
+
+    function calScrollToNow(delay = 0) {
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
-      wrap.scrollTop = Math.max(0, new Date().getHours() - 1) * hourH;
+      const target = Math.max(0, new Date().getHours() - 1) * hourH;
+      const wrap = document.querySelector('.timetable-wrap');
+      if (wrap) { wrap.scrollTop = target; }
+      _calScrolledToNow = true;
     }
 
     // ── Today widget ──
@@ -117,9 +123,9 @@
     async function loadOverview() {
       const ids = getChildIds();
       const [postsData, datesData, bdayData] = await Promise.all([
-        apiFetch(`/api/posts?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => ({})),
-        apiFetch(`/api/important-dates?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => []),
-        apiFetch(`/api/birthdays?inst_profile_ids=${ids}`).then(r => r.json()).catch(() => []),
+        apiFetch(`/api/posts?inst_profile_ids=${ids}`).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+        apiFetch(`/api/important-dates?inst_profile_ids=${ids}`).then(r => r.ok ? r.json() : []).catch(() => []),
+        apiFetch(`/api/birthdays?inst_profile_ids=${ids}`).then(r => r.ok ? r.json() : []).catch(() => []),
       ]);
       try{localStorage.setItem('ls_dates',JSON.stringify(datesData));}catch(e){}
       try{localStorage.setItem('ls_bdays',JSON.stringify(bdayData));}catch(e){}
@@ -538,11 +544,12 @@
       });
       document.getElementById('timetable').innerHTML = html;
       const wrap = document.querySelector('.timetable-wrap');
-      // Gem scroll — calUpdateWrapHeight og innerHTML kan nulstille scrollTop
       const savedScroll = wrap.scrollTop;
       calUpdateWrapHeight(wrap);
-      // Gendan scroll altid — renderWeek må aldrig nulstille brugerens position
-      if (wrap.scrollTop !== savedScroll) wrap.scrollTop = savedScroll;
+      if (_calScrolledToNow) {
+        // Vi har allerede scrollet til nu — bevar position
+        if (wrap.scrollTop !== savedScroll) wrap.scrollTop = savedScroll;
+      }
       // Scroll-lytter registreres kun én gang
       if (!wrap._scrollListenerAdded) {
         wrap._scrollListenerAdded = true;

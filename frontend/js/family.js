@@ -5,7 +5,7 @@ const FAMILY_APPS = {
     { id: 'regnespil', label: 'Regnespil',    icon: '➕', comingSoon: false },
     { id: 'huske',     label: 'Huskespillet', icon: '🧠', comingSoon: false },
     { id: 'tal',       label: 'Tal',          icon: '🔢', comingSoon: false },
-    { id: 'spell',     label: 'Stavespil',    icon: '🔤', comingSoon: true  },
+    { id: 'spell',     label: 'Stavespil',    icon: '✏️', comingSoon: false },
     { id: 'wordgame',  label: 'Ordleg',       icon: '🃏', comingSoon: true  },
     { id: 'drawing',   label: 'Tegnesjov',    icon: '🎨', comingSoon: true  },
   ],

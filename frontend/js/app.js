@@ -61,17 +61,36 @@
       const valid = await checkSession();
       if (valid && sessionWasExpired) { window.location.reload(); return; }
       if (valid) await loadProfileConfig();
+      else {
+        // Session udløbet — brug cached profil fra localStorage så kalender stadig vises
+        try {
+          const kids = localStorage.getItem('ls_children');
+          const ids  = localStorage.getItem('ls_inst_ids');
+          if (kids) CHILDREN = JSON.parse(kids);
+          if (ids)  INST_PROFILE_IDS = JSON.parse(ids);
+          // Genbyg tabs så de kan klikkes
+          const tabsEl = document.getElementById('child-tabs');
+          if (tabsEl && CHILDREN.length) {
+            tabsEl.innerHTML = [
+              ...CHILDREN.map((c, i) =>
+                `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})" style="border-bottom:3px solid ${childColor(i)}">${c.name}</div>`
+              ),
+              ...GOOGLE_TABS.map((g, i) =>
+                `<div class="tab" onclick="switchGoogleTab(${i})" style="border-bottom:3px solid ${CAL_COLORS.faelles}"><span style="color:${CAL_COLORS.faelles}">📅</span> ${g.name}</div>`
+              ),
+            ].join('');
+          }
+        } catch(e) {}
+      }
 
       // Hent alt parallelt — cacheFetch viser cached data straks og opdaterer bagefter
-      await Promise.all([
-        loadCalendar(),
-        loadPresence(),
-        loadMessages(),
-        loadOverview(),
-        loadGoogleCalendar(),
-        loadWeather(),
-        loadRoutes(),
-      ]);
+      loadCalendar();
+      loadPresence();
+      loadMessages();
+      loadOverview();
+      loadGoogleCalendar();
+      loadWeather();
+      loadRoutes();
       renderWeek();
       renderTodayWidget();
       calScrollToNow();

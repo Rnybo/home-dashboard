@@ -45,5 +45,3 @@
         ].join('');
       } catch(e) {}
     }
-
-    let activeGoogleTab = -1; // -1 = aula tab active, >=0 = google tab index

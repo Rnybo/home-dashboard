@@ -542,15 +542,30 @@ function _spotifyTypeIcon(type) {
 
 async function spotifyPlay(encodedUri) {
   const uri = decodeURIComponent(encodedUri);
+  const resultsEl = document.getElementById('spotify-search-results');
   try {
     const r = await apiFetch('/api/spotify/play', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uri, device_id: _spotifyDeviceId }),
     });
-    if (r.ok) spotifySearchClose();
-    else console.warn('Spotify play fejl:', await r.text());
-  } catch(e) { console.warn('Spotify play fejl:', e); }
+    if (r.ok) {
+      spotifySearchClose();
+    } else {
+      const body = await r.json().catch(() => ({}));
+      const detail = body.detail || r.status;
+      console.warn('Spotify play fejl:', r.status, detail);
+      if (resultsEl) {
+        const msg = detail === 'no_active_device'
+          ? 'Ingen aktiv Spotify-enhed. Åbn Spotify på enheden først.'
+          : `Afspilning fejlede (${detail})`;
+        resultsEl.insertAdjacentHTML('afterbegin',
+          `<div style="padding:10px 14px;background:#fff3cd;color:#856404;font-size:0.82rem;border-bottom:1px solid #ffeeba;border-radius:4px 4px 0 0">${msg}</div>`);
+      }
+    }
+  } catch(e) {
+    console.warn('Spotify play fejl:', e);
+  }
 }
 
 // ── Dev mock ──────────────────────────────────────────────────────────────────

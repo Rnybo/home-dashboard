@@ -19,45 +19,23 @@ ok()   { printf "${GREEN}✓ %s${NC}\n" "$1"; }
 warn() { printf "${YELLOW}⚠ %s${NC}\n" "$1"; }
 err()  { printf "${RED}✗ %s${NC}\n" "$1"; exit 1; }
 step() { printf "\n${YELLOW}▶ %s${NC}\n" "$1"; }
-skip() { printf "${GREEN}↩ %s — allerede installeret${NC}\n" "$1"; }
 
 printf "==================================================\n"
 printf "  Familieoverblik — Installation/Opdatering\n"
 printf "==================================================\n"
 
 # ── Trin 1: Grundpakker ───────────────────────────────────────────────────────
-if ! command -v git > /dev/null 2>&1 || ! command -v python > /dev/null 2>&1; then
-    step "Installerer Termux-pakker..."
-    DEBIAN_FRONTEND=noninteractive pkg update -y >> "$LOG" 2>&1 || true
-    DEBIAN_FRONTEND=noninteractive pkg install -y bash python git openssh nodejs curl mosquitto >> "$LOG" 2>&1 \
-        || warn "Nogle pakker fejlede — fortsætter"
-    ok "Termux-pakker installeret"
-else
-    skip "Termux-pakker"
-    # Sørg for mosquitto er installeret selv om andre pakker allerede er der
-    if ! command -v mosquitto > /dev/null 2>&1; then
-        DEBIAN_FRONTEND=noninteractive pkg install -y mosquitto >> "$LOG" 2>&1 || true
-        ok "Mosquitto installeret"
-    fi
+step "Tjekker Termux-pakker..."
+MISSING_PKG=""
+for p in git python mosquitto; do
+    command -v $p > /dev/null 2>&1 || MISSING_PKG="$MISSING_PKG $p"
+done
+if [ -n "$MISSING_PKG" ]; then
+    step "Installerer:$MISSING_PKG..."
+    pkg update -y >> "$LOG" 2>&1 || true
+    pkg install -y $MISSING_PKG >> "$LOG" 2>&1 || warn "Nogle pakker fejlede"
 fi
-
-# Installer cryptography via Termux pkg (kræver kompilering ellers)
-if ! python -c "import cryptography" > /dev/null 2>&1; then
-    step "Installerer cryptography via pkg..."
-    pkg install -y python-cryptography >> "$LOG" 2>&1 \
-        && ok "cryptography installeret via pkg" \
-        || { pip install --break-system-packages cryptography >> "$LOG" 2>&1 \
-             && ok "cryptography installeret via pip" \
-             || warn "cryptography fejlede — login vil ikke virke"; }
-fi
-
-# Installer qrcode (kræves til MitID QR-kode visning)
-if ! python -c "import qrcode" > /dev/null 2>&1; then
-    step "Installerer qrcode..."
-    pip install --break-system-packages qrcode >> "$LOG" 2>&1 \
-        && ok "qrcode installeret" \
-        || warn "qrcode fejlede — MitID QR vil ikke virke"
-fi
+ok "Termux-pakker OK"
 
 # ── Trin 2: Hent/opdater kode (ALTID) ────────────────────────────────────────
 step "Henter seneste kode..."
@@ -65,69 +43,68 @@ if [ -d "$INSTALL_DIR/.git" ]; then
     cd "$INSTALL_DIR" && git pull origin main >> "$LOG" 2>&1
     ok "Kode opdateret"
 else
-    # Gem node_modules hvis de findes, slet resten og klon
-    if [ -d "$INSTALL_DIR/node_modules" ]; then
-        mv "$INSTALL_DIR/node_modules" /tmp/nm_backup 2>/dev/null
-    fi
     rm -rf "$INSTALL_DIR"
     git clone "$REPO" "$INSTALL_DIR" >> "$LOG" 2>&1 \
         && ok "Kode hentet" \
         || err "Git clone fejlede — tjek netværk"
-    # Gendan node_modules
-    if [ -d /tmp/nm_backup ]; then
-        mv /tmp/nm_backup "$INSTALL_DIR/node_modules" 2>/dev/null
-    fi
 fi
+cd "$INSTALL_DIR"
 
-# ── Trin 3: Python afhængigheder ─────────────────────────────────────────────
-if ! python -c "import fastapi" > /dev/null 2>&1; then
-    step "Installerer Python pakker..."
-    pip install --quiet --break-system-packages \
-        fastapi uvicorn websockets requests beautifulsoup4 python-dotenv \
-        icalendar recurring-ical-events zeroconf httpx paho-mqtt pychromecast \
-        qrcode Pillow cryptography html2text >> "$LOG" 2>&1
-    if [ $? -eq 0 ]; then ok "Python pakker installeret"
-    else warn "Nogle Python pakker fejlede — tjek $LOG"; fi
+# ── Trin 3: Python afhængigheder (ALTID) ─────────────────────────────────────
+step "Installerer Python pakker..."
+
+# 3a: cryptography via pkg (ARM-kompatibel)
+if ! python -c "import cryptography" > /dev/null 2>&1; then
+    printf "  cryptography (via pkg)...\n"
+    pkg install -y python-cryptography >> "$LOG" 2>&1 \
+        && ok "cryptography OK" || warn "cryptography fejlede"
 else
-    skip "Python pakker"
+    ok "cryptography OK"
 fi
 
-# Sørg altid for at disse pakker er installeret
-step "Tjekker kritiske pakker..."
+# 3b: Alle øvrige pakker via pip
 PIP="$(command -v pip3 || command -v pip)"
-for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets" "html2text:html2text" "PIL:Pillow"; do
-    mod="${pkg%%:*}"; pip_pkg="${pkg##*:}"
+PKGS="fastapi uvicorn websockets requests beautifulsoup4 python-dotenv \
+      icalendar recurring-ical-events zeroconf httpx paho-mqtt pychromecast \
+      qrcode Pillow html2text"
+
+for pkg in $PKGS; do
+    # map pip name til import name
+    case $pkg in
+        beautifulsoup4) mod="bs4" ;;
+        python-dotenv)  mod="dotenv" ;;
+        paho-mqtt)      mod="paho.mqtt" ;;
+        recurring-ical-events) mod="recurring_ical_events" ;;
+        Pillow)         mod="PIL" ;;
+        *)              mod="$pkg" ;;
+    esac
     if ! python -c "import $mod" > /dev/null 2>&1; then
-        printf "  Installerer $pip_pkg via $PIP...\n"
-        $PIP install --break-system-packages "$pip_pkg" 2>&1 | tail -5
-        python -c "import $mod" > /dev/null 2>&1 \
-            && ok "$pip_pkg installeret" || warn "$pip_pkg fejlede"
+        printf "  $pkg...\n"
+        $PIP install --quiet --break-system-packages "$pkg" >> "$LOG" 2>&1 \
+            && ok "$pkg OK" || warn "$pkg fejlede"
     else
-        ok "$pip_pkg OK"
+        ok "$pkg OK"
     fi
 done
 
-# Verificér alle afhængigheder
-step "Verificerer Python afhængigheder..."
-cd "$INSTALL_DIR"
-if python backend/check_deps.py 2>/dev/null; then
-    ok "Alle Python pakker OK"
+# ── Trin 4: Verificér alle afhængigheder ─────────────────────────────────────
+step "Verificerer afhængigheder..."
+if python backend/check_deps.py; then
+    ok "Alle pakker OK"
 else
-    warn "Nogle pakker mangler stadig — se output ovenfor"
+    warn "Nogle pakker mangler — se output ovenfor. Server starter måske ikke."
 fi
 
-
-# ── Trin 4: .env setup ───────────────────────────────────────────────────────
-cd "$INSTALL_DIR"
+# ── Trin 5: .env setup ───────────────────────────────────────────────────────
 if [ ! -f ".env" ]; then
     step "Opretter .env..."
     [ -f ".env.example" ] && cp .env.example .env || touch .env
     warn "Åbn settings: http://familiekalender.local:8000/settings.html"
 else
-    skip ".env konfiguration"
+    ok ".env OK"
 fi
 
-# ── Trin 5: Termux:Boot auto-start ───────────────────────────────────────────
+# ── Trin 6: Termux:Boot auto-start ───────────────────────────────────────────
 step "Konfigurerer auto-start..."
 mkdir -p "$HOME/.termux/boot"
 cat > "$HOME/.termux/boot/start-familieoverblik.sh" << 'BOOT'
@@ -136,44 +113,30 @@ export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export HOME="/data/data/com.termux/files/home"
 cd ~/home-dashboard
 
-# Start Mosquitto broker
-pkill -f mosquitto 2>/dev/null
-sleep 1
+pkill -f mosquitto 2>/dev/null; sleep 1
 nohup mosquitto -c mosquitto.conf > ~/home-dashboard/mosquitto.log 2>&1 &
 sleep 2
 
-# Start uvicorn
-pkill -f uvicorn 2>/dev/null
-sleep 1
+pkill -f uvicorn 2>/dev/null; sleep 1
 nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > ~/home-dashboard/server.log 2>&1 &
 BOOT
 chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"
 
 # ── Trin 7: Start server ─────────────────────────────────────────────────────
-step "Stopper eksisterende server..."
+step "Genstarter server..."
 pkill -f uvicorn 2>/dev/null || true
 pkill -f mosquitto 2>/dev/null || true
 sleep 2
-# Dræb hvad end der holder port 8000 — Termux-kompatibel metode
-PID=$(ss -tlnp 2>/dev/null | awk '/:8000 /{match($0,/pid=([0-9]+)/,a); if(a[1]) print a[1]}')
-if [ -n "$PID" ]; then kill -9 "$PID" 2>/dev/null || true; sleep 1; fi
-# Fallback: dræb alle python-processer med uvicorn i kommandolinjen
-for PID in $(ps aux 2>/dev/null | grep '[u]vicorn' | awk '{print $1}'); do
-    kill -9 "$PID" 2>/dev/null || true
-done
-sleep 1
-ok "Server stoppet"
 
-step "Starter server..."
+PID=$(ss -tlnp 2>/dev/null | awk '/:8000 /{match($0,/pid=([0-9]+)/,a); if(a[1]) print a[1]}')
+[ -n "$PID" ] && kill -9 "$PID" 2>/dev/null || true
+sleep 1
+
 nohup mosquitto -c "$INSTALL_DIR/mosquitto.conf" > "$INSTALL_DIR/mosquitto.log" 2>&1 &
 sleep 2
 nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > "$INSTALL_DIR/server.log" 2>&1 &
 sleep 3
-
-# Dagligt log-oprydningsjob (kører kl. 03:00 — fjerner logs ældre end 1 dag)
-CRON_JOB="0 3 * * * find $INSTALL_DIR -maxdepth 1 -name '*.log' -mtime +1 -delete; [ -f /sdcard/familieoverblik_install.log ] && find /sdcard -maxdepth 1 -name 'familieoverblik_install.log' -mtime +1 -delete 2>/dev/null; true"
-( crontab -l 2>/dev/null | grep -v 'familieoverblik_install\|home-dashboard.*\.log'; echo "$CRON_JOB" ) | crontab - 2>/dev/null || true
 
 if pgrep -f uvicorn > /dev/null; then
     ok "Server kører!"
@@ -183,5 +146,6 @@ if pgrep -f uvicorn > /dev/null; then
     printf "  Indstillinger: http://familiekalender.local:8000/settings.html\n"
     printf "==================================================\n"
 else
-    err "Server startede ikke — tjek $INSTALL_DIR/server.log"
+    warn "Server startede ikke — tjek $INSTALL_DIR/server.log"
+    tail -20 "$INSTALL_DIR/server.log" 2>/dev/null
 fi

@@ -62,22 +62,27 @@ else
     ok "cryptography OK"
 fi
 
-# 3b: Alle øvrige pakker via pip
+# 3b: Alle øvrige pakker via pip — format: "import_name:pip_name"
 PIP="$(command -v pip3 || command -v pip)"
-PKGS="fastapi uvicorn websockets requests beautifulsoup4 python-dotenv \
-      icalendar recurring-ical-events zeroconf httpx paho-mqtt pychromecast \
-      qrcode Pillow html2text"
-
-for pkg in $PKGS; do
-    # map pip name til import name
-    case $pkg in
-        beautifulsoup4) mod="bs4" ;;
-        python-dotenv)  mod="dotenv" ;;
-        paho-mqtt)      mod="paho.mqtt" ;;
-        recurring-ical-events) mod="recurring_ical_events" ;;
-        Pillow)         mod="PIL" ;;
-        *)              mod="$pkg" ;;
-    esac
+for entry in \
+    "fastapi:fastapi" \
+    "uvicorn:uvicorn" \
+    "websockets:websockets" \
+    "requests:requests" \
+    "bs4:beautifulsoup4" \
+    "dotenv:python-dotenv" \
+    "icalendar:icalendar" \
+    "recurring_ical_events:recurring-ical-events" \
+    "zeroconf:zeroconf" \
+    "httpx:httpx" \
+    "paho.mqtt:paho-mqtt" \
+    "pychromecast:pychromecast" \
+    "qrcode:qrcode" \
+    "PIL:Pillow" \
+    "html2text:html2text"
+do
+    mod="${entry%%:*}"
+    pkg="${entry##*:}"
     if ! python -c "import $mod" > /dev/null 2>&1; then
         printf "  $pkg...\n"
         $PIP install --quiet --break-system-packages "$pkg" >> "$LOG" 2>&1 \

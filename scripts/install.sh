@@ -99,6 +99,16 @@ for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websock
     fi
 done
 
+# Verificér alle afhængigheder
+step "Verificerer Python afhængigheder..."
+cd "$INSTALL_DIR"
+if python backend/check_deps.py 2>/dev/null; then
+    ok "Alle Python pakker OK"
+else
+    warn "Nogle pakker mangler stadig — se output ovenfor"
+fi
+
+
 # ── Trin 4: .env setup ───────────────────────────────────────────────────────
 cd "$INSTALL_DIR"
 if [ ! -f ".env" ]; then

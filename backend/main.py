@@ -4,6 +4,11 @@ import sys
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
+# Check dependencies before anything else
+from backend.check_deps import check_and_print
+if not check_and_print():
+    sys.exit(1)
+
 from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse

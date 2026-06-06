@@ -10,7 +10,10 @@ import time
 from collections.abc import Callable
 
 import httpx
-import qrcode
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
 
 from ._utils import bytes_to_hex
 from .exceptions import MitIDError, PasswordInvalidError, TokenInvalidError

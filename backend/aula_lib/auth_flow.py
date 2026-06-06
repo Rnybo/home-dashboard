@@ -15,7 +15,10 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
-import qrcode
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
 
 from .api_client import AulaApiClient
 from .auth.exceptions import MitIDAuthError, OAuthError

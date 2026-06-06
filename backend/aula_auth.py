@@ -106,7 +106,6 @@ class AulaAuth:
         try:
             from backend.aula_lib.auth.mitid_client import MitIDAuthClient
             import httpx
-            import qrcode
 
             accounts = _get_accounts()
             if not accounts:
@@ -130,7 +129,7 @@ class AulaAuth:
                     return
 
             # Full login flow — capture QR code for dashboard display
-            def on_qr_codes(qr1: qrcode.QRCode, qr2: qrcode.QRCode) -> None:
+            def on_qr_codes(qr1, qr2) -> None:
                 # Send raw QR data to frontend — JS renders it instantly without PNG lag
                 try:
                     self.qr_image = qr1.get_matrix()   # list of lists of bools

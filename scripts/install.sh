@@ -41,6 +41,16 @@ else
     fi
 fi
 
+# Installer cryptography via Termux pkg (kræver kompilering ellers)
+if ! python -c "import cryptography" > /dev/null 2>&1; then
+    step "Installerer cryptography via pkg..."
+    pkg install -y python-cryptography >> "$LOG" 2>&1 \
+        && ok "cryptography installeret via pkg" \
+        || { pip install --break-system-packages cryptography >> "$LOG" 2>&1 \
+             && ok "cryptography installeret via pip" \
+             || warn "cryptography fejlede — login vil ikke virke"; }
+fi
+
 # ── Trin 2: Hent/opdater kode (ALTID) ────────────────────────────────────────
 step "Henter seneste kode..."
 if [ -d "$INSTALL_DIR/.git" ]; then
@@ -77,7 +87,7 @@ fi
 # Sørg altid for at disse pakker er installeret
 step "Tjekker kritiske pakker..."
 PIP="$(command -v pip3 || command -v pip)"
-for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets" "html2text:html2text" "qrcode:qrcode" "cryptography:cryptography" "PIL:Pillow"; do
+for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets" "html2text:html2text" "qrcode:qrcode" "PIL:Pillow"; do
     mod="${pkg%%:*}"; pip_pkg="${pkg##*:}"
     if ! python -c "import $mod" > /dev/null 2>&1; then
         printf "  Installerer $pip_pkg via $PIP...\n"

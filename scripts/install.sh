@@ -77,7 +77,7 @@ fi
 # Sørg altid for at disse pakker er installeret
 step "Tjekker kritiske pakker..."
 PIP="$(command -v pip3 || command -v pip)"
-for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets"; do
+for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websockets" "html2text:html2text" "qrcode:qrcode" "cryptography:cryptography" "PIL:Pillow"; do
     mod="${pkg%%:*}"; pip_pkg="${pkg##*:}"
     if ! python -c "import $mod" > /dev/null 2>&1; then
         printf "  Installerer $pip_pkg via $PIP...\n"

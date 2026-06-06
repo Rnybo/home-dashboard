@@ -67,7 +67,7 @@ if ! python -c "import fastapi" > /dev/null 2>&1; then
     pip install --quiet --break-system-packages \
         fastapi uvicorn websockets requests beautifulsoup4 python-dotenv \
         icalendar recurring-ical-events zeroconf httpx paho-mqtt pychromecast \
-        qrcode Pillow cryptography >> "$LOG" 2>&1
+        qrcode Pillow cryptography html2text >> "$LOG" 2>&1
     if [ $? -eq 0 ]; then ok "Python pakker installeret"
     else warn "Nogle Python pakker fejlede — tjek $LOG"; fi
 else

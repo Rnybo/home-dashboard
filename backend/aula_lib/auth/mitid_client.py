@@ -13,10 +13,7 @@ from typing import Any, Self
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import httpx
-try:
-    import qrcode
-except ImportError:
-    qrcode = None
+import qrcode
 from bs4 import BeautifulSoup, Tag
 
 from ..const import (

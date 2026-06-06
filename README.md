@@ -1,6 +1,6 @@
 # Familieoverblik — Family Dashboard
 
-A family dashboard for the Danish school platform Aula, designed for a wall-mounted tablet. Shows weekly schedule, presence times, Google Calendar, weather, commute times, messages, gallery and posts. Features automatic MitID login via Playwright and full offline support via localStorage cache.
+A family dashboard for the Danish school platform Aula, designed for a wall-mounted tablet. Shows weekly schedule, presence times, Google Calendar, weather, commute times, messages, gallery and posts. Features automatic MitID login with refresh token (no Playwright) and full offline support via localStorage cache.
 
 ## Features
 
@@ -42,7 +42,6 @@ py -3.12 -m venv venv
 ### 3. Install dependencies
 ```bash
 venv\Scripts\pip install -r requirements.txt
-venv\Scripts\playwright install chromium
 ```
 
 ### 4. Configure
@@ -114,8 +113,7 @@ home-dashboard/
 │   ├── store.py                    # Thread-safe custom_events.json r/w
 │   ├── google_utils.py             # Google Calendar OAuth helpers
 │   ├── aula_client.py              # Aula API client
-│   ├── aula_playwright.py          # MitID login via Playwright (PC)
-│   ├── aula_playwright_android.py  # MitID login via Node.js (Android)
+│   ├── aula_auth.py               # MitID login via OAuth2 + refresh token (no Playwright)
 │   └── routers/
 │       ├── aula.py                 # Aula endpoints (login, profile, posts, gallery...)
 │       ├── custom.py               # Custom events CRUD + parse + ICS feed

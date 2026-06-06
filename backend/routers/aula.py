@@ -20,9 +20,9 @@ def _get_client():
     return client
 
 
-def _get_playwright():
-    from backend.main import playwright_login
-    return playwright_login
+def _get_auth():
+    from backend.main import aula_auth
+    return aula_auth
 
 
 def aula_call(fn):
@@ -38,30 +38,52 @@ def aula_call(fn):
 
 @router.get("/api/login/accounts")
 def login_accounts():
+    from backend.aula_auth import _load_tokens, _get_accounts
+    tokens = _load_tokens()
     accounts = []
     for suffix in [""] + [f"_{i}" for i in range(2, 11)]:
         identity = os.getenv(f"MITID_IDENTITY{suffix}", "")
         username = os.getenv(f"MITID_USERNAME{suffix}", "")
         if username:
             name = identity.split()[0] if identity else username
-            accounts.append({"index": len(accounts), "name": name})
+            has_token = username in tokens
+            accounts.append({"index": len(accounts), "name": name, "username": username, "has_token": has_token})
     return accounts
+
+
+@router.post("/api/switch-account")
+def switch_account(account_index: int = 0):
+    from backend.aula_auth import _load_tokens, _get_accounts
+    accounts = _get_accounts()
+    if account_index >= len(accounts):
+        raise HTTPException(status_code=400, detail="Invalid account index")
+    username = accounts[account_index]["username"]
+    tokens = _load_tokens()
+    account_tokens = tokens.get(username, {})
+    cookies = account_tokens.get("cookies", {})
+    phpsessid = cookies.get("PHPSESSID", "")
+    csrf = cookies.get("Csrfp-Token", "")
+    if not phpsessid or not csrf:
+        raise HTTPException(status_code=401, detail="No session for this account — please log in first")
+    _get_client().update_credentials(phpsessid, csrf)
+    logging.getLogger("switch").info(f"Switched to account: {username}")
+    return {"ok": True, "name": accounts[account_index].get("identity", username).split()[0]}
 
 
 @router.post("/api/login/start")
 async def login_start(account_index: int = 0):
-    _get_playwright().start_login(account_index=account_index)
+    _get_auth().start_login(account_index=account_index)
     return {"ok": True}
 
 
 @router.get("/api/login/status")
 def login_status():
-    return _get_playwright().get_status()
+    return _get_auth().get_status()
 
 
 @router.post("/api/login/cancel")
 async def login_cancel():
-    _get_playwright().cancel()
+    _get_auth().cancel()
     return {"ok": True}
 
 

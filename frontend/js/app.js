@@ -57,6 +57,11 @@
     // ── Boot ──
     let pollTimer=null, sessionWasExpired=false;
     async function loadAll() {
+      // First-run check — redirect til settings hvis ingen Aula-konti er sat op
+      try {
+        const fr = await fetch('/api/first-run').then(r => r.json());
+        if (fr.first_run) { window.location.href = '/settings.html?firstrun=1'; return; }
+      } catch(e) {}
       await initConfig();
       const valid = await checkSession();
       if (valid && sessionWasExpired) { window.location.reload(); return; }
@@ -94,7 +99,7 @@
       renderWeek();
       renderTodayWidget();
       calScrollToNow();
-      schedulePoll(5 * 60 * 1000);
+      schedulePoll(15 * 60 * 1000);
     }
     // ── Event overlap layout ──────────────────────────────────────────────────
     function layoutEvents(events) {
@@ -486,9 +491,15 @@
     }
 
     function schedulePoll(ms) { clearTimeout(pollTimer); pollTimer=setTimeout(loadAll,ms); }
-    setInterval(()=>{ if(document.querySelector('.now-line')) renderWeek(); },60000);
-    // Auto-refresh Google calendar events every 5 min to pick up external deletions
-    setInterval(() => loadGoogleCalendar(), 5 * 60 * 1000);
+    // Opdater kun now-line positionen hvert minut — undgå fuld renderWeek()
+    function updateNowLine() {
+      const line = document.querySelector('.now-line');
+      if (!line) return;
+      const nm = new Date().getHours() * 60 + new Date().getMinutes();
+      const pct = (nm - START_H * 60) / ((END_H - START_H) * 60) * 100;
+      line.style.top = pct + '%';
+    }
+    setInterval(updateNowLine, 60000);
     // Reload config if settings were changed in another tab
     window.addEventListener('storage', e => {
       if (e.key === 'config_updated') initConfig();

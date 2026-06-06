@@ -27,3 +27,5 @@ tablet_key.pub
 Thumbs.db
 
 *.bak
+
+tokens.json

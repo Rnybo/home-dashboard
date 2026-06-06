@@ -3,7 +3,6 @@ uvicorn
 requests
 beautifulsoup4
 python-dotenv
-playwright
 pydantic
 icalendar
 recurring-ical-events
@@ -12,3 +11,6 @@ paho-mqtt
 httpx
 paramiko
 pychromecast
+qrcode
+cryptography
+Pillow

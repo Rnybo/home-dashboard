@@ -19,7 +19,8 @@
       const items = document.getElementById('account-items');
       if (!items) return;
       if (sessionExpired) {
-        const accs = loginAccounts.length ? loginAccounts : [{index:0, name:'Log ind'}];
+        // Session expired — show login buttons for all accounts
+        const accs = loginAccounts.length ? loginAccounts : [{index:0, name:'Log ind', has_token:false}];
         items.innerHTML = accs.map(a =>
           `<div class="acc-item" data-idx="${a.index}">🔑 Login ${a.name}</div>`
         ).join('');
@@ -29,12 +30,51 @@
         document.getElementById('session-banner').style.display = 'inline-block';
         document.getElementById('banner-msg').textContent = 'Aula offline — vælg konto';
       } else {
-        // Only show the active account (index 0 unless a specific login was done)
+        // Session active — show active account + switch options
         const active = loginAccounts.find(a => a.index === (window._activeAccountIndex ?? 0))
                     || loginAccounts[0]
-                    || { name: 'Logget ind' };
-        items.innerHTML = `<div class="acc-item" style="color:#aaa;cursor:default">✅ ${active.name}</div>`;
+                    || { name: 'Logget ind', has_token: true };
+        const others = loginAccounts.filter(a => a.index !== (window._activeAccountIndex ?? 0));
+        let html = `<div class="acc-item" style="color:#aaa;cursor:default">✅ ${active.name}</div>`;
+        if (others.length) {
+          html += `<div class="acc-item acc-divider" style="font-size:0.75rem;color:#bbb;padding:4px 12px;cursor:default">Skift konto</div>`;
+          html += others.map(a => {
+            const icon = a.has_token ? '🔄' : '🔑';
+            const label = a.has_token ? `Skift til ${a.name}` : `Login ${a.name}`;
+            return `<div class="acc-item" data-switch="${a.index}">${icon} ${label}</div>`;
+          }).join('');
+        }
+        items.innerHTML = html;
+        items.querySelectorAll('.acc-item[data-switch]').forEach(el => {
+          el.addEventListener('click', async e => {
+            e.stopPropagation();
+            const idx = parseInt(el.dataset.switch);
+            const acc = loginAccounts.find(a => a.index === idx);
+            if (acc && acc.has_token) {
+              await switchAccount(idx);
+            } else {
+              startLogin(idx);
+            }
+          });
+        });
         document.getElementById('session-banner').style.display = 'none';
+      }
+    }
+
+    async function switchAccount(accountIndex) {
+      document.getElementById('account-dropdown').style.display = 'none';
+      try {
+        const r = await apiFetch(`/api/switch-account?account_index=${accountIndex}`, { method: 'POST' });
+        if (r.ok) {
+          window._activeAccountIndex = accountIndex;
+          await loadLoginAccounts();
+          renderAccountDropdown(false);
+          // Reload all data for new account
+          loadAll();
+        }
+      } catch(e) {
+        // Token missing — fall back to login
+        startLogin(accountIndex);
       }
     }
 
@@ -62,16 +102,45 @@
       renderAccountDropdown(true);
     }
 
+    let _qrFrames = [null, null], _qrFrameTimer = null, _qrFrameIdx = 0;
+
+    function drawQR(canvasId, matrix) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !matrix || !matrix.length) return;
+      const ctx = canvas.getContext('2d');
+      const size = matrix.length;
+      const cell = canvas.width / size;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000';
+      for (let r = 0; r < size; r++)
+        for (let c = 0; c < size; c++)
+          if (matrix[r][c]) ctx.fillRect(c * cell, r * cell, cell, cell);
+    }
+
+    function startQRAnimation() {
+      if (_qrFrameTimer) return;
+      _qrFrameTimer = setInterval(() => {
+        _qrFrameIdx = 1 - _qrFrameIdx;
+        if (_qrFrames[_qrFrameIdx]) drawQR('mitid-qr-canvas1', _qrFrames[_qrFrameIdx]);
+      }, 500);
+    }
+
+    function stopQRAnimation() {
+      clearInterval(_qrFrameTimer);
+      _qrFrameTimer = null;
+      _qrFrames = [null, null];
+      _qrFrameIdx = 0;
+    }
+
     async function pollLoginStatus() {
       clearInterval(loginPolling);
       // Open MitID overlay
       const overlay = document.getElementById('mitid-overlay');
-      const qrImg = document.getElementById('mitid-qr-img');
       const spinner = document.getElementById('mitid-spinner');
       const status = document.getElementById('mitid-status');
       const hint = document.getElementById('mitid-hint');
       overlay.classList.add('open');
-      qrImg.style.display = 'none';
       spinner.style.display = 'inline-block';
       hint.textContent = 'Starter login-flow...';
       status.textContent = '';
@@ -81,20 +150,23 @@
           const data = await apiFetch('/api/login/status').then(r => r.json());
           if (data.state === 'show_qr') {
             spinner.style.display = 'none';
-            hint.textContent = 'Godkend i din MitID app eller scan QR-koden:';
+            hint.textContent = 'Scan QR-koden med MitID-appen:';
             if (data.qr_image) {
-              qrImg.src = 'data:image/png;base64,' + data.qr_image;
-              qrImg.style.display = 'block';
+              _qrFrames[0] = data.qr_image;
+              _qrFrames[1] = data.qr_image2;
+              document.getElementById('mitid-qr-wrap').style.display = 'block';
+              startQRAnimation();
             }
             status.textContent = '';
           } else if (data.state === 'running') {
             spinner.style.display = 'inline-block';
-            qrImg.style.display = 'none';
+            document.getElementById('mitid-qr-wrap').style.display = 'none';
             hint.textContent = 'Logger ind...';
           } else if (data.state === 'success') {
             clearInterval(loginPolling);
+            stopQRAnimation();
             spinner.style.display = 'none';
-            qrImg.style.display = 'none';
+            document.getElementById('mitid-qr-wrap').style.display = 'none';
             hint.textContent = '✅ Login lykkedes!';
             status.textContent = 'Genindlæser...';
             setTimeout(() => { overlay.classList.remove('open'); window.location.reload(); }, 1200);
@@ -110,8 +182,9 @@
             } catch(e) {}
           } else if (data.state === 'failed') {
             clearInterval(loginPolling);
+            stopQRAnimation();
             spinner.style.display = 'none';
-            qrImg.style.display = 'none';
+            document.getElementById('mitid-qr-wrap').style.display = 'none';
             hint.textContent = '❌ Login fejlede';
             status.textContent = data.error || '';
             loadLoginAccounts();
@@ -123,6 +196,7 @@
 
     function cancelMitIDLogin() {
       clearInterval(loginPolling);
+      stopQRAnimation();
       apiFetch('/api/login/cancel', { method: 'POST' }).catch(() => {});
       document.getElementById('mitid-overlay').classList.remove('open');
     }

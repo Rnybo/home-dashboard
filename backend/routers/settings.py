@@ -12,6 +12,12 @@ router = APIRouter()
 ROOT = Path(__file__).parent.parent.parent
 
 
+@router.get("/api/first-run")
+def first_run():
+    """Returnerer true hvis ingen Aula-konti er konfigureret — bruges til first-run redirect."""
+    return {"first_run": not bool(os.getenv("MITID_USERNAME", "").strip())}
+
+
 @router.get("/api/google-oauth/calendars")
 def google_oauth_calendars_public():
     """Returnerer Google-kalenderliste til settings-siden — ingen API-nøgle krævet."""

@@ -11,10 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from backend.aula_client import AulaClient
 from backend.mqtt_client import mqtt_client
-try:
-    from backend.aula_playwright import AulaPlaywright
-except ModuleNotFoundError:
-    from backend.aula_playwright_android import AulaPlaywright
+from backend.aula_auth import AulaAuth, auto_refresh_loop
 import os
 import json
 import logging
@@ -68,7 +65,7 @@ def _on_login_success(phpsessid, csrf_token):
     client.update_credentials(phpsessid, csrf_token)
     mqtt_client.publish("familieoverblik/session/state", {"valid": True}, retain=True)
 
-playwright_login = AulaPlaywright(on_success=_on_login_success)
+aula_auth = AulaAuth(on_success=_on_login_success)
 
 API_KEY = os.getenv("API_KEY", "")
 if not API_KEY:
@@ -172,6 +169,7 @@ async def startup():
     cast_start()
     asyncio.create_task(_session_keepalive())
     asyncio.create_task(_google_calendar_sync())
+    asyncio.create_task(auto_refresh_loop(aula_auth))
 
 @app.on_event("shutdown")
 async def shutdown():

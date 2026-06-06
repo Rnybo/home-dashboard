@@ -57,6 +57,17 @@
     <a href="/">← Tilbage til Familieoverblik</a>
   </header>
 
+  <!-- First-run velkomstbanner — vises kun ved ?firstrun=1 -->
+  <div id="firstrun-banner" style="display:none;background:#1a73e8;color:#fff;border-radius:10px;padding:18px 22px;margin-bottom:20px;font-size:1rem;line-height:1.6">
+    <strong>👋 Velkommen til Familieoverblik!</strong><br>
+    Udfyld dine oplysninger herunder for at komme i gang. Start med at tilføje din Aula/MitID-konto, og tilføj evt. Google Kalender-links og vejrplacering.<br>
+    <span style="opacity:.8;font-size:.9rem">Tryk <em>Gem indstillinger</em> nederst når du er klar — dashboardet starter automatisk bagefter.</span>
+  </div>
+  <script>
+    if (new URLSearchParams(location.search).get('firstrun') === '1')
+      document.getElementById('firstrun-banner').style.display = 'block';
+  </script>
+
   <!-- 1. Dashboard titel -->
   <div class="card">
     <h2>🏠 Dashboard</h2>

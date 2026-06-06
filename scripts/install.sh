@@ -66,7 +66,8 @@ if ! python -c "import fastapi" > /dev/null 2>&1; then
     step "Installerer Python pakker..."
     pip install --quiet --break-system-packages \
         fastapi uvicorn websockets requests beautifulsoup4 python-dotenv \
-        icalendar recurring-ical-events zeroconf httpx paho-mqtt pychromecast >> "$LOG" 2>&1
+        icalendar recurring-ical-events zeroconf httpx paho-mqtt pychromecast \
+        qrcode Pillow cryptography >> "$LOG" 2>&1
     if [ $? -eq 0 ]; then ok "Python pakker installeret"
     else warn "Nogle Python pakker fejlede — tjek $LOG"; fi
 else
@@ -88,30 +89,7 @@ for pkg in "paho.mqtt:paho-mqtt" "pychromecast:pychromecast" "websockets:websock
     fi
 done
 
-# ── Trin 4: Node.js / Playwright ─────────────────────────────────────────────
-if [ ! -d "$INSTALL_DIR/node_modules/playwright-core" ]; then
-    step "Installerer Node.js pakker..."
-    npm install playwright-core@1.52.0 --prefix "$INSTALL_DIR" --silent >> "$LOG" 2>&1 \
-        || warn "npm install fejlede — Playwright login virker muligvis ikke"
-    ok "Node.js pakker installeret"
-else
-    skip "Node.js / Playwright"
-fi
-
-# Patch playwright til Android (kør altid — idempotent)
-python3 -c "
-import os
-f = '$INSTALL_DIR/node_modules/playwright-core/lib/server/registry/index.js'
-if not os.path.exists(f): exit()
-t = open(f).read()
-old = '    else\n      throw new Error(\"Unsupported platform: \" + process.platform);'
-new = '    else if (process.platform === \"android\" || process.platform === \"linux\")\n      cacheDirectory = require(\"path\").join(require(\"os\").homedir(), \".cache\");\n    else\n      throw new Error(\"Unsupported platform: \" + process.platform);'
-if old in t:
-    open(f,'w').write(t.replace(old, new))
-    print('playwright patched for android')
-" 2>/dev/null || true
-
-# ── Trin 5: .env setup ───────────────────────────────────────────────────────
+# ── Trin 4: .env setup ───────────────────────────────────────────────────────
 cd "$INSTALL_DIR"
 if [ ! -f ".env" ]; then
     step "Opretter .env..."
@@ -121,7 +99,7 @@ else
     skip ".env konfiguration"
 fi
 
-# ── Trin 6: Termux:Boot auto-start ───────────────────────────────────────────
+# ── Trin 5: Termux:Boot auto-start ───────────────────────────────────────────
 step "Konfigurerer auto-start..."
 mkdir -p "$HOME/.termux/boot"
 cat > "$HOME/.termux/boot/start-familieoverblik.sh" << 'BOOT'

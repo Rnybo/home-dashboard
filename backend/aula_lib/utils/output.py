@@ -1,0 +1,202 @@
+"""Shared helpers for consistent human-readable CLI output."""
+
+import datetime
+from typing import TYPE_CHECKING, Any
+
+import click
+
+from .json import to_json
+
+if TYPE_CHECKING:
+    from aula.models.notification import Notification
+
+
+def output_json(ctx: click.Context, data: Any) -> bool:
+    """If ``--output json`` is active, emit JSON and return ``True``."""
+    if ctx.obj.get("OUTPUT_FORMAT") == "json":
+        click.echo(to_json(data))
+        return True
+    return False
+
+
+def format_heading_lines(title: str) -> list[str]:
+    """Return heading lines with a title and matching underline."""
+    normalized = title.strip()
+    return [normalized, "=" * len(normalized)]
+
+
+def print_heading(title: str) -> None:
+    """Print a consistent heading block."""
+    for line in format_heading_lines(title):
+        click.echo(line)
+
+
+def print_empty(resource: str) -> None:
+    """Print the shared empty-state sentence."""
+    click.echo(f"No {resource} found.")
+
+
+def print_error(message: str) -> None:
+    """Print the shared error sentence."""
+    click.echo(f"Error: {message}")
+
+
+def clip(text: str, max_len: int = 120) -> str:
+    """Clip long text with ellipsis for compact output rows."""
+    if len(text) <= max_len:
+        return text
+    if max_len <= 3:
+        return "." * max_len
+    return f"{text[: max_len - 3].rstrip()}..."
+
+
+def format_row(primary: str, secondary: str | None = None, tertiary: str | None = None) -> str:
+    """Format a row as 'primary | secondary | tertiary' while skipping blanks."""
+    parts = [primary]
+    for value in (secondary, tertiary):
+        if value and value.strip():
+            parts.append(value.strip())
+    return " | ".join(parts)
+
+
+def format_message_lines(
+    title: str,
+    sender: str,
+    send_date: str,
+    content: str,
+    fallback_title: str | None = None,
+    include_title: bool = True,
+) -> list[str]:
+    """Format a message as title plus indented metadata/body lines."""
+    resolved_title = title.strip() or (fallback_title.strip() if fallback_title else "")
+    lines: list[str] = []
+    if include_title:
+        lines.append(clip(resolved_title) if resolved_title else "(No subject)")
+    lines.append(f"  Author: {sender}")
+    if send_date.strip():
+        lines.append(f"  Date: {send_date}")
+
+    body = content.strip()
+    lines.append("  Body:")
+    if body:
+        lines.extend(f"  {clip(line)}" for line in body.splitlines())
+    else:
+        lines.append("  (no message body)")
+    return lines
+
+
+def format_notification_lines(
+    item: "Notification",
+    institution_names: dict[str, str] | None = None,
+    album_names: dict[int, str] | None = None,
+) -> list[str]:
+    """Format a notification as a compact multi-line block."""
+    lines = [clip(item.title)]
+
+    if item.module:
+        lines.append(f"  Module: {item.module}")
+    if item.event_type:
+        lines.append(f"  Event: {item.event_type}")
+    if item.notification_type:
+        lines.append(f"  Type: {item.notification_type}")
+
+    if item.created_at:
+        lines.append(f"  Triggered: {item.created_at}")
+    if item.expires_at:
+        lines.append(f"  Expires: {item.expires_at}")
+
+    institution_label: str | None = None
+    if item.institution_code:
+        institution_label = item.institution_code
+        if institution_names:
+            institution_label = institution_names.get(item.institution_code, item.institution_code)
+    if institution_label:
+        lines.append(f"  Institution: {institution_label}")
+    if item.related_child_name:
+        lines.append(f"  Child: {item.related_child_name}")
+
+    if item.post_id is not None:
+        lines.append(f"  Post: {item.post_id}")
+    if item.album_id is not None:
+        album_label = str(item.album_id)
+        if album_names:
+            album_label = album_names.get(item.album_id, album_label)
+        lines.append(f"  Album: {album_label}")
+    if item.media_id is not None:
+        lines.append(f"  Media: {item.media_id}")
+
+    return lines
+
+
+def format_post_lines(
+    title: str,
+    author: str,
+    date: str,
+    body: str,
+    attachments_count: int,
+) -> list[str]:
+    """Format a post as title plus indented metadata/body lines."""
+    lines = [clip(title) if title.strip() else "(No title)"]
+    if author.strip():
+        lines.append(f"  Author: {author}")
+    if date.strip():
+        lines.append(f"  Date: {date}")
+
+    body_text = body.strip()
+    lines.append("  Body:")
+    if body_text:
+        lines.extend(f"  {clip(line)}" for line in body_text.splitlines())
+    else:
+        lines.append("  (no post body)")
+
+    if attachments_count > 0:
+        lines.append(f"  Attachments: {attachments_count}")
+
+    return lines
+
+
+def format_record_lines(
+    title: str,
+    properties: list[tuple[str, str | None]] | None = None,
+    body_lines: list[str] | None = None,
+    body_label: str | None = None,
+    empty_body_text: str | None = None,
+) -> list[str]:
+    """Format a generic title + properties + optional body block."""
+    lines = [clip(title) if title.strip() else "(No title)"]
+
+    for label, value in properties or []:
+        if value and value.strip():
+            lines.append(f"  {label}: {value.strip()}")
+
+    if body_label:
+        lines.append(f"  {body_label}:")
+
+    normalized_body = [clip(line) for line in (body_lines or []) if line.strip()]
+    if normalized_body:
+        lines.extend(f"  {line}" for line in normalized_body)
+    elif body_label and empty_body_text:
+        lines.append(f"  {empty_body_text}")
+
+    return lines
+
+
+def format_calendar_context_lines(
+    start_date: datetime.datetime,
+    end_date: datetime.datetime,
+    profile_count: int,
+) -> list[str]:
+    """Format calendar query context lines."""
+    return [
+        f"  Start: {start_date.strftime('%Y-%m-%d')}",
+        f"  End: {end_date.strftime('%Y-%m-%d')}",
+        f"  Profiles: {profile_count}",
+    ]
+
+
+def format_report_intro_lines(title: str, properties: list[tuple[str, str]]) -> list[str]:
+    """Format a report intro as title + key-value lines."""
+    lines = [title.strip()]
+    for key, value in properties:
+        lines.append(f"  {key}: {value}")
+    return lines

@@ -126,24 +126,18 @@ class AulaAuth:
                 logger.info("Attempting token refresh before full login...")
                 refreshed = await self._try_refresh(username, account_tokens)
                 if refreshed:
-                    # Verify with a real POST call that requires valid server-side session
+                    # Verify using the live server client — it has current credentials
                     try:
-                        from backend.aula_client import AulaClient
-                        import datetime
-                        test_client = AulaClient()
-                        today = datetime.date.today().strftime("%Y-%m-%d")
-                        tz = datetime.datetime.now().astimezone().strftime("%z")
-                        tz_str = f"{tz[:3]}:{tz[3:]}"
-                        test_client._post("calendar.getEventsByProfileIdsAndResourceIds", {
-                            "instProfileIds": [int(accounts[idx].get("id", 0)) if accounts[idx].get("id") else 0],
-                            "resourceIds": [],
-                            "start": f"{today} 00:00:00.0000{tz_str}",
-                            "end": f"{today} 23:59:59.9990{tz_str}",
-                        })
-                        logger.info("Token refresh verified — session is valid")
-                        return
-                    except PermissionError:
-                        logger.warning("Token refresh OK but Aula rejected session — proceeding with full MitID login")
+                        from backend.main import client as live_client
+                        if live_client.check_session():
+                            logger.info("Token refresh verified — session is valid")
+                            token_data = _load_tokens()
+                            acc_tokens = token_data.get(username, {})
+                            self.state = AulaLoginState.SUCCESS
+                            self._notify_success(acc_tokens["tokens"], acc_tokens.get("cookies", {}))
+                            return
+                        else:
+                            logger.warning("Token refresh OK but session check failed — proceeding with full MitID login")
                     except Exception as e:
                         logger.warning(f"Session verify error ({e}) — proceeding with full MitID login")
 
@@ -232,8 +226,6 @@ class AulaAuth:
             _save_tokens(all_tokens)
 
             logger.info("Token refresh successful")
-            self.state = AulaLoginState.SUCCESS
-            self._notify_success(account_tokens["tokens"], account_tokens.get("cookies", {}))
             return True
 
         except Exception as e:

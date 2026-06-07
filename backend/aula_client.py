@@ -75,8 +75,9 @@ class AulaClient:
 
     def check_session(self) -> bool:
         try:
+            # profiles.getProfileContext requires valid PHPSESSID — unlike getProfilesByLogin
             resp = self.session.get(
-                f"{API_BASE}{API_VERSION}/?method=profiles.getProfilesByLogin",
+                f"{API_BASE}{API_VERSION}/?method=profiles.getProfileContext&portalrole=guardian",
                 verify=True,
                 allow_redirects=False
             )

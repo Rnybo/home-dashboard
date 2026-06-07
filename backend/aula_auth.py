@@ -126,18 +126,23 @@ class AulaAuth:
                 logger.info("Attempting token refresh before full login...")
                 refreshed = await self._try_refresh(username, account_tokens)
                 if refreshed:
-                    # Verify with a real Aula API call that requires cookie auth
+                    # Verify with a POST call — GET endpoints may succeed even with invalid session
                     try:
                         from backend.aula_client import AulaClient
+                        import datetime
                         test_client = AulaClient()
-                        # Use profiles.getProfileContext — requires valid PHPSESSID cookie, not access_token
-                        test_client._get("profiles.getProfileContext", "&portalrole=guardian")
+                        today = datetime.date.today().strftime("%Y-%m-%d")
+                        test_client._post("presence.getPresenceByProfileIdsAndDateInterval", {
+                            "instProfileIds": [5620584],
+                            "startDate": today,
+                            "endDate": today,
+                        })
                         logger.info("Token refresh verified — session is valid")
                         return
                     except PermissionError:
-                        logger.warning("Token refresh succeeded but Aula rejected cookie session — proceeding with full MitID login")
+                        logger.warning("Token refresh OK but Aula rejected POST — proceeding with full MitID login")
                     except Exception as e:
-                        logger.warning(f"Session verification error: {e} — proceeding with full MitID login")
+                        logger.warning(f"Session verify error ({e}) — proceeding with full MitID login")
 
             # Full login flow — capture QR code for dashboard display
             def on_qr_codes(qr1, qr2) -> None:

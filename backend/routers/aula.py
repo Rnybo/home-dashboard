@@ -31,6 +31,8 @@ def aula_call(fn):
     except PermissionError:
         raise HTTPException(status_code=401, detail="Session expired")
     except Exception as e:
+        if "403" in str(e) or "401" in str(e):
+            raise HTTPException(status_code=401, detail="Session expired")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -40,6 +40,10 @@
           onData(fresh, false);
         }
       } catch(e) {
+        // Tjek om det er en session-fejl — vis login-banner med det samme
+        if (e && (e.status === 401 || e.status === 403 || (e.message && e.message.includes('401')))) {
+          if (typeof renderAccountDropdown === 'function') renderAccountDropdown(true);
+        }
         // API fejlede — cached data er allerede vist
       }
     }

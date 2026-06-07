@@ -27,8 +27,14 @@
         } catch(e) {}
       }
     }
-    function apiFetch(url, opts = {}) {
-      return fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
+    async function apiFetch(url, opts = {}) {
+      const r = await fetch(url, { ...opts, headers: { ...(opts.headers||{}), 'x-api-key': API_KEY } });
+      if (r.status === 401 || r.status === 403) {
+        const err = new Error(`Session expired (${r.status})`);
+        err.status = r.status;
+        throw err;
+      }
+      return r;
     }
     function getChildIds() { return CHILDREN.map(c => c.id).join(','); }
 

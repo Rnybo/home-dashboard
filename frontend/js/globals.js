@@ -82,8 +82,7 @@
       // Scroll kalender til nu — viewet er nu display:flex så scroll virker
       if (view === 'cal') {
         const wrap = document.querySelector('.timetable-wrap');
-        if (wrap) wrap._userScrolled = false;
-        weekOffset = 0;  // altid tilbage til denne uge
+        if (wrap) wrap._userScrolled = false;  // reset så calScrollToNow virker
         renderWeek();
       }
       // Top nav — Kalender or Aula or Familie active

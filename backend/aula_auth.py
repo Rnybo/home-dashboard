@@ -126,7 +126,14 @@ class AulaAuth:
                 logger.info("Attempting token refresh before full login...")
                 refreshed = await self._try_refresh(username, account_tokens)
                 if refreshed:
-                    return
+                    # Verify the session actually works — don't trust refresh alone
+                    from backend.aula_client import AulaClient
+                    test_client = AulaClient()
+                    if test_client.check_session():
+                        logger.info("Token refresh verified — session is valid")
+                        return
+                    else:
+                        logger.warning("Token refresh succeeded but session invalid — proceeding with full MitID login")
 
             # Full login flow — capture QR code for dashboard display
             def on_qr_codes(qr1, qr2) -> None:

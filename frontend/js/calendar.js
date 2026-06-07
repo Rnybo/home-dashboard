@@ -2,31 +2,24 @@
       activeTab = idx;
       activeGoogleTab = -1;
       document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+      const wrap = document.querySelector('.timetable-wrap');
+      if (wrap) wrap._userScrolled = false;
       renderWeek();
-      calScrollToNow();
     }
     function switchGoogleTab(idx) {
       activeGoogleTab = idx;
       const allTabs = document.querySelectorAll('#child-tabs .tab');
       allTabs.forEach((t,i) => t.classList.toggle('active', i === CHILDREN.length + idx));
+      const wrap = document.querySelector('.timetable-wrap');
+      if (wrap) wrap._userScrolled = false;
       renderWeek();
-      calScrollToNow();
     }
     function changeWeek(delta) {
       weekOffset += delta;
+      const wrap = document.querySelector('.timetable-wrap');
+      if (wrap) wrap._userScrolled = false;
       renderWeek();
       const days = getWeekDays();
-      const now = new Date();
-      if (days.some(d => isSameDay(d, now))) {
-        calScrollToNow();
-      } else {
-        // Anden uge: scroll til 07:00
-        const wrap = document.querySelector('.timetable-wrap');
-        if (wrap) {
-          const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
-          wrap.scrollTop = 7 * hourH;
-        }
-      }
       const weekStart = days[0], weekEnd = days[6];
       const cacheFrom = allEvents.length ? new Date(Math.min(...allEvents.map(e => new Date(e.start||e.startDateTime)))) : null;
       const cacheTo   = allEvents.length ? new Date(Math.max(...allEvents.map(e => new Date(e.start||e.startDateTime)))) : null;
@@ -35,12 +28,17 @@
       loadGoogleCalendar();
     }
 
-    // Scroll til nu -1 time
+    // Scroll så now-line er synlig ca. 1/3 fra toppen af viewport
     function calScrollToNow() {
       const wrap = document.querySelector('.timetable-wrap');
       if (!wrap) return;
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
-      wrap.scrollTop = Math.max(0, new Date().getHours() - 1) * hourH;
+      const totalH = (END_H - START_H) * hourH;
+      const nm = new Date().getHours() * 60 + new Date().getMinutes();
+      const nowPct = (nm - START_H * 60) / ((END_H - START_H) * 60);
+      const nowPx = nowPct * totalH;
+      // Center now-line 1/3 from top of visible area
+      wrap.scrollTop = Math.max(0, nowPx - wrap.clientHeight / 3);
     }
 
     // ── Today widget ──
@@ -538,13 +536,19 @@
       });
       const wrap = document.querySelector('.timetable-wrap');
       const prevScroll = wrap ? wrap.scrollTop : 0;
+      const userHasScrolled = wrap && wrap._userScrolled;
       document.getElementById('timetable').innerHTML = html;
       calUpdateWrapHeight(wrap);
-      // Bevar scroll efter innerHTML-nulstilling — men lad calScrollToNow overskrive ved behov
-      if (prevScroll > 0 && wrap.scrollTop === 0) wrap.scrollTop = prevScroll;
+      // Scroll strategy: if user manually scrolled — restore position.
+      // Otherwise always scroll to now (background refresh, tab switch etc.)
+      if (userHasScrolled && prevScroll > 0) {
+        wrap.scrollTop = prevScroll;
+      } else {
+        calScrollToNow();
+      }
       if (!wrap._scrollListenerAdded) {
         wrap._scrollListenerAdded = true;
-        wrap.addEventListener('scroll', () => {}, { passive: true });
+        wrap.addEventListener('scroll', () => { wrap._userScrolled = true; }, { passive: true });
       }
     }
 
@@ -554,16 +558,12 @@
       if (!wrap) return;
       const hourH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hour-h')) || 52;
       const isPortrait = window.innerHeight > window.innerWidth;
-      const savedScroll = wrap.scrollTop;
       wrap.style.maxHeight = '';
-      // Brug altid window.innerHeight minus body-padding — ikke wrapRect.top
-      // wrapRect.top varierer med fane og header-indhold
       const bodyPadBottom = parseInt(getComputedStyle(document.body).paddingBottom) || 0;
       const wrapRect = wrap.getBoundingClientRect();
       const availH = window.innerHeight - wrapRect.top - bodyPadBottom - 10;
       const maxH = isPortrait ? hourH * 10 : Math.max(availH, hourH * 6);
       wrap.style.maxHeight = Math.max(maxH, hourH * 6) + 'px';
-      if (savedScroll > 0 && wrap.scrollTop === 0) wrap.scrollTop = savedScroll;
     }
 
     // Opdater kalender-højde når sidebar vokser (data ankommer asynkront)

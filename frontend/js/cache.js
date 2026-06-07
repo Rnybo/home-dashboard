@@ -1,14 +1,16 @@
     // ── Simpel cache-utility til localStorage ────────────────────────────────
+    // TTL: where possible, keep data long enough to survive a full day without Aula session.
+    // Cache is always shown immediately; TTL only controls when a background refresh is attempted.
     const CACHE_TTL = {
-      calendar:       5 * 60 * 1000,
-      presence:       5 * 60 * 1000,
-      google:        10 * 60 * 1000,
-      weather:       30 * 60 * 1000,
-      messages:       5 * 60 * 1000,
-      posts:         10 * 60 * 1000,
-      dates:         30 * 60 * 1000,
-      birthdays:     60 * 60 * 1000,
-      routes:        60 * 60 * 1000,
+      calendar:   24 * 60 * 60 * 1000,  // 24h — weekly schedule doesn't change often
+      presence:   24 * 60 * 60 * 1000,  // 24h — presence templates are set days ahead
+      google:     30 * 60 * 1000,        // 30min — Google calendar changes more often
+      weather:    30 * 60 * 1000,        // 30min
+      messages:    6 * 60 * 60 * 1000,  // 6h
+      posts:       6 * 60 * 60 * 1000,  // 6h
+      dates:      24 * 60 * 60 * 1000,  // 24h
+      birthdays:  24 * 60 * 60 * 1000,  // 24h
+      routes:     60 * 60 * 1000,        // 1h
     };
 
     function cacheSet(key, data) {
@@ -24,7 +26,22 @@
       } catch(e) { return null; }
     }
 
-    // Hent data fra API — vis cache straks, opdater når API svarer
+    function cacheAge(key) {
+      // Returns age in milliseconds, or Infinity if not cached
+      try {
+        const raw = localStorage.getItem('cache_' + key);
+        if (!raw) return Infinity;
+        const { ts } = JSON.parse(raw);
+        return Date.now() - ts;
+      } catch(e) { return Infinity; }
+    }
+
+    function cacheIsStale(key) {
+      const ttl = CACHE_TTL[key] ?? 5 * 60 * 1000;
+      return cacheAge(key) > ttl;
+    }
+
+    // Hent data fra API — vis cache straks, opdater kun hvis TTL er udløbet
     // fetchFn: async () => data
     // onData(data, fromCache): kaldes med data
     async function cacheFetch(key, fetchFn, onData) {
@@ -32,7 +49,9 @@
       const cached = cacheGet(key);
       if (cached !== null) onData(cached, true);
 
-      // Hent frisk fra API i baggrunden
+      // Hent kun frisk fra API hvis TTL er udløbet (eller ingen cache)
+      if (!cacheIsStale(key) && cached !== null) return;
+
       try {
         const fresh = await fetchFn();
         if (fresh !== undefined && fresh !== null) {

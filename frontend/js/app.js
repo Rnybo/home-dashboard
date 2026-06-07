@@ -65,9 +65,19 @@
       await initConfig();
       const valid = await checkSession();
       if (valid && sessionWasExpired) { window.location.reload(); return; }
-      if (valid) await loadProfileConfig();
-      else {
-        // Session udløbet — brug cached profil fra localStorage så kalender stadig vises
+      if (valid) {
+        await loadProfileConfig();
+        document.getElementById('cache-age-banner').style.display = 'none';
+      } else {
+        // Session udløbet — vis cache-alder og brug cached profil
+        sessionWasExpired = true;
+        const calAge = cacheAge('calendar');
+        if (calAge < Infinity) {
+          const h = Math.round(calAge / 3600000);
+          const el = document.getElementById('cache-age-banner');
+          el.textContent = h < 1 ? '📦 Cache < 1t' : `📦 Cache ${h}t`;
+          el.style.display = 'inline';
+        }
         try {
           const kids = localStorage.getItem('ls_children');
           const ids  = localStorage.getItem('ls_inst_ids');

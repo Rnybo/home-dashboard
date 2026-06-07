@@ -549,7 +549,8 @@
       });
       if (!wrap._scrollListenerAdded) {
         wrap._scrollListenerAdded = true;
-        wrap.addEventListener('scroll', () => { wrap._userScrolled = true; }, { passive: true });
+        wrap.addEventListener('touchstart', () => { wrap._userScrolled = true; }, { passive: true });
+        wrap.addEventListener('wheel', () => { wrap._userScrolled = true; }, { passive: true });
       }
     }
 

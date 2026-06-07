@@ -54,6 +54,21 @@
       );
     }
 
+    function updateCacheAgeBanner() {
+      const el = document.getElementById('cache-age-banner');
+      if (!el) return;
+      // Find ældste Aula-data
+      const keys = ['calendar', 'presence', 'messages', 'posts'];
+      const oldest = Math.max(...keys.map(k => cacheAge(k)).filter(a => a < Infinity));
+      if (oldest === -Infinity || oldest === Infinity) return;
+      const mins = Math.floor(oldest / 60000);
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      const label = h > 0 ? `${h}t ${m}m` : `${m}m`;
+      el.textContent = `📦 Aula-data ${label} gammel`;
+      el.style.display = 'inline';
+    }
+
     // ── Boot ──
     let pollTimer=null, sessionWasExpired=false;
     async function loadAll() {
@@ -69,15 +84,10 @@
         await loadProfileConfig();
         document.getElementById('cache-age-banner').style.display = 'none';
       } else {
-        // Session udløbet — vis cache-alder og brug cached profil
         sessionWasExpired = true;
-        const calAge = cacheAge('calendar');
-        if (calAge < Infinity) {
-          const h = Math.round(calAge / 3600000);
-          const el = document.getElementById('cache-age-banner');
-          el.textContent = h < 1 ? '📦 Cache < 1t' : `📦 Cache ${h}t`;
-          el.style.display = 'inline';
-        }
+        updateCacheAgeBanner();
+        // Opdater banner hvert minut
+        setInterval(updateCacheAgeBanner, 60000);
         try {
           const kids = localStorage.getItem('ls_children');
           const ids  = localStorage.getItem('ls_inst_ids');

@@ -1,16 +1,16 @@
     // ── Simpel cache-utility til localStorage ────────────────────────────────
-    // TTL: where possible, keep data long enough to survive a full day without Aula session.
-    // Cache is always shown immediately; TTL only controls when a background refresh is attempted.
+    // Data vises altid fra cache uanset alder.
+    // TTL styrer kun hvornår vi forsøger at hente friske data i baggrunden.
     const CACHE_TTL = {
-      calendar:   24 * 60 * 60 * 1000,  // 24h — weekly schedule doesn't change often
-      presence:   24 * 60 * 60 * 1000,  // 24h — presence templates are set days ahead
-      google:     30 * 60 * 1000,        // 30min — Google calendar changes more often
-      weather:    30 * 60 * 1000,        // 30min
-      messages:    6 * 60 * 60 * 1000,  // 6h
-      posts:       6 * 60 * 60 * 1000,  // 6h
-      dates:      24 * 60 * 60 * 1000,  // 24h
-      birthdays:  24 * 60 * 60 * 1000,  // 24h
-      routes:     60 * 60 * 1000,        // 1h
+      calendar:   15 * 60 * 1000,
+      presence:   15 * 60 * 1000,
+      google:     10 * 60 * 1000,
+      weather:    30 * 60 * 1000,
+      messages:   15 * 60 * 1000,
+      posts:      15 * 60 * 1000,
+      dates:      60 * 60 * 1000,
+      birthdays:  60 * 60 * 1000,
+      routes:     60 * 60 * 1000,
     };
 
     function cacheSet(key, data) {
@@ -27,29 +27,23 @@
     }
 
     function cacheAge(key) {
-      // Returns age in milliseconds, or Infinity if not cached
       try {
         const raw = localStorage.getItem('cache_' + key);
         if (!raw) return Infinity;
-        const { ts } = JSON.parse(raw);
-        return Date.now() - ts;
+        return Date.now() - JSON.parse(raw).ts;
       } catch(e) { return Infinity; }
     }
 
     function cacheIsStale(key) {
-      const ttl = CACHE_TTL[key] ?? 5 * 60 * 1000;
-      return cacheAge(key) > ttl;
+      return cacheAge(key) > (CACHE_TTL[key] ?? 15 * 60 * 1000);
     }
 
-    // Hent data fra API — vis cache straks, opdater kun hvis TTL er udløbet
-    // fetchFn: async () => data
-    // onData(data, fromCache): kaldes med data
+    // Hent data fra API — vis cache straks uanset alder, opdater i baggrunden når TTL udløber
     async function cacheFetch(key, fetchFn, onData) {
-      // Vis cached data straks uanset alder
       const cached = cacheGet(key);
       if (cached !== null) onData(cached, true);
 
-      // Hent kun frisk fra API hvis TTL er udløbet (eller ingen cache)
+      // Forsøg kun API-kald hvis TTL er udløbet (eller ingen cache)
       if (!cacheIsStale(key) && cached !== null) return;
 
       try {
@@ -59,7 +53,6 @@
           onData(fresh, false);
         }
       } catch(e) {
-        // Tjek om det er en session-fejl — vis login-banner med det samme
         if (e && (e.status === 401 || e.status === 403 || (e.message && e.message.includes('401')))) {
           if (typeof renderAccountDropdown === 'function') renderAccountDropdown(true);
         }

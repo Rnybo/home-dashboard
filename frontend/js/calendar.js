@@ -373,7 +373,12 @@
     }
 
     // ── Timetable ──
+    let _renderWeekTimer = null;
     function renderWeek() {
+      clearTimeout(_renderWeekTimer);
+      _renderWeekTimer = setTimeout(_renderWeekNow, 150);
+    }
+    function _renderWeekNow() {
       if (!CHILDREN.length) return;
       window._evRegistry = [];  // reset event registry for allday badge clicks
       const days = getWeekDays(), today = new Date();

@@ -56,8 +56,11 @@ pkg install -y python-cryptography >> "$LOG" 2>&1 \
 $PIP install --break-system-packages fastapi >> "$LOG" 2>&1 \
     && ok "fastapi" || warn "fastapi fejlede"
 
-$PIP install --break-system-packages uvicorn >> "$LOG" 2>&1 \
+$PIP install --break-system-packages "uvicorn[standard]" >> "$LOG" 2>&1 \
     && ok "uvicorn" || warn "uvicorn fejlede"
+
+$PIP install --break-system-packages uvloop >> "$LOG" 2>&1 \
+    && ok "uvloop" || warn "uvloop fejlede (ikke kritisk)"
 
 $PIP install --break-system-packages websockets >> "$LOG" 2>&1 \
     && ok "websockets" || warn "websockets fejlede"
@@ -123,11 +126,23 @@ cat > "$HOME/.termux/boot/start-familieoverblik.sh" << 'BOOT'
 export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export HOME="/data/data/com.termux/files/home"
 cd ~/home-dashboard
+
+# Start Mosquitto
 pkill -f mosquitto 2>/dev/null; sleep 1
 nohup mosquitto -c mosquitto.conf > ~/home-dashboard/mosquitto.log 2>&1 &
 sleep 2
-pkill -f uvicorn 2>/dev/null; sleep 1
-nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > ~/home-dashboard/server.log 2>&1 &
+
+# Start uvicorn med watchdog — genstarter automatisk ved crash
+while true; do
+    uvicorn backend.main:app \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --loop uvloop \
+        --timeout-keep-alive 30 \
+        >> ~/home-dashboard/server.log 2>&1
+    echo "$(date): uvicorn crashed — genstarter om 5 sek" >> ~/home-dashboard/server.log
+    sleep 5
+done &
 BOOT
 chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"
@@ -142,7 +157,12 @@ PID=$(ss -tlnp 2>/dev/null | awk '/:8000 /{match($0,/pid=([0-9]+)/,a); if(a[1]) 
 sleep 1
 nohup mosquitto -c "$INSTALL_DIR/mosquitto.conf" > "$INSTALL_DIR/mosquitto.log" 2>&1 &
 sleep 2
-nohup uvicorn backend.main:app --host 0.0.0.0 --port 8000 > "$INSTALL_DIR/server.log" 2>&1 &
+nohup uvicorn backend.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --loop uvloop \
+    --timeout-keep-alive 30 \
+    > "$INSTALL_DIR/server.log" 2>&1 &
 sleep 3
 
 if pgrep -f uvicorn > /dev/null; then

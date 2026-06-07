@@ -167,6 +167,20 @@ async def _google_calendar_sync():
         await asyncio.sleep(300)  # 5 minutes
 
 
+async def _startup_token_refresh():
+    """Refresh tokens immediately at startup so session is always fresh."""
+    await asyncio.sleep(5)  # Let server finish starting
+    from backend.aula_auth import _load_tokens, _get_accounts
+    accounts = _get_accounts()
+    for acc in accounts:
+        username = acc["username"]
+        token_data = _load_tokens()
+        account_tokens = token_data.get(username, {})
+        if account_tokens.get("tokens", {}).get("refresh_token"):
+            logging.getLogger("startup").info(f"Refreshing token for {username} at startup")
+            await aula_auth._try_refresh(username, account_tokens)
+
+
 @app.on_event("startup")
 async def startup():
     mqtt_client.connect()
@@ -175,6 +189,8 @@ async def startup():
     asyncio.create_task(_session_keepalive())
     asyncio.create_task(_google_calendar_sync())
     asyncio.create_task(auto_refresh_loop(aula_auth))
+    # Refresh tokens immediately at startup so session is fresh
+    asyncio.create_task(_startup_token_refresh())
 
 @app.on_event("shutdown")
 async def shutdown():

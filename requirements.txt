@@ -1,5 +1,6 @@
 fastapi
-uvicorn
+uvicorn[standard]
+uvloop
 requests
 beautifulsoup4
 python-dotenv
@@ -9,7 +10,6 @@ recurring-ical-events
 zeroconf
 paho-mqtt
 httpx
-paramiko
 pychromecast
 qrcode
 cryptography

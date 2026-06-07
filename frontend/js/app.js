@@ -98,7 +98,13 @@
       loadRoutes();
       renderWeek();
       renderTodayWidget();
-      calScrollToNow();
+      // Ved første load: scroll til nu. Ved baggrundspoll: bevar brugerens position.
+      if (!window._initialScrollDone) {
+        window._initialScrollDone = true;
+        const wrap = document.querySelector('.timetable-wrap');
+        if (wrap) wrap._userScrolled = false;
+        calScrollToNow();
+      }
       schedulePoll(15 * 60 * 1000);
     }
     // ── Event overlap layout ──────────────────────────────────────────────────

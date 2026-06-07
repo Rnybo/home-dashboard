@@ -539,13 +539,14 @@
       const userHasScrolled = wrap && wrap._userScrolled;
       document.getElementById('timetable').innerHTML = html;
       calUpdateWrapHeight(wrap);
-      // Scroll strategy: if user manually scrolled — restore position.
-      // Otherwise always scroll to now (background refresh, tab switch etc.)
-      if (userHasScrolled && prevScroll > 0) {
-        wrap.scrollTop = prevScroll;
-      } else {
-        calScrollToNow();
-      }
+      // Udsæt scroll til efter browser har afsluttet layout-beregning
+      requestAnimationFrame(() => {
+        if (userHasScrolled && prevScroll > 0) {
+          wrap.scrollTop = prevScroll;
+        } else {
+          calScrollToNow();
+        }
+      });
       if (!wrap._scrollListenerAdded) {
         wrap._scrollListenerAdded = true;
         wrap.addEventListener('scroll', () => { wrap._userScrolled = true; }, { passive: true });

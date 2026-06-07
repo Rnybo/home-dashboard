@@ -126,21 +126,24 @@ class AulaAuth:
                 logger.info("Attempting token refresh before full login...")
                 refreshed = await self._try_refresh(username, account_tokens)
                 if refreshed:
-                    # Verify with a POST call — GET endpoints may succeed even with invalid session
+                    # Verify with a real POST call that requires valid server-side session
                     try:
                         from backend.aula_client import AulaClient
                         import datetime
                         test_client = AulaClient()
                         today = datetime.date.today().strftime("%Y-%m-%d")
-                        test_client._post("presence.getPresenceByProfileIdsAndDateInterval", {
-                            "instProfileIds": [5620584],
-                            "startDate": today,
-                            "endDate": today,
+                        tz = datetime.datetime.now().astimezone().strftime("%z")
+                        tz_str = f"{tz[:3]}:{tz[3:]}"
+                        test_client._post("calendar.getEventsByProfileIdsAndResourceIds", {
+                            "instProfileIds": [int(accounts[idx].get("id", 0)) if accounts[idx].get("id") else 0],
+                            "resourceIds": [],
+                            "start": f"{today} 00:00:00.0000{tz_str}",
+                            "end": f"{today} 23:59:59.9990{tz_str}",
                         })
                         logger.info("Token refresh verified — session is valid")
                         return
                     except PermissionError:
-                        logger.warning("Token refresh OK but Aula rejected POST — proceeding with full MitID login")
+                        logger.warning("Token refresh OK but Aula rejected session — proceeding with full MitID login")
                     except Exception as e:
                         logger.warning(f"Session verify error ({e}) — proceeding with full MitID login")
 

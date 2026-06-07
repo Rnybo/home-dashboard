@@ -31,7 +31,8 @@
         () => apiFetch(`/api/calendar?inst_profile_ids=${getChildIds()}&from_date=${safeFrom}&to_date=${toStr}`)
               .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
               .then(data => normalizeAulaEvents(data)),
-        (data) => { allEvents = data; renderWeek(); renderTodayWidget(); }
+        (data) => { allEvents = data; renderWeek(); renderTodayWidget(); },
+        _sessionValid
       );
     }
 
@@ -50,7 +51,8 @@
                 for (const t of data) pd[t.institutionProfile.id] = t.dayTemplates || [];
                 return pd;
               }),
-        (data) => { presenceData = data; renderWeek(); renderTodayWidget(); }
+        (data) => { presenceData = data; renderWeek(); renderTodayWidget(); },
+        _sessionValid
       );
     }
 
@@ -71,6 +73,7 @@
 
     // ── Boot ──
     let pollTimer=null, sessionWasExpired=false;
+    let _sessionValid = false; // bruges af cacheFetch til at afgøre om API-kald må foretages
     async function loadAll() {
       // First-run check — redirect til settings hvis ingen Aula-konti er sat op
       try {
@@ -81,9 +84,11 @@
       const valid = await checkSession();
       if (valid && sessionWasExpired) { window.location.reload(); return; }
       if (valid) {
+        _sessionValid = true;
         await loadProfileConfig();
         document.getElementById('cache-age-banner').style.display = 'none';
       } else {
+        _sessionValid = false;
         sessionWasExpired = true;
         updateCacheAgeBanner();
         // Opdater banner hvert minut

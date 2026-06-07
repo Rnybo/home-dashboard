@@ -38,13 +38,15 @@
       return cacheAge(key) > (CACHE_TTL[key] ?? 15 * 60 * 1000);
     }
 
-    // Hent data fra API — vis cache straks uanset alder, opdater i baggrunden når TTL udløber
-    async function cacheFetch(key, fetchFn, onData) {
+    // Hent data fra API — vis cache straks uanset alder, opdater i baggrunden
+    // sessionValid: hvis true hentes altid frisk data; hvis false vises kun cache
+    async function cacheFetch(key, fetchFn, onData, sessionValid = true) {
       const cached = cacheGet(key);
       if (cached !== null) onData(cached, true);
 
-      // Forsøg kun API-kald hvis TTL er udløbet (eller ingen cache)
-      if (!cacheIsStale(key) && cached !== null) return;
+      // Hent frisk data kun hvis session er gyldig
+      // (når session er udløbet viser vi udelukkende cache)
+      if (!sessionValid) return;
 
       try {
         const fresh = await fetchFn();
@@ -56,6 +58,5 @@
         if (e && (e.status === 401 || e.status === 403 || (e.message && e.message.includes('401')))) {
           if (typeof renderAccountDropdown === 'function') renderAccountDropdown(true);
         }
-        // API fejlede — cached data er allerede vist
       }
     }

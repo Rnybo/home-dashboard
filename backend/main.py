@@ -77,15 +77,25 @@ if not API_KEY:
     logging.warning("API_KEY is not set â€” API is unprotected!")
 
 async def _session_keepalive():
-    """Ping Aula every 6 hours to keep session alive. Publishes state via MQTT."""
+    """Check session every 30 min. If invalid, auto-refresh via token."""
+    log = logging.getLogger("keepalive")
     while True:
-        await asyncio.sleep(6 * 3600)
+        await asyncio.sleep(30 * 60)
         try:
             valid = client.check_session()
-            logging.getLogger("keepalive").info(f"Session keepalive: {'OK' if valid else 'EXPIRED'}")
-            mqtt_client.publish("familieoverblik/session/state", {"valid": valid}, retain=True)
+            log.info(f"Session keepalive: {'OK' if valid else 'EXPIRED'}")
+            if not valid:
+                log.info("Session invalid — attempting auto-refresh...")
+                from backend.aula_auth import _load_tokens, _get_accounts
+                for acc in _get_accounts():
+                    token_data = _load_tokens()
+                    account_tokens = token_data.get(acc["username"], {})
+                    if account_tokens.get("tokens", {}).get("refresh_token"):
+                        success = await aula_auth._try_refresh(acc["username"], account_tokens)
+                        log.info(f"Auto-refresh for {acc['username']}: {'OK' if success else 'FAILED'}")
+            mqtt_client.publish("familieoverblik/session/state", {"valid": client.session_valid}, retain=True)
         except Exception as e:
-            logging.getLogger("keepalive").warning(f"Keepalive failed: {e}")
+            log.warning(f"Keepalive failed: {e}")
             mqtt_client.publish("familieoverblik/session/state", {"valid": False}, retain=True)
 
 async def _google_calendar_sync():

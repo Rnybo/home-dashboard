@@ -57,6 +57,9 @@ class AulaClient:
         url = f"{API_BASE}{API_VERSION}/?method={method}"
         resp = self.session.post(url, json=body, verify=True,
             headers={"csrfp-token": self._csrf_token})
+        if resp.status_code in (401, 403):
+            self.session_valid = False
+            raise PermissionError(f"Session expired (HTTP {resp.status_code})")
         resp.raise_for_status()
         return resp.json()
 
@@ -88,9 +91,9 @@ class AulaClient:
     def _get(self, method: str, extra_params: str = "") -> dict:
         url = f"{API_BASE}{API_VERSION}/?method={method}{extra_params}"
         resp = self.session.get(url, verify=True)
-        if resp.status_code == 401:
+        if resp.status_code in (401, 403):
             self.session_valid = False
-            raise PermissionError("Session expired")
+            raise PermissionError(f"Session expired (HTTP {resp.status_code})")
         resp.raise_for_status()
         return resp.json()
 

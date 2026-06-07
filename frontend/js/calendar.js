@@ -537,6 +537,7 @@
       const wrap = document.querySelector('.timetable-wrap');
       const prevScroll = wrap ? wrap.scrollTop : 0;
       const userHasScrolled = wrap && wrap._userScrolled;
+      console.log(`[renderWeek] caller=${new Error().stack.split('\n')[2]?.trim()} prevScroll=${prevScroll} _userScrolled=${userHasScrolled}`);
       document.getElementById('timetable').innerHTML = html;
       calUpdateWrapHeight(wrap);
       // Udsæt scroll til efter browser har afsluttet layout-beregning

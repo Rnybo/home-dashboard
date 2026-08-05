@@ -103,10 +103,12 @@
       if (calBtn) calBtn.classList.toggle('active', view === 'cal');
       if (aulaBtn) aulaBtn.classList.toggle('active', AULA_VIEWS.includes(view));
       if (famBtn)  famBtn.classList.toggle('active', FAMILY_VIEWS.includes(view));
-      // Dropdown items active state
+      // Dropdown items active state — data-view attribute (was parsing the
+      // onclick string with regex before; \w+ doesn't match hyphens, so
+      // "family-kids"/"family-adults" never matched and never got the
+      // active class set correctly)
       document.querySelectorAll('.aula-dd-item').forEach(item => {
-        const v = item.getAttribute('onclick').match(/'(\w+)'/)?.[1];
-        item.classList.toggle('active', v === view);
+        item.classList.toggle('active', item.dataset.view === view);
       });
       // Family dropdown close + render
       const famDD = document.getElementById('family-dropdown');

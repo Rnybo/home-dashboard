@@ -1,4 +1,13 @@
-﻿    function switchTab(idx) {
+﻿    // Lægger `mins` minutter til et "HH:MM"-tidspunkt, wrapper over midnat.
+    // Erstatter en tidligere kædet regex-baseret udregning (svær at læse,
+    // lige så nem at få galt) med almindelig aritmetik.
+    function _addMinutes(timeStr, mins) {
+      const [h, m] = timeStr.split(':').map(Number);
+      const total = ((h * 60 + m + mins) % 1440 + 1440) % 1440;
+      return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
+    }
+
+    function switchTab(idx) {
       activeTab = idx;
       activeGoogleTab = -1;
       document.querySelectorAll('#child-tabs .tab').forEach((t,i) => t.classList.toggle('active', i===idx));
@@ -44,14 +53,28 @@
     }
 
     // ── Today widget ──
+    // Bygger hvert kort (barn + "Familien") færdigt i ét hug, inklusiv evt.
+    // rute-rækker. Erstatter en tidligere version der byggede HTML-strengen
+    // færdig og bagefter brugte et regex find/erstat til at sprøjte rute-
+    // rækker ind i det allerede-byggede resultat — skrøbeligt hvis et
+    // barnenavn eller markuppet ændrede sig, og svært at følge.
     function renderTodayWidget() {
       const el = document.getElementById('today-widget');
       if (!el || !CHILDREN.length) return;
       const today = new Date();
       const todayStr = today.toISOString().split('T')[0];
       const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-      let html = '';
-      CHILDREN.forEach(child => {
+      const isWeekday = today.getDay() >= 1 && today.getDay() <= 5;
+      const showRoutes = isWeekday && routeData.length > 0;
+      const adultRoutes = showRoutes ? routeData.filter(d => d.name !== 'Kragelundskolen') : [];
+      const kidRoute = showRoutes ? routeData.find(d => d.name === 'Kragelundskolen') : null;
+      const kidRouteMode = kidRoute ? kidRoute.modes[kidRoute.default] : null;
+      const kidRouteRow = kidRouteMode
+        ? `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[kidRoute.default]}</span><span class="tc-time">${kidRouteMode.duration}min</span><span class="tc-label">${kidRoute.name}</span></div>`
+        : '';
+      const todayGoogle = googleEvents.filter(e => isSameDay(e.allDay?new Date(e.start+'T00:00:00'):new Date(e.start), today));
+
+      const childCards = CHILDREN.map(child => {
         const tpl = (presenceData[child.id]||[]).find(t => t.byDate===todayStr);
         const dayEvents = allEvents.filter(e => e.start && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), today));
         let rows = '';
@@ -66,52 +89,32 @@
           rows += `<div class="tc-row"><span style="font-size:.9rem">📌</span><span class="tc-time">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${cap(e.title||'')}</span></div>`;
         });
         if (!rows) rows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen data</span></div>`;
-        html += `<div class="today-card"><div class="tc-name">${child.name} <span style="font-weight:400;color:#bbb;font-size:0.65rem">I dag</span></div>${rows}</div>`;
+        rows += kidRouteRow;
+        return `<div class="today-card"><div class="tc-name">${child.name} <span style="font-weight:400;color:#bbb;font-size:0.65rem">I dag</span></div>${rows}</div>`;
       });
-      const todayGoogle = googleEvents.filter(e => isSameDay(e.allDay?new Date(e.start+'T00:00:00'):new Date(e.start), today));
-      let famRows = todayGoogle.slice(0,4).map(e => {
-        const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
-        return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${cap(e.title)}</span></div>`;
-      }).join('');
-      if (!famRows) famRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
-      const famHeader = `<div class="tc-name">Familien <span style="font-weight:400;color:#bbb;font-size:0.65rem">I dag</span></div>`;
-      html += `<div class="today-card">${famHeader}${famRows}</div>`;
 
-      // Route cards — only on weekdays
-      const isWeekday = today.getDay() >= 1 && today.getDay() <= 5;
-      if (isWeekday && routeData.length) {
-        const adultRoutes = routeData.filter(d => d.name !== 'Kragelundskolen');
-        const kidRoutes = routeData.filter(d => d.name === 'Kragelundskolen');
-
-        let famRouteRows = todayGoogle.slice(0,2).map(e => {
+      let famRows;
+      if (showRoutes) {
+        famRows = todayGoogle.slice(0,2).map(e => {
           const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
           return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px">${cap(e.title)}</span></div>`;
         }).join('');
         adultRoutes.forEach(dest => {
           const m = dest.modes[dest.default];
-          if (m) famRouteRows += `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[dest.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${m.distance}km → ${dest.name}</span></div>`;
+          if (m) famRows += `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[dest.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${m.distance}km → ${dest.name}</span></div>`;
         });
-        if (!famRouteRows) famRouteRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
-
-        // Replace familien card
-        html = html.replace(`<div class="today-card">${famHeader}${famRows}</div>`,
-          `<div class="today-card">${famHeader}${famRouteRows}</div>`);
-
-        // Add kid route to each child card
-        if (kidRoutes.length) {
-          const kidRoute = kidRoutes[0];
-          const m = kidRoute.modes[kidRoute.default];
-          if (m) {
-            const kidRow = `<div class="tc-row"><span style="font-size:.85rem">${ROUTE_MODE_LABELS[kidRoute.default]}</span><span class="tc-time">${m.duration}min</span><span class="tc-label">${kidRoute.name}</span></div>`;
-            const childNames = CHILDREN.map(c => c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-            const re = new RegExp(`(<div class="today-card"><div class="tc-name">(${childNames})[\\s\\S]*?<\\/div>)([\\s\\S]*?)(<\\/div>)(?=\\s*<div class="today-card">|$)`, 'g');
-            html = html.replace(re, (match, p1, name, content, p4) => p1 + content + kidRow + p4);
-          }
-        }
+      } else {
+        famRows = todayGoogle.slice(0,4).map(e => {
+          const t = e.allDay ? 'Hele dagen' : new Date(e.start).toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+          return `<div class="tc-row"><span class="tc-dot" style="background:${e.color}"></span><span class="tc-time" style="min-width:56px">${t}</span><span class="tc-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100px">${cap(e.title)}</span></div>`;
+        }).join('');
       }
+      if (!famRows) famRows = `<div class="tc-row"><span class="tc-label" style="color:#ccc">Ingen events</span></div>`;
+      const famCard = `<div class="today-card"><div class="tc-name">Familien <span style="font-weight:400;color:#bbb;font-size:0.65rem">I dag</span></div>${famRows}</div>`;
 
-      el.innerHTML = html;
+      el.innerHTML = childCards.join('') + famCard;
     }
+
 
     // ── Overview ──
     async function loadOverview() {
@@ -173,7 +176,7 @@
         const preview = (p.content?.html||'').replace(/<[^>]+>/g,'').trim().substring(0, 120);
         const important = p.isImportant ? '<span class="post-important">⚠️ Vigtigt</span>' : '';
         const thumbHtml = thumb ? `<img class="post-thumb" src="${thumb}" loading="lazy" onerror="this.style.display='none'">` : `<div class="post-thumb-placeholder">📰</div>`;
-        return `<div class="post-item${isNew?' unread':''}" onclick="openPost(${p.id})">${thumbHtml}
+        return `<div class="post-item${isNew?' unread':''}" data-postid="${p.id}" onclick="openPost(${p.id})">${thumbHtml}
           <div class="post-body">${important}
             <div class="post-title">${isNew?'🔴 ':''}${p.title||'(ingen titel)'}</div>
             <div class="post-meta">${p.ownerProfile?.fullName||''} · ${date}${p.commentCount ? ' · 💬 '+p.commentCount : ''}</div>
@@ -210,7 +213,7 @@
         setSeen('overview', postTs);
       }
       // Remove unread dot from this post item
-      const postEl = document.querySelector(`.post-item[onclick="openPost(${postId})"]`);
+      const postEl = document.querySelector(`.post-item[data-postid="${postId}"]`);
       if (postEl) {
         postEl.classList.remove('unread');
         const titleEl = postEl.querySelector('.post-title');
@@ -379,7 +382,13 @@
       _renderWeekTimer = setTimeout(_renderWeekNow, 150);
     }
     function _renderWeekNow() {
-      if (!CHILDREN.length) return;
+      if (!CHILDREN.length) {
+        // Previously just returned here silently, leaving the calendar area
+        // completely blank with no feedback while waiting for /api/profile-config.
+        const el = document.getElementById('timetable');
+        if (el) el.innerHTML = '<div style="grid-column:1/-1;padding:60px 20px;text-align:center;color:#999">📅 Indlæser kalender…</div>';
+        return;
+      }
       window._evRegistry = [];  // reset event registry for allday badge clicks
       const days = getWeekDays(), today = new Date();
       document.getElementById('week-nr').textContent = getWeekNr(days[0]);
@@ -519,7 +528,7 @@
             }).replace(/'/g, '&#39;');
             if (tpl.entryTime) presenceEvents.push({
               _presence: true, _label: `🧒🎒 ${tpl.entryTime.substring(0,5)}`, _style: `border-left-color:${tabColor};color:${tabColor}`,
-              start: `${ds}T${tpl.entryTime}`, end: `${ds}T${tpl.entryTime.replace(/(\d+):(\d+)/,(_,h,m)=>String(parseInt(h)*60+parseInt(m)+30).replace(/(\d+)/,n=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')))}`,
+              start: `${ds}T${tpl.entryTime}`, end: `${ds}T${_addMinutes(tpl.entryTime, 30)}`,
               _tplData: tplData,
             });
             if (tpl.exitTime) presenceEvents.push({

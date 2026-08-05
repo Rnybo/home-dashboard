@@ -229,10 +229,15 @@ class AulaAuth:
                 account_tokens["tokens"].update(new_tokens)
                 account_tokens["timestamp"] = time.time()
 
-                # Re-establish Aula session cookies using new access_token
+                # Re-establish Aula session cookies using new access_token.
+                # `or {}` (not just a .get default) matters: if "cookies" is present
+                # but stored as null (happened in practice), .get(key, {}) still
+                # returns None since the key exists — dict(None) then crashes
+                # inside _init_session_cookies, cookies never get re-established,
+                # and every future refresh hits the same wall permanently.
                 cookies = await self._init_session_cookies(
                     new_tokens["access_token"],
-                    account_tokens.get("cookies", {})
+                    account_tokens.get("cookies") or {}
                 )
                 if cookies:
                     account_tokens["cookies"] = cookies

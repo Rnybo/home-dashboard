@@ -95,7 +95,10 @@ def logout():
     p = ROOT / "session.json"
     if p.exists():
         p.write_text(json.dumps({}))
-    _get_client().update_credentials({})
+    # update_credentials requires (phpsessid, csrf_token) — calling it with a
+    # single dict arg raised a TypeError on every logout attempt (500 error,
+    # logout never actually worked).
+    _get_client().update_credentials("", "")
     return {"ok": True}
 
 

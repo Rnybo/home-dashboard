@@ -2,6 +2,7 @@
 routers/custom.py — Custom Events CRUD + parse-event + ICS feed
 """
 import json
+import logging
 import os
 import threading
 import uuid
@@ -13,6 +14,8 @@ from fastapi.responses import Response
 
 from backend.store import load_custom_events, save_custom_events
 from backend.google_utils import _sync_google_event, _delete_google_event
+
+log = logging.getLogger("custom_events")
 
 router = APIRouter()
 

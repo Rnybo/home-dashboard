@@ -49,33 +49,7 @@ function castActivePlaying() {
   });
 }
 
-function castRenderHomeWidget() {
-  const el = document.getElementById('cast-home-widget');
-  if (!el) return;
-  const active = castActivePlaying();
-  if (active.length === 0) { el.style.display = 'none'; return; }
-  el.style.display = 'flex';
-  el.innerHTML = active.map(s => {
-    const artHtml = s.image
-      ? `<img class="cast-home-art" src="${s.image}" onerror="this.style.display='none'">`
-      : `<div class="cast-home-art-placeholder">${castAppIcon(s.app)}</div>`;
-    const isPaused = s.state === 'PAUSED';
-    return `
-      <div class="cast-home-card ${isPaused ? 'paused' : 'playing'}" onclick="castTogglePanel()">
-        ${artHtml}
-        <div class="cast-home-info">
-          <div class="cast-home-device">${castAppIcon(s.app)} ${s.device}</div>
-          <div class="cast-home-title">${s.title || '(ukendt titel)'}</div>
-          ${s.artist ? `<div class="cast-home-artist">${s.artist}</div>` : ''}
-        </div>
-        <div class="cast-home-controls" onclick="event.stopPropagation()">
-          <button onclick="castControl('${s.device}','previous')" title="Forrige">⏮</button>
-          <button onclick="castControl('${s.device}','${isPaused ? 'play' : 'pause'}')">${isPaused ? '▶' : '⏸'}</button>
-          <button onclick="castControl('${s.device}','next')" title="Næste">⏭</button>
-        </div>
-      </div>`;
-  }).join('');
-}
+
 
 // ── Progress ──────────────────────────────────────────────────────────────────
 let _progressTimer = null;
@@ -374,9 +348,9 @@ function castStartWS() {
       const s = JSON.parse(e.data);
       if (s.device) {
         castState[s.device] = s;
-        if (castPanelOpen) {
-          _castPanelDirty = true; // re-render udskydes til panelet lukkes/genåbnes
-        }
+        // castRenderButton() already handles updating an open panel in place
+        // (castUpdatePanelInPlace) — a dead "_castPanelDirty" flag used to be
+        // set here too, but nothing ever read it.
         castRenderButton();
       }
     } catch(err) {}

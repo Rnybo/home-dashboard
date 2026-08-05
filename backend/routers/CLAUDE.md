@@ -34,6 +34,7 @@ Alle routers importerer den globale `client`/`aula_auth` fra `backend/main.py` v
 ## `weather.py`, `news.py` — Vejr (met.no) og nyheder (DR RSS)
 
 - **Ingen caching** i `weather.py` — hvert dashboard-poll rammer met.no direkte. met.no forventer at man ikke poller unødigt ofte; tjek at frontend's poll-interval er rimeligt (se `frontend/js/CLAUDE.md` når det er skrevet).
+- **`/api/article-extract`** henter en DR-artikel server-side og udtrækker læsbar tekst med BeautifulSoup (`itemprop="articleBody"` — schema.org-markup DR selv bruger, virker konsistent på tværs af deres forskellige sideskabeloner — testet på både korte "seneste"-nyheder og lange sportsartikler). Findes fordi to enklere tilgange begge blev bekræftet **ikke virker** på den faktiske tablet: iframe-indlejring (DR sender `X-Frame-Options`) og `window.open()`/ny fane (understøttes ikke af Fully Kiosk Browser). Fjerner scripts/nav/forms fra det udtrukne indhold — dels for at undgå frame-busting-lignende JS, dels fordi vi kun vil have læsevisning. Begrænset til `dr.dk`-domænet, ligesom `/api/file-proxy` er begrænset til `aula.dk`.
 
 ## `cast.py` — Chromecast state + WebSocket
 

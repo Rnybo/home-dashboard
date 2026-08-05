@@ -24,7 +24,7 @@ Understøtter flere spillere (med tur-dialog), 6 kategorier med rigtige billeder
 
 ## `nyheder.js` — DR-nyheder
 
-`openNyhed()` åbner artikler med `window.open(url,'_blank')`. **Iframe-indlejring blev prøvet og bekræftet blokeret** af DR's `X-Frame-Options`/CSP-headers (testet direkte på tabletten, august 2026) — `window.open` er den eneste løsning der reelt virker for eksterne sider som ikke er under egen kontrol. Prøv ikke iframe igen for DR-artikler uden en server-side proxy der omskriver hele siden (stor opgave, ikke gjort).
+**`openNyhed()` viser artikler i `post-modal`** (samme modal som Aula-opslag bruger) med indhold fra `/api/article-extract` (se `backend/routers/CLAUDE.md`). To andre tilgange blev prøvet og bekræftet **ikke virker** på den faktiske tablet: iframe blokeres af DR's `X-Frame-Options`, og `window.open()`/ny fane understøttes ikke af Fully Kiosk Browser. Server-side udtræk af artiklens brødtekst er den løsning der reelt virker i denne opsætning — hold fast i den, prøv ikke iframe eller window.open igen for eksternt indhold på dette projekt.
 
 ## `tal.js` — Simpel tæller
 

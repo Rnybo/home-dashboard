@@ -42,15 +42,11 @@ function renderNyhedList(items) {
 function openNyhed(idx) {
   const item = nyhedItems?.[idx];
   if (!item) return;
-  // Was window.open(url, '_blank') — on the wall-mounted kiosk tablet that
-  // could open a new tab/window with no easy way back. Reuse the same
-  // iframe-modal pattern as openFileModal() in calendar.js instead, so
-  // reading a news article never leaves the dashboard.
-  document.getElementById('file-modal-title').textContent = item.title || 'Nyhed';
-  document.getElementById('file-modal-dl').href = item.link;
-  document.getElementById('file-modal-dl').download = '';
-  document.getElementById('file-modal-frame').src = item.link;
-  document.getElementById('file-modal-overlay').classList.add('open');
+  // Tried an iframe-modal here (like openFileModal()) to avoid leaving the
+  // kiosk view, but DR's site sends X-Frame-Options/CSP headers that block
+  // being embedded in an iframe from another origin — confirmed blocked on
+  // the actual tablet. Reverted to opening in a new tab, which at least works.
+  window.open(item.link, '_blank');
 }
 
 function formatNyhedDate(dateStr) {

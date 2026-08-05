@@ -24,7 +24,7 @@ Understøtter flere spillere (med tur-dialog), 6 kategorier med rigtige billeder
 
 ## `nyheder.js` — DR-nyheder
 
-**`openNyhed()` viser artikler i `file-modal`'s iframe** (samme modal som `openFileModal()` i `calendar.js` bruger til filer) i stedet for `window.open(url,'_blank')`, som på en kiosk-tablet kunne åbne en ny fane uden nem vej tilbage. **Utestet forbehold:** DR's hjemmeside kan sætte `X-Frame-Options`/CSP-headers der blokerer iframe-indlejring af eksterne sider — i modsætning til `/api/file-proxy`-filer, som er same-origin. Test på tabletten; hvis artikler vises tomme/blokerede, kræves enten en server-side proxy for DR-artikler, eller en tilbagerulning til ny-fane-adfærd.
+`openNyhed()` åbner artikler med `window.open(url,'_blank')`. **Iframe-indlejring blev prøvet og bekræftet blokeret** af DR's `X-Frame-Options`/CSP-headers (testet direkte på tabletten, august 2026) — `window.open` er den eneste løsning der reelt virker for eksterne sider som ikke er under egen kontrol. Prøv ikke iframe igen for DR-artikler uden en server-side proxy der omskriver hele siden (stor opgave, ikke gjort).
 
 ## `tal.js` — Simpel tæller
 

@@ -20,9 +20,9 @@
         const total = Object.values(aulaBtn._badges).reduce((a,b) => a+b, 0);
         aulaBtn.querySelector('.badge')?.remove();
         if (total > 0) { const b=document.createElement('span'); b.className='badge'; b.textContent=total>9?'9+':total; aulaBtn.appendChild(b); }
-        // Update dropdown item dot indicators
+        // Update dropdown item dot indicators (data-view, not onclick-string parsing)
         document.querySelectorAll('.aula-dd-item').forEach(item => {
-          const v = item.getAttribute('onclick').match(/'(\w+)'/)?.[1];
+          const v = item.dataset.view;
           item.querySelector('.dd-badge')?.remove();
           if (v && aulaBtn._badges?.[v] > 0) {
             const dot = document.createElement('span');
@@ -129,15 +129,21 @@
         const msgs=(data.messages||[]).filter(m=>m.messageType==='Message'||m.text);
         if (!msgs.length) { document.getElementById('msg-modal-body').textContent='Ingen indhold'; return; }
         document.getElementById('msg-modal-meta').textContent=`${msgs.length} besked${msgs.length!==1?'er':''} i tråden`;
-        document.getElementById('msg-modal-body').innerHTML=msgs.map(m => {
+        // Was: 'parse-msg-' + (m.id || Math.random()...) at render time, but
+        // 'parse-msg-' + (m.id || '') at listener-attach time below — for any
+        // message missing an id these produced two DIFFERENT ids, so that
+        // message's "Tilføj til kalender" button silently did nothing when
+        // clicked. Use the same deterministic key (id, or array index as
+        // fallback) in both places.
+        document.getElementById('msg-modal-body').innerHTML=msgs.map((m, mi) => {
           const sender=m.sender?.fullName||'Ukendt', date=m.sendDateTime?new Date(m.sendDateTime).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
-          const mBtnId = 'parse-msg-' + (m.id||Math.random().toString(36).slice(2));
+          const mBtnId = 'parse-msg-' + (m.id ?? mi);
           const attsHtml = renderAttachments(m.attachments || []);
           return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div>${attsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${attsHtml}</div>` : ''}<button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button></div>`;
         }).join('');
         // Attach event listeners after render
-        msgs.forEach(m => {
-          const mBtnId = 'parse-msg-' + (m.id||'');
+        msgs.forEach((m, mi) => {
+          const mBtnId = 'parse-msg-' + (m.id ?? mi);
           const btn = document.getElementById(mBtnId);
           if (btn) {
             const txt = (m.text?.html||m.text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();

@@ -440,33 +440,11 @@
 
 .cast-transfer-btn { display:flex; align-items:center; gap:6px; width:100%; margin:8px 0 2px; padding:8px 10px;
   background:transparent; border:0.5px solid var(--border); border-radius:8px; font-size:0.8rem; font-weight:600;
-  color:var(--text); cursor:pointer; }
+  color:var(--text, #333); cursor:pointer; }
 .cast-transfer-btn:hover { background:var(--blue-light); }
 .cast-transfer-btn svg { flex-shrink:0; }
 .cast-transfer-item { display:flex; align-items:center; gap:8px; padding:9px 14px; font-size:0.85rem; font-weight:500; color:#333; cursor:pointer; }
 .cast-transfer-item:hover { background:var(--blue-light); }
-
-/* ── Cast home widget ────────────────────────────────────────────────────── */
-#cast-home-widget { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
-.cast-home-card { background: #fff; border-radius: var(--radius); border: 1px solid var(--border);
-  padding: 10px 12px; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px;
-  cursor: pointer; transition: box-shadow .15s; }
-.cast-home-card:hover { box-shadow: 0 2px 10px rgba(0,95,168,0.12); }
-.cast-home-card.playing { border-left: 3px solid var(--blue-accent); }
-.cast-home-card.paused  { border-left: 3px solid #bbb; opacity: 0.85; }
-.cast-home-art { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--blue-mid); }
-.cast-home-art-placeholder { width: 40px; height: 40px; border-radius: 6px; flex-shrink: 0;
-  background: var(--blue-mid); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
-.cast-home-info { flex: 1; min-width: 0; }
-.cast-home-device { font-size: 0.68rem; font-weight: 700; color: #999; text-transform: uppercase;
-  letter-spacing: .05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cast-home-title  { font-size: 0.82rem; font-weight: 700; color: #222; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; }
-.cast-home-artist { font-size: 0.72rem; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cast-home-controls { display: flex; gap: 4px; flex-shrink: 0; }
-.cast-home-controls button { background: none; border: none; font-size: 1rem; cursor: pointer;
-  padding: 4px 6px; border-radius: 6px; color: #555; }
-.cast-home-controls button:hover { background: var(--blue-light); }
 
 /* ── Cast panel ──────────────────────────────────────────────────────────── */
 .cast-device { padding:0 0 12px; }

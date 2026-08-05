@@ -1,7 +1,7 @@
 /* ── Familie pages ──────────────────────────────────────────────────────── */
 #view-family-kids, #view-family-adults,
 #view-app-tal, #view-app-nyheder,
-#view-app-regnespil { flex-direction: column; overflow-y: auto; }
+#view-app-regnespil, #view-app-spell { flex-direction: column; overflow-y: auto; }
 
 .family-page-card { background:#fff; border-radius:var(--radius); padding:20px; border:1px solid var(--border); flex:1; }
 .family-page-card h2 { font-size:0.85rem; color:var(--blue); text-transform:uppercase; letter-spacing:1px; font-weight:700; margin-bottom:16px; }
@@ -757,7 +757,9 @@
 /* ══════════════════════════════════════════════════════
    ✏️ STAVESPIL
    ══════════════════════════════════════════════════════ */
-#view-app-stavespil { flex-direction: column; overflow-y: auto; }
+/* Layout-reglen for dette view flyttet op til den delte selector-liste
+   foroven (#view-app-spell) — den stod her som "#view-app-stavespil",
+   som aldrig matchede noget: det faktiske DOM-id er "view-app-spell". */
 
 /* Emoji + hint */
 .ss-emoji-box {

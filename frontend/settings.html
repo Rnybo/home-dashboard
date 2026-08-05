@@ -158,6 +158,9 @@
   <div class="card">
     <h2>🔐 Google Kalender API <span style="font-size:0.7rem;font-weight:400;color:#aaa">(OAuth2)</span></h2>
     <p class="section-note">Tilslut din Google-konto for automatisk adgang til alle dine kalendere — inkl. private. Client ID og Secret er skjulte.</p>
+    <p class="section-note" style="background:#fff8e1;border:1px solid #f59e0b;border-radius:6px;padding:8px 10px;color:#7c5800">
+      ⚠️ <strong>Tilslut Google-konto</strong>-knappen virker kun hvis du åbner denne side <strong>direkte på den enhed hvor dashboardet kører</strong> (tabletten selv, eller din PC ved lokal udvikling) — ikke fra en telefon eller anden enhed på netværket. Google's login-flow sender dig altid tilbage til <code>localhost:8000</code>.
+    </p>
 
     <details open id="oauth-setup-guide" style="margin-bottom:16px">
       <summary style="font-size:0.82rem;font-weight:700;color:var(--blue);cursor:pointer;user-select:none;padding:8px 0">
@@ -246,6 +249,9 @@
   <div class="card">
     <h2>🎵 Spotify <span style="font-size:0.7rem;font-weight:400;color:#aaa">(OAuth2)</span></h2>
     <p class="section-note">Tilslut din Spotify-konto for at vise hvad der spiller. Client ID og Secret fra <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:var(--blue)">Spotify Developer Dashboard</a>.</p>
+    <p class="section-note" style="background:#fff8e1;border:1px solid #f59e0b;border-radius:6px;padding:8px 10px;color:#7c5800">
+      ⚠️ Samme som Google ovenfor — <strong>Tilslut Spotify-konto</strong> virker kun åbnet direkte på enheden hvor dashboardet kører (Spotify sender dig tilbage til <code>127.0.0.1:8000</code>).
+    </p>
     <div class="field">
       <label>Client ID</label>
       <input type="password" id="spotify_client_id" placeholder="ada638a7..." autocomplete="off">

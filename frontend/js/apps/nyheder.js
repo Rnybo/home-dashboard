@@ -39,14 +39,27 @@ function renderNyhedList(items) {
   ).join('');
 }
 
-function openNyhed(idx) {
+async function openNyhed(idx) {
   const item = nyhedItems?.[idx];
   if (!item) return;
-  // Tried an iframe-modal here (like openFileModal()) to avoid leaving the
-  // kiosk view, but DR's site sends X-Frame-Options/CSP headers that block
-  // being embedded in an iframe from another origin — confirmed blocked on
-  // the actual tablet. Reverted to opening in a new tab, which at least works.
-  window.open(item.link, '_blank');
+  // Neither an iframe (DR sends X-Frame-Options that blocks embedding) nor
+  // window.open (Fully Kiosk Browser has no tabs to open) work for showing
+  // the full article on this kiosk tablet. Instead: fetch a server-side
+  // extracted, script-free reading view (/api/article-extract) and show it
+  // in the same modal already used for Aula posts.
+  document.getElementById('post-modal-title').textContent = item.title || 'Nyhed';
+  document.getElementById('post-modal-meta').textContent = 'DR · ' + formatNyhedDate(item.date);
+  document.getElementById('post-modal-body').innerHTML = '<div class="nyhed-loading">Henter artikel…</div>';
+  document.getElementById('post-modal-attachments').innerHTML = '';
+  document.getElementById('post-modal-overlay').classList.add('open');
+  try {
+    const r = await fetch(`/api/article-extract?url=${encodeURIComponent(item.link)}`, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error(String(r.status));
+    const data = await r.json();
+    document.getElementById('post-modal-body').innerHTML = data.html || '<p>Intet indhold fundet.</p>';
+  } catch(e) {
+    document.getElementById('post-modal-body').innerHTML = '<p style="color:#c00">Kunne ikke hente artiklen. Prøv igen senere.</p>';
+  }
 }
 
 function formatNyhedDate(dateStr) {

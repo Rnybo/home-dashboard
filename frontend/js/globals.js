@@ -12,19 +12,24 @@
     let lightboxItems = [], lightboxIdx = 0;
 
     async function initConfig() {
-      try {
-        const cfg = await fetch('/api/config').then(r => r.json());
-        API_KEY = cfg.api_key || '';
-        document.querySelector('header h1').textContent = '🏠 ' + (cfg.dashboard_title || 'Hjem');
-        document.title = cfg.dashboard_title || 'Familieoverblik';
-      } catch(e) {
-        await new Promise(r => setTimeout(r, 1000));
+      let attempt = 0;
+      // Previously gave up silently after a single retry, leaving API_KEY empty
+      // forever — every subsequent API call would then fail with 403 with no
+      // visible explanation, and the dashboard just looked silently broken.
+      // Now retries indefinitely with backoff and shows a visible message.
+      while (true) {
         try {
           const cfg = await fetch('/api/config').then(r => r.json());
           API_KEY = cfg.api_key || '';
           document.querySelector('header h1').textContent = '🏠 ' + (cfg.dashboard_title || 'Hjem');
           document.title = cfg.dashboard_title || 'Familieoverblik';
-        } catch(e) {}
+          return;
+        } catch(e) {
+          attempt++;
+          const h1 = document.querySelector('header h1');
+          if (h1) h1.textContent = `⚠️ Kan ikke forbinde til serveren (forsøg ${attempt})...`;
+          await new Promise(r => setTimeout(r, Math.min(attempt * 2000, 15000)));
+        }
       }
     }
     async function apiFetch(url, opts = {}) {

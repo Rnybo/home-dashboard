@@ -304,8 +304,18 @@
             const checked = [...optWrap.querySelectorAll('.del-cal-cb:checked')].map(cb => cb.dataset.calid);
             if (!checked.length) return;
             delBtn.disabled = true; delBtn.textContent = 'Fjerner...';
+            let allOk = true;
             for (const calId of checked) {
-              await apiFetch(`/api/custom-events/${evId}?calendar=${calId}`, { method:'DELETE' });
+              try {
+                const r = await apiFetch(`/api/custom-events/${evId}?calendar=${calId}`, { method:'DELETE' });
+                if (!r.ok) allOk = false;
+              } catch(e) { allOk = false; }
+            }
+            if (!allOk) {
+              // Dialog used to close unconditionally here even if the DELETE
+              // failed — closing implied success with no way to tell it hadn't.
+              delBtn.disabled = false; delBtn.textContent = '⚠️ Kunne ikke fjerne — prøv igen';
+              return;
             }
             document.getElementById('ev-info-overlay').classList.remove('open');
             loadGoogleCalendar();
@@ -326,7 +336,14 @@
           delBtn.textContent = '🗑️ Fjern fra kalender';
           delBtn.onclick = async () => {
             const calId = calList[0] || '';
-            await apiFetch(`/api/custom-events/${evId}${calId ? '?calendar='+calId : ''}`, { method:'DELETE' });
+            delBtn.disabled = true; delBtn.textContent = 'Fjerner...';
+            try {
+              const r = await apiFetch(`/api/custom-events/${evId}${calId ? '?calendar='+calId : ''}`, { method:'DELETE' });
+              if (!r.ok) throw new Error(String(r.status));
+            } catch(e) {
+              delBtn.disabled = false; delBtn.textContent = '⚠️ Kunne ikke fjerne — prøv igen';
+              return;
+            }
             document.getElementById('ev-info-overlay').classList.remove('open');
             loadGoogleCalendar();
           };
@@ -499,24 +516,34 @@
       const primaryColor = (colors[primaryId] || {color:'#7c3aed'}).color;
       const ac = new AbortController();
       const fetchTimeout = setTimeout(() => ac.abort(), 8000);
+      let saveOk = false;
       try {
-        await apiFetch('/api/custom-events', { method:'POST',
+        const r = await apiFetch('/api/custom-events', { method:'POST',
           signal: ac.signal,
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ title, start, end, allDay, color: primaryColor,
             calendar: calendarStr, description: _eventText })
         });
+        saveOk = r.ok;
       } catch(e) {}
       clearTimeout(fetchTimeout);
+      const status = document.getElementById('event-parse-status');
+      _savingEvent = false;
+      if (btn) { btn.disabled = false; btn.textContent = '📌 Gem til Familieoverblik'; }
+      if (!saveOk) {
+        // Was previously showing a green "Gemt" success message here even on
+        // failure (silent catch + unconditional success text) — a parent could
+        // believe the event was saved to the family calendar when it wasn't.
+        status.style.cssText = 'font-size:0.9rem;font-weight:700;color:#c00;background:#fff0f0;padding:14px;border-radius:8px;text-align:center;margin-bottom:12px';
+        status.textContent = '⚠️ Kunne ikke gemme — tjek forbindelsen og prøv igen';
+        return;
+      }
       // Show confirmation
       const startDate = new Date(allDay ? start + 'T00:00:00' : start);
       const fmt = startDate.toLocaleDateString('da-DK', {weekday:'short', day:'numeric', month:'short'});
       const time = allDay ? '' : ' kl. ' + startDate.toLocaleTimeString('da-DK', {hour:'2-digit', minute:'2-digit'});
-      const status = document.getElementById('event-parse-status');
       status.style.cssText = 'font-size:1rem;font-weight:700;color:#fff;background:#2e7d32;padding:14px;border-radius:8px;text-align:center;margin-bottom:12px';
       status.textContent = `✅ Gemt — ${fmt}${time}`;
-      _savingEvent = false;
-      if (btn) { btn.disabled = false; btn.textContent = '📌 Gem til Familieoverblik'; }
       setTimeout(() => document.getElementById('event-modal-overlay').classList.remove('open'), 1200);
       loadGoogleCalendar();
     }

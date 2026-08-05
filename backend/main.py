@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from dotenv import load_dotenv
 from backend.aula_client import AulaClient
+from backend import aula_version
 from backend.mqtt_client import mqtt_client
 from backend.aula_auth import AulaAuth, auto_refresh_loop
 import os
@@ -321,9 +322,9 @@ def profile_picture(url: str):
         r = client.session.get(url, timeout=10)
         if r.status_code == 403:
             # Unsigned URL — try to get signed version via Aula file-proxy API
-            signed = client.session.get(
-                f"https://www.aula.dk/api/v23/?method=mediaFiles.getSignedUrls",
-                params={"urls[]": url}, timeout=8
+            signed = aula_version.get(
+                client.session,
+                params={"method": "mediaFiles.getSignedUrls", "urls[]": url}, timeout=8
             )
             if signed.ok:
                 data = signed.json().get("data", {})

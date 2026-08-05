@@ -29,3 +29,5 @@ Thumbs.db
 *.bak
 
 tokens.json
+
+api_version.json

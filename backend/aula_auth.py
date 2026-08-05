@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from backend import aula_version
+
 logger = logging.getLogger("uvicorn.error")
 
 ROOT = Path(__file__).parent.parent
@@ -238,12 +240,9 @@ class AulaAuth:
             import httpx
             cookies = dict(existing_cookies)
             async with httpx.AsyncClient(follow_redirects=True, timeout=15) as client:
-                r = await client.get(
-                    "https://www.aula.dk/api/v23/",
-                    params={
-                        "method": "profiles.getProfilesByLogin",
-                        "access_token": access_token,
-                    },
+                r = await aula_version.async_get(
+                    client,
+                    params={"method": "profiles.getProfilesByLogin", "access_token": access_token},
                     cookies=cookies,
                     headers={"User-Agent": "Android"},
                 )

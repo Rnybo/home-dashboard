@@ -4,11 +4,10 @@ import logging
 import json
 import datetime
 from pathlib import Path
+from backend import aula_version
 
 logger = logging.getLogger(__name__)
 
-API_BASE = "https://www.aula.dk/api/v"
-API_VERSION = "23"
 SESSION_FILE = Path(__file__).parent.parent / "session.json"
 GROUPS_CACHE_FILE = Path(__file__).parent.parent / "groups_cache.json"
 
@@ -54,8 +53,7 @@ class AulaClient:
         })
 
     def _post(self, method: str, body: dict) -> dict:
-        url = f"{API_BASE}{API_VERSION}/?method={method}"
-        resp = self.session.post(url, json=body, verify=True,
+        resp = aula_version.post(self.session, f"method={method}", json=body, verify=True,
             headers={"csrfp-token": self._csrf_token})
         if resp.status_code in (401, 403):
             self.session_valid = False
@@ -76,8 +74,9 @@ class AulaClient:
     def check_session(self) -> bool:
         try:
             # profiles.getProfileContext requires valid PHPSESSID — unlike getProfilesByLogin
-            resp = self.session.get(
-                f"{API_BASE}{API_VERSION}/?method=profiles.getProfileContext&portalrole=guardian",
+            resp = aula_version.get(
+                self.session,
+                "method=profiles.getProfileContext&portalrole=guardian",
                 verify=True,
                 allow_redirects=False
             )
@@ -90,8 +89,7 @@ class AulaClient:
         return self.session_valid
 
     def _get(self, method: str, extra_params: str = "") -> dict:
-        url = f"{API_BASE}{API_VERSION}/?method={method}{extra_params}"
-        resp = self.session.get(url, verify=True)
+        resp = aula_version.get(self.session, f"method={method}{extra_params}", verify=True)
         if resp.status_code in (401, 403):
             self.session_valid = False
             raise PermissionError(f"Session expired (HTTP {resp.status_code})")
@@ -187,8 +185,8 @@ class AulaClient:
         end = today + datetime.timedelta(days=30)
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
         codes_param = "".join(f"&instCodes[]={c}" for c in inst_codes)
-        url = f"https://www.aula.dk/api/v23/?method=calendar.getBirthdayEventsForInstitutions&start={today}T00:00:00.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}&end={end}T23:59:59.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}{codes_param}"
-        resp = self.session.get(url, verify=True)
+        query = f"method=calendar.getBirthdayEventsForInstitutions&start={today}T00:00:00.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}&end={end}T23:59:59.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}{codes_param}"
+        resp = aula_version.get(self.session, query, verify=True)
         if resp.status_code == 401:
             raise PermissionError("Session expired")
         resp.raise_for_status()

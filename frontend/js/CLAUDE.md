@@ -1,6 +1,6 @@
 # frontend/js/ — Client-side app
 
-> **Status:** Living document. Dækker i dag app-skallen: `globals.js`, `app.js`, `auth.js`, `utils.js`, `cache.js`, `family.js`, `calendar.js`. Ikke dækket endnu: `klasse.js`, `gallery.js`, `aula.js`, `cast.js`, `presence_edit.js` (feature-moduler). Se `js/apps/CLAUDE.md` for børnenes spil.
+> **Status:** Living document. Dækker i dag app-skallen: `globals.js`, `app.js`, `auth.js`, `utils.js`, `cache.js`, `family.js`, `calendar.js`, `klasse.js`. Ikke dækket endnu: `gallery.js`, `aula.js`, `cast.js`, `presence_edit.js` (feature-moduler). Se `js/apps/CLAUDE.md` for børnenes spil.
 
 Ingen build-step, ingen moduler — rå `<script src>`-tags indlæst i rækkefølge fra `index.html`. **Rækkefølgen er kritisk**, fordi senere filer kan overskrive tidligere `function`-deklarationer med samme navn i det globale scope:
 
@@ -30,6 +30,12 @@ cache.js → globals.js → presence_edit.js → calendar.js → klasse.js → g
 - `openPost()` finder post-elementet via `data-postid` (ikke `onclick`-streng-match).
 - `_renderWeekNow()` viser nu "📅 Indlæser kalender…" hvis `CHILDREN` endnu ikke er indlæst, i stedet for at vise et helt tomt kalenderområde.
 - PIN-koden til børnelåsen (`clHash()`) bruger en bevidst simpel, ikke-kryptografisk hash — det er en friktionsmekanisme mod nysgerrige børn, ikke en sikkerhedsgrænse. Skift den ikke til noget "stærkere" uden grund; det løser intet reelt problem her.
+
+## `klasse.js` — klasseoversigt, kontaktinfo, fødselsdage
+
+- Cacher grupper og kontaktinfo direkte i `localStorage` (`ls_groups`, `ls_contacts_<groupId>`) — et separat, simplere mønster end `cache.js`'s `cacheFetch()` (ingen TTL, viser altid cache først uanset alder). Fungerer fint, men vær opmærksom på at det er en anden caching-tilgang end resten af appen hvis du reviderer det.
+- **`.klasse-child-row` har et `data-child-id`-attribut** — brug det til at finde et barns række/ID fra DOM'en. Brugte tidligere regex på `onclick`-attributten (samme mønster som blev rettet i `calendar.js`/`globals.js`).
+- `renderContactPanel()` viser kun kontaktinfo forældre selv har givet samtykke til at dele (`userHasGivenConsentToShowContactInformation`) — filtreres allerede server-side i `aula_client.py::get_contact_list()`, denne fil viser bare det den får.
 
 ## `app.js` — kalendervisning, event-modal, boot-sekvens
 

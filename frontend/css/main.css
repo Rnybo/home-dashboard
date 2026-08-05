@@ -9,7 +9,7 @@
     header { display: flex; justify-content: space-between; align-items: center;
       background: var(--blue); border-radius: var(--radius); padding: 8px 16px; flex-shrink: 0; gap: 8px; }
     header h1 { font-size: 1.2rem; color: #fff; font-weight: 700; white-space: nowrap; min-width: 0; flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
-    header #clock { font-size: 0.95rem; color: #cce4f7; white-space: nowrap; }
+    header #clock { font-size: 1.05rem; color: #cce4f7; white-space: nowrap; }
     #session-banner { display: none; background: rgba(0,0,0,0.12); border-radius: var(--radius);
       padding: 4px 12px; font-size: 0.75rem; user-select: none;
       color: rgba(255,255,255,0.85); flex-shrink: 0; text-align: right; }
@@ -73,14 +73,14 @@
     .day-col.weekend { background: #fafafa; }
     .day-col.today.weekend { background: #f5faff; }
     .th-spacer { position: sticky; top: 0; background: #fff; z-index: 2; border-bottom: 2px solid var(--border); }
-    .day-header { padding: 4px 4px 4px; text-align: center; font-size: 0.78rem; font-weight: 700;
+    .day-header { padding: 4px 4px 4px; text-align: center; font-size: 0.85rem; font-weight: 700;
       color: #666; border-bottom: 2px solid var(--border); position: sticky; top: 0; background: #fff; z-index: 2; overflow: hidden; }
     .day-header .allday-badges { height: 28px; overflow: hidden; margin-top: 2px; }
     .day-header.weekend { color: #999; }
     .day-header.weekend .date-num { color: #999; }
-    .day-header .date-num { display: block; font-size: 1.1rem; font-weight: 800; color: #333; line-height: 1.2; }
+    .day-header .date-num { display: block; font-size: 1.25rem; font-weight: 800; color: #333; line-height: 1.2; }
     .day-header.today .date-num { background: var(--blue); color: #fff; border-radius: 50%;
-      width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; }
+      width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem; }
     .time-gutter { grid-column: 1; position: relative; }
     .hour-label { position: absolute; right: 6px; font-size: 0.68rem; color: #aaa;
       font-weight: 600; transform: translateY(-50%); white-space: nowrap; }
@@ -145,13 +145,13 @@
     #today-widget { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
     .today-card { background: #fff; border-radius: var(--radius); padding: 10px 12px;
       border: 1px solid var(--border); flex: 1; min-width: 140px; }
-    .today-card .tc-name { font-size: 0.7rem; font-weight: 700; color: #999;
+    .today-card .tc-name { font-size: 0.75rem; font-weight: 700; color: #999;
       text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
     .today-card .tc-row { display: flex; align-items: center; gap: 6px;
-      font-size: 0.78rem; color: #444; margin-bottom: 4px; }
+      font-size: 0.85rem; color: #444; margin-bottom: 4px; }
     .today-card .tc-row:last-child { margin-bottom: 0; }
     .today-card .tc-time { font-weight: 700; color: #222; min-width: 38px; }
-    .today-card .tc-label { color: #888; font-size: 0.72rem; }
+    .today-card .tc-label { color: #767676; font-size: 0.78rem; }
     .today-card .tc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
     /* ── Post modal */

@@ -46,11 +46,13 @@ class AulaClient:
             "sec-fetch-site": "same-origin",
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
         })
-        self.session.cookies.update({
-            "PHPSESSID": phpsessid,
-            "Csrfp-Token": csrf_token,
-            "initialLogin": "true",
-        })
+        # Set with explicit domain matching what Aula's own Set-Cookie uses.
+        # Without this, a rotated PHPSESSID from Aula (domain=.aula.dk) creates a
+        # SECOND cookie alongside this domain-less one instead of replacing it,
+        # leaving two PHPSESSID values in the jar and causing intermittent 403s.
+        self.session.cookies.clear()
+        for name, value in (("PHPSESSID", phpsessid), ("Csrfp-Token", csrf_token), ("initialLogin", "true")):
+            self.session.cookies.set(name, value, domain=".aula.dk", path="/")
 
     def _post(self, method: str, body: dict) -> dict:
         resp = aula_version.post(self.session, f"method={method}", json=body, verify=True,
@@ -251,9 +253,14 @@ class AulaClient:
                 ]
 
                 children = []
-                CHILD_ROLES = {"daycare", "student", "child", "pupil", "schoolchild"}
+                # Blocklist of known adult/staff roles instead of a child-role whitelist.
+                # Aula introduces new student-role names per grade level (e.g. "early-student"
+                # for 0. klasse) without notice, which silently broke a whitelist-based filter.
+                # Excluding known adult roles is more resilient to that.
+                ADULT_ROLES = {"guardian", "teacher", "pedagogue", "employee", "leader", "other"}
                 for m in memberships:
-                    if m.get("institutionRole") not in CHILD_ROLES:
+                    role = m.get("institutionRole")
+                    if not role or role in ADULT_ROLES:
                         continue
                     ip = m.get("institutionProfile", {})
                     photo_url = self._pic_url(ip.get("profilePicture") or {})

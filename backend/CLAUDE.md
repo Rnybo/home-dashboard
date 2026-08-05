@@ -2,7 +2,7 @@
 
 FastAPI + uvicorn app. Single process, single async event loop. Runs on Windows (local dev) and in Termux on the tablet (production). Entry point: `backend/main.py`.
 
-> **Status:** Living document, opdateres i takt med den systematiske code review. Dækker i dag: `main.py`, `check_deps.py`, `store.py`, `mqtt_client.py`, `aula_version.py`, `aula_client.py`, `aula_auth.py`, `cast_service.py`, `spotify_utils.py`, `google_utils.py`. Ikke dækket endnu: `aula_lib/` (vendored bibliotek — kommer). Se `routers/CLAUDE.md` for API-endpoints.
+> **Status:** Living document, opdateres i takt med den systematiske code review. Dækker i dag: `main.py`, `check_deps.py`, `store.py`, `mqtt_client.py`, `aula_version.py`, `aula_client.py`, `aula_auth.py`, `cast_service.py`, `spotify_utils.py`, `google_utils.py`. Backend er nu fuldt gennemgået. Se `routers/CLAUDE.md` og `aula_lib/CLAUDE.md` for API-endpoints hhv. det vendored MitID-bibliotek.
 
 ## Kørselsmodel — vigtigt at forstå før du tilføjer kode
 

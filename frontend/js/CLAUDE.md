@@ -1,6 +1,6 @@
 # frontend/js/ — Client-side app
 
-> **Status:** Living document. Dækker i dag app-skallen: `globals.js`, `app.js`, `auth.js`, `utils.js`, `cache.js`, `family.js`. Ikke dækket endnu: `calendar.js`, `klasse.js`, `gallery.js`, `aula.js`, `cast.js`, `presence_edit.js` (feature-moduler). Se `js/apps/CLAUDE.md` for børnenes spil.
+> **Status:** Living document. Dækker i dag app-skallen: `globals.js`, `app.js`, `auth.js`, `utils.js`, `cache.js`, `family.js`, `calendar.js`. Ikke dækket endnu: `klasse.js`, `gallery.js`, `aula.js`, `cast.js`, `presence_edit.js` (feature-moduler). Se `js/apps/CLAUDE.md` for børnenes spil.
 
 Ingen build-step, ingen moduler — rå `<script src>`-tags indlæst i rækkefølge fra `index.html`. **Rækkefølgen er kritisk**, fordi senere filer kan overskrive tidligere `function`-deklarationer med samme navn i det globale scope:
 
@@ -21,7 +21,15 @@ cache.js → globals.js → presence_edit.js → calendar.js → klasse.js → g
 
 - **`initConfig()` henter `/api/config` (giver `API_KEY`) — retryer nu i det uendelige med backoff** hvis kaldet fejler, og viser en synlig fejl i header-titlen. Uden `API_KEY` fejler *alt* andet API-kald med 403 — gjorde tidligere kun 2 forsøg og gav derefter permanent, usynligt op.
 - **`apiFetch()`** er standard-wrapperen for alle API-kald — tilføjer `x-api-key`-header, kaster en fejl med `.status` sat på 401/403 (fanges af `cacheFetch` til at vise login-banner).
-- `switchView()`'s dropdown-aktiv-tilstand parser `onclick`-attributten med regex for at finde viewnavnet i stedet for et `data-view`-attribut — skrøbeligt, men ingen kendt aktiv bug. Overvej `data-view` hvis det skal udvides.
+- `switchView()`'s dropdown-aktiv-tilstand bruger `data-view`-attributter på `.aula-dd-item`-elementerne (i `index.html`) — brugte tidligere regex på `onclick`-strengen, hvilket fejlede stille for viewnavne med bindestreg (`family-kids`/`family-adults` fik aldrig sat aktiv-klassen korrekt, da `\w` ikke matcher `-`).
+
+## `calendar.js` — ugevisning, "i dag"-widget, event-info-modal
+
+- **`renderTodayWidget()` bygger nu hvert kort (barn + "Familien") færdigt i ét hug** inklusiv rute-rækker — erstattede en tidligere version der byggede hele HTML-strengen først og bagefter brugte et regex find/erstat til at sprøjte rute-data ind i det allerede-byggede resultat. Skrøbeligt (afhang af at børnenavne matchede en dynamisk bygget regex) og svært at følge; byg nyt indhold direkte, aldrig via post-hoc regex på egen genereret HTML.
+- **`_addMinutes(timeStr, mins)`** er en lille hjælper til "HH:MM + N minutter"-aritmetik (bruges til presence-bar'ens visuelle sluttidspunkt) — brug den frem for at genopfinde tidsregning inline.
+- `openPost()` finder post-elementet via `data-postid` (ikke `onclick`-streng-match).
+- `_renderWeekNow()` viser nu "📅 Indlæser kalender…" hvis `CHILDREN` endnu ikke er indlæst, i stedet for at vise et helt tomt kalenderområde.
+- PIN-koden til børnelåsen (`clHash()`) bruger en bevidst simpel, ikke-kryptografisk hash — det er en friktionsmekanisme mod nysgerrige børn, ikke en sikkerhedsgrænse. Skift den ikke til noget "stærkere" uden grund; det løser intet reelt problem her.
 
 ## `app.js` — kalendervisning, event-modal, boot-sekvens
 

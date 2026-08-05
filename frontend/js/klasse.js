@@ -35,7 +35,7 @@
           const isOwn = child.isOwnChild;
           const avatarHtml = `<div class="klasse-child-avatar" style="${isOwn ? 'background:var(--blue);color:#fff' : ''}">${ini}</div>`;
           return `
-            <div class="klasse-child-row${isOwn ? ' own-child' : ''}" onclick="toggleParents(${gi},${ci},${group.id},${child.id})">
+            <div class="klasse-child-row${isOwn ? ' own-child' : ''}" data-child-id="${child.id}" onclick="toggleParents(${gi},${ci},${group.id},${child.id})">
               ${avatarHtml}
               <div style="flex:1;min-width:0">
                 <div class="klasse-child-name">${child.name}${isOwn ? ' ⭐' : ''}</div>
@@ -165,14 +165,12 @@
       const childrenEl = document.getElementById('group-children-' + gi);
       if (!childrenEl) return;
       childrenEl.querySelectorAll('[id^="bday-' + gi + '-"]').forEach(el => {
-        const parts = el.id.split('-');
-        const ci = parseInt(parts[2]);
         const row = el.closest('.klasse-child-row');
         if (!row) return;
-        const onclickVal = row.getAttribute('onclick') || '';
-        const args = onclickVal.match(/\d+/g);
-        if (!args || args.length < 4) return;
-        const childId = parseInt(args[3]);
+        // data-child-id instead of regex-parsing the onclick attribute string
+        // (which used to grab the 4th number found anywhere in the string —
+        // fragile if any of the earlier ids ever weren't plain integers).
+        const childId = parseInt(row.dataset.childId);
         const contact = contactCache[groupId]?.[childId];
         if (!contact) return;
 

@@ -22,14 +22,23 @@ def _get_google_access_token() -> str:
     refresh_token = os.getenv("GOOGLE_OAUTH_REFRESH_TOKEN", "")
     if not refresh_token:
         return ""
-    r = req.post(GOOGLE_TOKEN_URL, data={
-        "client_id":     os.getenv("GOOGLE_CLIENT_ID", ""),
-        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
-        "refresh_token": refresh_token,
-        "grant_type":    "refresh_token",
-    }, timeout=10)
-    r.raise_for_status()
-    tokens = r.json()
+    try:
+        r = req.post(GOOGLE_TOKEN_URL, data={
+            "client_id":     os.getenv("GOOGLE_CLIENT_ID", ""),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET", ""),
+            "refresh_token": refresh_token,
+            "grant_type":    "refresh_token",
+        }, timeout=10)
+        r.raise_for_status()
+        tokens = r.json()
+    except Exception as e:
+        # Callers treat "" the same as "not connected" — without this, an
+        # invalid/revoked refresh_token raises an unhandled HTTPError here,
+        # and several call sites (e.g. /api/google-oauth/calendars) don't
+        # wrap this specific call, so it surfaced as a raw 500 instead of
+        # a graceful "not connected" response.
+        logging.getLogger("google_oauth").warning(f"Token refresh failed: {e}")
+        return ""
     access_token = tokens.get("access_token", "")
     expires_in   = tokens.get("expires_in", 3600)
     os.environ["GOOGLE_OAUTH_ACCESS_TOKEN"] = access_token
@@ -53,13 +62,12 @@ def _sync_google_event(event: dict) -> str | None:
     access_token = _get_google_access_token()
     if not access_token:
         return None
-    # Import client lazily to avoid circular import
-    from backend.aula_client import AulaClient
-    from pathlib import Path
-    from dotenv import load_dotenv
-    load_dotenv()
+    # Reuse the global client singleton (already has session + cached profile)
+    # instead of constructing a throwaway AulaClient(), which used to force an
+    # extra, unnecessary Aula API call on every single background sync just to
+    # look up a child's first name.
     try:
-        _client = AulaClient()
+        from backend.main import client as _client
     except Exception:
         _client = None
 

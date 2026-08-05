@@ -41,14 +41,22 @@ def get_spotify_access_token() -> str:
     if not refresh_token:
         return ""
 
-    r = req.post(SPOTIFY_TOKEN_URL, data={
-        "grant_type":    "refresh_token",
-        "refresh_token": refresh_token,
-        "client_id":     _client_id(),
-        "client_secret": _client_secret(),
-    }, timeout=10)
-    r.raise_for_status()
-    tokens = r.json()
+    try:
+        r = req.post(SPOTIFY_TOKEN_URL, data={
+            "grant_type":    "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id":     _client_id(),
+            "client_secret": _client_secret(),
+        }, timeout=10)
+        r.raise_for_status()
+        tokens = r.json()
+    except Exception as e:
+        # Callers treat "" the same as "not connected" — without this, an
+        # invalid/revoked refresh_token raises an unhandled HTTPError that
+        # several call sites don't guard against (only the follow-up Spotify
+        # API call is wrapped, not this token fetch).
+        logging.getLogger("spotify_oauth").warning(f"Token refresh failed: {e}")
+        return ""
 
     access_token = tokens.get("access_token", "")
     expires_in   = tokens.get("expires_in", 3600)

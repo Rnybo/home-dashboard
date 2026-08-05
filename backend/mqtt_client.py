@@ -17,9 +17,12 @@ except ImportError:
     _PAHO_AVAILABLE = False
     log.warning("paho-mqtt ikke installeret — MQTT deaktiveret")
 
-# RC-koder der ikke skal føre til genstart
-# 4=bad credentials, 5=not authorized (MQTT spec), 7=not authorized (paho)
-_NO_RETRY_RC = {4, 5, 7}
+# RC-koder der ikke skal føre til genstart (permanente auth-fejl)
+# 4=bad credentials, 5=not authorized (MQTT spec)
+# NB: rc=7 er paho's MQTT_ERR_CONN_LOST — en netværksfejl, ikke en auth-fejl.
+# Den skal IKKE deaktivere klienten permanent, ellers dør MQTT ved en normal
+# forbindelsesudsving og kræver servergenstart for at komme tilbage.
+_NO_RETRY_RC = {4, 5}
 
 
 class MqttClient:

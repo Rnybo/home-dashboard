@@ -84,7 +84,10 @@ class AulaClient:
             )
             data = resp.json()
             self.session_valid = resp.status_code == 200 and data.get("status", {}).get("code") == 0
-        except Exception:
+            if not self.session_valid:
+                logger.info(f"check_session: not valid (HTTP {resp.status_code}, status code {data.get('status', {}).get('code')})")
+        except Exception as e:
+            logger.warning(f"check_session: request failed ({e}) — treating as invalid")
             self.session_valid = False
         if not self.session_valid:
             self._profile_cache = None
@@ -187,12 +190,12 @@ class AulaClient:
         end = today + datetime.timedelta(days=30)
         tz_offset = datetime.datetime.now().astimezone().strftime("%z")
         codes_param = "".join(f"&instCodes[]={c}" for c in inst_codes)
-        query = f"method=calendar.getBirthdayEventsForInstitutions&start={today}T00:00:00.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}&end={end}T23:59:59.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}{codes_param}"
-        resp = aula_version.get(self.session, query, verify=True)
-        if resp.status_code == 401:
-            raise PermissionError("Session expired")
-        resp.raise_for_status()
-        return resp.json().get("data", []) or []
+        extra = f"&start={today}T00:00:00.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}&end={end}T23:59:59.000%2B{tz_offset[1:3]}%3A{tz_offset[3:]}{codes_param}"
+        # Uses the shared _get() (401 AND 403 -> PermissionError, consistent
+        # with every other method here) instead of duplicating that check —
+        # this used to only catch 401, silently missing 403s.
+        data = self._get("calendar.getBirthdayEventsForInstitutions", extra)
+        return data.get("data", []) or []
 
     def _pic_url(self, pic: dict, size: str = "200x200") -> str:
         """Build a stable media URL from a profilePicture object."""
@@ -293,25 +296,41 @@ class AulaClient:
             except Exception as e:
                 logger.warning(f"Could not get group {group_id}: {e}")
 
-        # Write cache
-        try:
-            GROUPS_CACHE_FILE.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
-        except Exception as e:
-            logger.warning(f"Could not write groups cache: {e}")
+        # Write cache — but only if we actually got something. If every per-group
+        # fetch above failed (e.g. a transient network blip), result is [] and
+        # writing it would overwrite a good cache with an empty one, destroying
+        # the exact fallback get_groups_cached() relies on for this situation.
+        if result:
+            try:
+                GROUPS_CACHE_FILE.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+            except Exception as e:
+                logger.warning(f"Could not write groups cache: {e}")
 
         return result
 
     def get_groups_cached(self) -> list:
         """Return cached groups if available, otherwise fetch live."""
-        try:
-            return self.get_groups()
-        except Exception:
+        def _from_disk_cache():
             if GROUPS_CACHE_FILE.exists():
                 try:
                     return json.loads(GROUPS_CACHE_FILE.read_text(encoding="utf-8"))
                 except Exception:
                     pass
             return []
+
+        try:
+            result = self.get_groups()
+            if not result:
+                # get_groups() didn't raise, but came back empty — likely every
+                # per-group fetch failed silently (caught inside the loop) rather
+                # than there genuinely being zero groups. Prefer a stale-but-real
+                # cache over a probably-wrong empty result.
+                cached = _from_disk_cache()
+                if cached:
+                    return cached
+            return result
+        except Exception:
+            return _from_disk_cache()
 
     def get_contact_list(self, group_id: int) -> list:
         """Fetch all children with contact info for a group (paginated)."""

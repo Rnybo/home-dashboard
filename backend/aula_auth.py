@@ -72,6 +72,12 @@ class AulaAuth:
         self.qr_image2 = None
         self._cancel_event = threading.Event()
         self._account_index = 0
+        # Guards _try_refresh() against concurrent callers (the 30-min session
+        # keepalive loop and the 50-min auto-refresh loop both call it on this
+        # same instance). Refresh tokens are single-use/rotating, so letting two
+        # refreshes interleave on tokens.json can corrupt the saved state and
+        # force an unnecessary full MitID re-login.
+        self._refresh_lock = asyncio.Lock()
 
     def get_status(self) -> dict:
         return {"state": self.state, "error": self.error, "qr_image": self.qr_image, "qr_image2": self.qr_image2}
@@ -203,36 +209,44 @@ class AulaAuth:
 
     async def _try_refresh(self, username: str, account_tokens: dict) -> bool:
         """Attempt silent token refresh. Returns True if successful."""
-        try:
-            from backend.aula_lib.auth_flow import _refresh_token_via_oidc
-            refresh_token = account_tokens["tokens"]["refresh_token"]
-            new_tokens = await _refresh_token_via_oidc(refresh_token)
-            if not new_tokens or not new_tokens.get("access_token"):
-                logger.info("Refresh token expired — full login required")
+        async with self._refresh_lock:
+            try:
+                # Reload fresh from disk now that we hold the lock — the caller's
+                # account_tokens snapshot may already be stale if a concurrent
+                # refresh (from the other background loop) completed while we
+                # were waiting. Using a stale refresh_token here would fail
+                # since Aula's refresh tokens are single-use/rotating.
+                account_tokens = _load_tokens().get(username, account_tokens)
+
+                from backend.aula_lib.auth_flow import _refresh_token_via_oidc
+                refresh_token = account_tokens["tokens"]["refresh_token"]
+                new_tokens = await _refresh_token_via_oidc(refresh_token)
+                if not new_tokens or not new_tokens.get("access_token"):
+                    logger.info("Refresh token expired — full login required")
+                    return False
+
+                # Merge new tokens, keep existing cookies
+                account_tokens["tokens"].update(new_tokens)
+                account_tokens["timestamp"] = time.time()
+
+                # Re-establish Aula session cookies using new access_token
+                cookies = await self._init_session_cookies(
+                    new_tokens["access_token"],
+                    account_tokens.get("cookies", {})
+                )
+                if cookies:
+                    account_tokens["cookies"] = cookies
+
+                all_tokens = _load_tokens()
+                all_tokens[username] = account_tokens
+                _save_tokens(all_tokens)
+
+                logger.info("Token refresh successful")
+                return True
+
+            except Exception as e:
+                logger.warning(f"Token refresh failed: {e}")
                 return False
-
-            # Merge new tokens, keep existing cookies
-            account_tokens["tokens"].update(new_tokens)
-            account_tokens["timestamp"] = time.time()
-
-            # Re-establish Aula session cookies using new access_token
-            cookies = await self._init_session_cookies(
-                new_tokens["access_token"],
-                account_tokens.get("cookies", {})
-            )
-            if cookies:
-                account_tokens["cookies"] = cookies
-
-            all_tokens = _load_tokens()
-            all_tokens[username] = account_tokens
-            _save_tokens(all_tokens)
-
-            logger.info("Token refresh successful")
-            return True
-
-        except Exception as e:
-            logger.warning(f"Token refresh failed: {e}")
-            return False
 
     async def _init_session_cookies(self, access_token: str, existing_cookies: dict) -> dict | None:
         """Call Aula init endpoint with access_token to get fresh PHPSESSID + Csrfp-Token."""

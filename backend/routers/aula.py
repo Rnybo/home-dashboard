@@ -10,6 +10,7 @@ from pathlib import Path
 import requests as req
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
 
 router = APIRouter()
 ROOT = Path(__file__).parent.parent.parent
@@ -162,7 +163,11 @@ async def update_presence(request: Request):
     client = _get_client()
     for u in updates:
         try:
-            ok = client.update_presence_template(
+            # update_presence_template does a blocking requests.post — this handler is
+            # async def, so without run_in_threadpool it would freeze the whole event
+            # loop (cast, weather, everything) for the duration of each Aula call.
+            ok = await run_in_threadpool(
+                client.update_presence_template,
                 institution_profile_id=int(u["childId"]),
                 by_date=u["date"],
                 entry_time=u.get("entryTime", ""),

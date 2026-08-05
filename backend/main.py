@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Request, Depends, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from backend.aula_client import AulaClient
 from backend import aula_version
@@ -83,7 +84,10 @@ async def _session_keepalive():
     while True:
         await asyncio.sleep(30 * 60)
         try:
-            valid = client.check_session()
+            # check_session does a blocking requests.get — this is a long-lived
+            # async background task, so without run_in_threadpool it freezes the
+            # whole event loop for the call's duration every 30 minutes.
+            valid = await run_in_threadpool(client.check_session)
             log.info(f"Session keepalive: {'OK' if valid else 'EXPIRED'}")
             if not valid:
                 log.info("Session invalid — attempting auto-refresh...")

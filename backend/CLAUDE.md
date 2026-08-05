@@ -2,7 +2,7 @@
 
 FastAPI + uvicorn app. Single process, single async event loop. Runs on Windows (local dev) and in Termux on the tablet (production). Entry point: `backend/main.py`.
 
-> **Status:** Living document, opdateres i takt med den systematiske code review. Dækker i dag: `main.py`, `check_deps.py`, `store.py`, `mqtt_client.py`, `aula_version.py`, `aula_client.py`, `aula_auth.py`. Ikke dækket endnu: `cast_service.py`, `spotify_utils.py` (cast/Spotify — kommer), `google_utils.py` (Google Calendar — kommer). Se `routers/` og `aula_lib/` for deres egne CLAUDE.md.
+> **Status:** Living document, opdateres i takt med den systematiske code review. Dækker i dag: `main.py`, `check_deps.py`, `store.py`, `mqtt_client.py`, `aula_version.py`, `aula_client.py`, `aula_auth.py`, `cast_service.py`, `spotify_utils.py`, `google_utils.py`. Ikke dækket endnu: `aula_lib/` (vendored bibliotek — kommer). Se `routers/CLAUDE.md` for API-endpoints.
 
 ## Kørselsmodel — vigtigt at forstå før du tilføjer kode
 
@@ -50,8 +50,20 @@ Bruger `nickknissen/aula`-biblioteket (`aula_lib/`) til OAuth2 PKCE + SAML/MitID
 - **`_init_session_cookies()`** bruger `profiles.getProfilesByLogin` til at bytte et access_token til `PHPSESSID`/`Csrfp-Token` — virker fint til dette formål, ikke ændret uden grund.
 - Alle Aula-HTTP-kald her går gennem `aula_version.async_get()`.
 
+## `cast_service.py` — Chromecast/Nest device monitoring
+
+mDNS-baseret Cast-device discovery + media-status monitoring, tydeligt modelleret efter Home Assistant's cast-integration (samme state-flags, samme edge-case-håndtering for upålidelige apps som Netflix). Publicerer state til MQTT ved ændring.
+
+- **`_run()`'s discovery-loop genstarter automatisk** ved fejl (30 sek delay) og rydder `_chromecasts` i sin `finally`-blok — men rydder ikke `_state`, så `get_state()` kan returnere en anelse forældet data for enheder mellem en discovery-genstart og deres reconnect. Lav praktisk risiko, ikke rettet.
+- **`transfer_playback()`** virker kun for direkte URL-streams (DR, radio) — **ikke Spotify**. Spotify kræver interne cookie-baserede credentials (`sp_dc`/`sp_key`) som ikke er tilgængelige via normal OAuth, så transfer for Spotify er bevidst ikke supporteret; brug Spotify-appen selv til enhedsskift.
+
+## `spotify_utils.py`, `google_utils.py` — OAuth token-refresh
+
+Begge følger samme mønster: in-memory token-cache + refresh via `refresh_token` fra `.env`. **`get_spotify_access_token()`/`_get_google_access_token()` fanger selv fejl fra refresh-kaldet og returnerer `""`** ved ugyldigt/tilbagekaldt refresh-token — kald dem altid som `if not token: <ikke forbundet>`, forvent aldrig at de kaster en exception. (De gjorde det tidligere ikke, hvilket gav rå 500'ere på fx `/api/google-oauth/calendars` når et token var udløbet.)
+
+- **`_sync_google_event()`** (kaldt fra `routers/custom.py` i en baggrundstråd ved hvert custom-event) genbruger den globale `client`-singleton (via `from backend.main import client`) til at slå børns navne op — brug **ikke** `AulaClient()` direkte her, det opretter en overflødig instans og udløser et ekstra Aula-kald hver gang.
+
 ## Pending (not yet reviewed / documented here)
 
-- `cast_service.py`, `spotify_utils.py` — Chromecast/Spotify integration
-- `google_utils.py` — Google Calendar OAuth + sync
-- Se `routers/` og `aula_lib/` for deres egne CLAUDE.md (kommer senere i reviewet)
+- Se `routers/CLAUDE.md` for API-endpoints
+- `aula_lib/` (vendored bibliotek) kommer senere i reviewet

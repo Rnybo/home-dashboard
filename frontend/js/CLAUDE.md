@@ -1,6 +1,6 @@
 # frontend/js/ — Client-side app
 
-> **Status:** Living document. Dækker i dag app-skallen: `globals.js`, `app.js`, `auth.js`, `utils.js`, `cache.js`, `family.js`, `calendar.js`, `klasse.js`. Ikke dækket endnu: `gallery.js`, `aula.js`, `cast.js`, `presence_edit.js` (feature-moduler). Se `js/apps/CLAUDE.md` for børnenes spil.
+> **Status:** `frontend/js/` er nu fuldt gennemgået: `globals.js`, `app.js`, `auth.js`, `utils.js`, `cache.js`, `family.js`, `calendar.js`, `klasse.js`, `gallery.js`, `aula.js`, `presence_edit.js`, `cast.js`. Se `js/apps/CLAUDE.md` for børnenes spil, `js/CLAUDE.md`-nabofiler i `css/` og roden for resten af frontend.
 
 Ingen build-step, ingen moduler — rå `<script src>`-tags indlæst i rækkefølge fra `index.html`. **Rækkefølgen er kritisk**, fordi senere filer kan overskrive tidligere `function`-deklarationer med samme navn i det globale scope:
 
@@ -51,3 +51,23 @@ Håndterer login-dropdown, konto-skift, og MitID QR-kode-flowet (polling `/api/l
 ## `family.js` — Familie-app-grid og bund-navigation
 
 Statisk `FAMILY_APPS`-konfiguration (kids/adults), aktiveres via Indstillinger (`localStorage` `family_kids_apps`/`family_adults_apps`). `shuffle()` her er delt af regnespil og huskespil.
+
+## `gallery.js` — Aula-galleri + lightbox
+
+Ren, ingen fund. Bruger allerede `data-idx`-attributter korrekt (ikke onclick-streng-parsing). Tastatur-navigation i lightbox (pil venstre/højre, Escape).
+
+## `aula.js` — badges, beskeder, "kommende events"-sidebar
+
+- **`setBadge()`'s dropdown-prik-indikator bruger `data-view`** (samme fix som `switchView()` i `globals.js`) — brugte tidligere regex på `onclick`.
+- **`openMsg()`'s "Tilføj til kalender"-knapper bruger nu et deterministisk id** (`m.id ?? array-index`) i både render- og listener-tilknytningstrinnet. De brugte tidligere *forskellige* fallback-værdier ved manglende `m.id` (tilfældigt tal ved render, tom streng ved lytter-tilknytning) — en besked uden `id`-felt ville derfor få en knap der så klikbar ud, men ikke gjorde noget.
+
+## `presence_edit.js` — rediger hente/bringe-tider
+
+Solidt eksempel på korrekt fejlhåndtering — tjekker faktisk `ok`-status per barn i svaret og viser præcise fejl/succes-beskeder. Sammenlign med den tidligere bug i `saveEventLocal()` (nu rettet) for at se forskellen mellem god og dårlig håndtering af samme mønster.
+
+## `cast.js` — Chromecast/Spotify-afspiller-widget
+
+Solidt modul — progress-bars med live-interpolation, in-place DOM-opdatering under afspilning (undgår fuld re-render der ville afbryde en bruger midt i en interaktion), WebSocket + polling-fallback, korrekt fejlvisning ved Spotify-søgning/afspilning/transfer.
+
+- **`castRenderHomeWidget()` og `_castPanelDirty` er fjernet** — dødt kode. Førstnævnte var en helt færdigbygget, men aldrig-kaldt funktion hvis mål-element (`#cast-home-widget`) ikke engang fandtes i `index.html`. Sidstnævnte var et flag der blev sat men aldrig læst — den faktiske live-opdatering af et åbent panel sker via `castUpdatePanelInPlace()`, uafhængigt af flaget.
+- Har et fuldt **mock-mode** til Spotify-søgning (`window._spotifyMockEnabled`, monkey-patcher `apiFetch` midlertidigt) — praktisk til UI-udvikling uden en rigtig Spotify-forbindelse.

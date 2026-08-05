@@ -163,7 +163,11 @@ function rsBindDrag() {
 }
 let rsGhost = null;
 function rsPointerDown(e) {
-  if (rs.answered) return; e.preventDefault();
+  // Ignore a second touch while a drag is already in progress — without this,
+  // a second finger/palm touching another option (common with kids on a
+  // tablet) overwrote rsGhost/rs.dragging, orphaning the first drag's ghost
+  // element on screen with no way to clean it up.
+  if (rs.answered || rs.dragging) return; e.preventDefault();
   const opt = e.currentTarget, val = parseInt(opt.dataset.val), rect = opt.getBoundingClientRect();
   const lv = RS_LEVELS.find(l => l.id === rs.level), showBubbles = lv.maxAnswer <= 20;
   rsGhost = document.createElement('div'); rsGhost.className = 'rs-ghost';

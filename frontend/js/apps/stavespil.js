@@ -242,7 +242,10 @@ function ssRemoveFromSlot(slotId) {
 }
 
 function ssPointerDown(e) {
-  if (ss.answered) return;
+  // Same guard as regnespil.js's rsPointerDown — ignore a second touch while
+  // a drag is already active, or a second finger touching another tile
+  // orphans the first drag's ghost element on screen.
+  if (ss.answered || ss.dragging) return;
   e.preventDefault();
   const tile = e.currentTarget;
   const tileData = ss.tiles.find(t => t.id === tile.dataset.tile);

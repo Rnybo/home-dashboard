@@ -163,7 +163,6 @@ function memPickerSummary() {
 function memRefreshPickerSummary() {
   const bar = document.querySelector('.mem-picker-bar');
   if (!bar) return;
-  bar.outerHTML; // kan ikke sættes direkte — genrender hele summary
   const newEl = document.createElement('div');
   newEl.innerHTML = memPickerSummary();
   bar.replaceWith(newEl.firstChild);

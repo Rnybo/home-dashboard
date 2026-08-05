@@ -40,7 +40,17 @@ function renderNyhedList(items) {
 }
 
 function openNyhed(idx) {
-  if (nyhedItems?.[idx]) window.open(nyhedItems[idx].link, '_blank');
+  const item = nyhedItems?.[idx];
+  if (!item) return;
+  // Was window.open(url, '_blank') — on the wall-mounted kiosk tablet that
+  // could open a new tab/window with no easy way back. Reuse the same
+  // iframe-modal pattern as openFileModal() in calendar.js instead, so
+  // reading a news article never leaves the dashboard.
+  document.getElementById('file-modal-title').textContent = item.title || 'Nyhed';
+  document.getElementById('file-modal-dl').href = item.link;
+  document.getElementById('file-modal-dl').download = '';
+  document.getElementById('file-modal-frame').src = item.link;
+  document.getElementById('file-modal-overlay').classList.add('open');
 }
 
 function formatNyhedDate(dateStr) {

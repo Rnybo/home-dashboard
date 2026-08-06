@@ -364,6 +364,12 @@
         // instead of relying on the browser's native PDF support.
         frame.src = 'vendor/pdfjs/viewer.html?file=' + encodeURIComponent(proxy);
         fallback.classList.remove('show');
+      } else if (ext === 'docx') {
+        // .docx (OOXML) → bundled offline docx-preview.js, rendered to HTML/CSS.
+        // Legacy binary .doc is NOT supported by this library — those stay in
+        // the generic fallback below.
+        frame.src = 'vendor/docx-preview/viewer.html?file=' + encodeURIComponent(proxy);
+        fallback.classList.remove('show');
       } else if (INLINE_TEXT_EXT.includes(ext)) {
         // Plain text renders natively in an iframe — no special handling needed.
         frame.src = proxy;

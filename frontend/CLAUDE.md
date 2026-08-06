@@ -12,6 +12,10 @@ Ren markup + inline styles for modaler/overlays — al reel logik ligger i `js/`
 
 Bundlet offline pdf.js (v3.11.174, UMD-build — **ikke** npm-pakkens ESM-build, som pdf.js v4+ kun leverer). Bruges af `calendar.js`'s `openFileModal()` til at rendere PDF-vedhæftninger på canvas, fordi Android WebView (Fully Kiosk) ikke har en indbygget PDF-viewer. Ingen internetafhængighed efter installation — filerne er statiske og hentes via `git pull` som alt andet i `frontend/`. Opgradér ikke til pdf.js v4+ uden at bytte til ESM-imports i `viewer.html`/`viewer.js`.
 
+## `vendor/docx-preview/`
+
+Bundlet offline `docx-preview.js` (v0.3.5) + `jszip.min.js` (ekstern afhængighed — **skal loades før** `docx-preview.js` i `viewer.html`, UMD-builden bundler den ikke selv). Renderer kun `.docx` (OOXML) til HTML/CSS — **ikke** det gamle binære `.doc`-format, som stadig ender i den generiske download-fallback i `calendar.js`. Samme offline-princip som `vendor/pdfjs/`.
+
 ## `settings.html`
 
 Selvstændig side, egen inline `<style>` og `<script>` — deler ingen kode med `index.html`/`js/`. Tre uafhængige `<script>`-blokke: hovedindstillinger, Familie Apps (gemmes i `localStorage`, ikke server-side!), og børnelås (samme `localStorage`-nøgle og hash-funktion som `calendar.js`'s `clHash()` — **hold disse to implementationer identiske** hvis du ændrer PIN-logikken, ellers kan en PIN sat på én side ikke låses op fra den anden).

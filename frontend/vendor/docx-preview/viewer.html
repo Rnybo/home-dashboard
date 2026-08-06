@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<title>Dokument</title>
+<style>
+  html,body{margin:0;padding:0;background:#fff;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #doc{padding:12px}
+  #status{position:fixed;top:0;left:0;right:0;padding:10px 14px;background:#333;color:#fff;
+          font:14px system-ui,sans-serif;text-align:center;z-index:5}
+  #status.hidden{display:none}
+</style>
+</head>
+<body>
+  <div id="status">Indlæser dokument…</div>
+  <div id="doc"></div>
+  <script src="jszip.min.js"></script>
+  <script src="docx-preview.js"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>

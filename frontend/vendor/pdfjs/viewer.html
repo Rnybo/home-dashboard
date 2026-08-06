@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<title>PDF</title>
+<style>
+  html,body{margin:0;padding:0;background:#525659;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #pages{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 0}
+  #pages canvas{box-shadow:0 1px 4px rgba(0,0,0,.4);max-width:100%;background:#fff}
+  #status{position:fixed;top:0;left:0;right:0;padding:10px 14px;background:#333;color:#fff;
+          font:14px system-ui,sans-serif;text-align:center;z-index:5}
+  #status.hidden{display:none}
+</style>
+</head>
+<body>
+  <div id="status">Indlæser PDF…</div>
+  <div id="pages"></div>
+  <script src="pdf.min.js"></script>
+  <script src="viewer.js"></script>
+</body>
+</html>

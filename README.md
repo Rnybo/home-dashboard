@@ -8,7 +8,7 @@ A family dashboard for the Danish school platform Aula, designed for a wall-moun
 - **Today widget** — Daily summary: drop-off/pick-up times, commute times per destination, family Google Calendar events
 - **Overblik** — Latest posts, upcoming dates, birthdays
 - **Galleri** — Photo albums and media from Aula
-- **Beskeder** — Message threads from Aula
+- **Beskeder** — Message threads from Aula, with attachment preview (PDF via bundled offline pdf.js — Android WebView has no native PDF viewer; other file types get a download fallback)
 - **Weather** — Met.no (no API key): temperature, wind, precipitation per hour in timetable; daily max/min/wind in date headers
 - **Commute** — OpenRouteService (free API key): cycling, walking, driving times in Today widget on weekdays
 - **Google/Apple Calendar** — ICS-based, no OAuth: supports multiple calendars, recurring events

@@ -1,0 +1,12 @@
+fix: PDF attachments render via offline pdf.js
+
+Android WebView (Fully Kiosk) has no native PDF renderer, unlike
+desktop Chrome, so PDF attachments in the messages modal failed to
+display. Adds a bundled offline pdf.js viewer (vendor/pdfjs/) that
+renders pages to canvas instead.
+
+Also routes file-modal by extension generally: images go straight to
+the existing lightbox, plain text still uses the iframe as before, and
+anything WebView can't render (docx/xlsx/pptx/zip/unknown) now shows a
+clear "can't preview, download instead" fallback rather than silently
+failing in an empty iframe.

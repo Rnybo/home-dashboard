@@ -181,6 +181,12 @@
     #file-modal-close { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#999; flex-shrink:0; }
     #file-modal-dl { background:var(--blue-light); border:1px solid var(--border); border-radius:6px; padding:4px 10px; font-size:0.78rem; font-weight:600; color:var(--blue); text-decoration:none; flex-shrink:0; }
     #file-modal iframe { flex:1; border:none; width:100%; }
+    #file-modal-fallback { display:none; flex:1; flex-direction:column; align-items:center;
+      justify-content:center; gap:12px; padding:24px; text-align:center; color:#555; }
+    #file-modal-fallback.show { display:flex; }
+    #file-modal-fallback-icon { font-size:3rem; }
+    #file-modal-fallback-dl { background:var(--blue); color:#fff; border-radius:8px;
+      padding:8px 18px; font-size:0.85rem; font-weight:600; text-decoration:none; }
 
     /* ── Messages panel ── */
     .messages-card { background: #fff; border-radius: var(--radius); padding: 12px;

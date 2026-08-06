@@ -339,17 +339,51 @@
     function proxyUrl(url) {
       return `/api/file-proxy?url=${encodeURIComponent(url)}`;
     }
+    // Extensions Android WebView (Fully Kiosk) can render natively inline.
+    const INLINE_TEXT_EXT = ['txt', 'csv', 'log', 'md', 'json'];
+    const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
     function openFileModal(fileUrl, name) {
       const proxy = proxyUrl(fileUrl);
+      const ext = (name || '').split('.').pop().toLowerCase();
+
+      // Images: reuse the existing lightbox instead of the file modal — WebView
+      // renders <img> fine, no need for the iframe/fallback machinery at all.
+      if (IMAGE_EXT.includes(ext)) { openLightboxUrl(proxy); return; }
+
       document.getElementById('file-modal-title').textContent = name || 'Fil';
       document.getElementById('file-modal-dl').href = proxy;
       document.getElementById('file-modal-dl').download = name || 'fil';
-      document.getElementById('file-modal-frame').src = proxy;
+
+      const frame = document.getElementById('file-modal-frame');
+      const fallback = document.getElementById('file-modal-fallback');
+
+      if (ext === 'pdf') {
+        // Android WebView has no built-in PDF renderer (unlike desktop Chrome),
+        // so PDFs are rendered client-side via a bundled offline pdf.js viewer
+        // instead of relying on the browser's native PDF support.
+        frame.src = 'vendor/pdfjs/viewer.html?file=' + encodeURIComponent(proxy);
+        fallback.classList.remove('show');
+      } else if (INLINE_TEXT_EXT.includes(ext)) {
+        // Plain text renders natively in an iframe — no special handling needed.
+        frame.src = proxy;
+        fallback.classList.remove('show');
+      } else {
+        // Office docs, archives, and anything else WebView can't render at all —
+        // don't attempt an iframe (it fails silently); show a clear fallback
+        // with a working download link instead.
+        frame.src = '';
+        document.getElementById('file-modal-fallback-icon').textContent = fileIcon(name);
+        document.getElementById('file-modal-fallback-dl').href = proxy;
+        document.getElementById('file-modal-fallback-dl').download = name || 'fil';
+        fallback.classList.add('show');
+      }
       document.getElementById('file-modal-overlay').classList.add('open');
     }
     function closeFileModal(e) {
       if (!e || e.target === document.getElementById('file-modal-overlay') || e.target === document.getElementById('file-modal-close')) {
         document.getElementById('file-modal-frame').src = '';
+        document.getElementById('file-modal-fallback').classList.remove('show');
         document.getElementById('file-modal-overlay').classList.remove('open');
       }
     }

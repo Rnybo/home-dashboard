@@ -8,6 +8,10 @@ Ren markup + inline styles for modaler/overlays — al reel logik ligger i `js/`
 
 `<h1>🏠 Familieoverblik</h1>` er en hardcoded placeholder — `initConfig()` (i `globals.js`) overskriver den med den konfigurerede `dashboard_title` ved boot. Kort "flash" af forkert titel før JS kører er forventet, ikke en fejl.
 
+## `vendor/pdfjs/`
+
+Bundlet offline pdf.js (v3.11.174, UMD-build — **ikke** npm-pakkens ESM-build, som pdf.js v4+ kun leverer). Bruges af `calendar.js`'s `openFileModal()` til at rendere PDF-vedhæftninger på canvas, fordi Android WebView (Fully Kiosk) ikke har en indbygget PDF-viewer. Ingen internetafhængighed efter installation — filerne er statiske og hentes via `git pull` som alt andet i `frontend/`. Opgradér ikke til pdf.js v4+ uden at bytte til ESM-imports i `viewer.html`/`viewer.js`.
+
 ## `settings.html`
 
 Selvstændig side, egen inline `<style>` og `<script>` — deler ingen kode med `index.html`/`js/`. Tre uafhængige `<script>`-blokke: hovedindstillinger, Familie Apps (gemmes i `localStorage`, ikke server-side!), og børnelås (samme `localStorage`-nøgle og hash-funktion som `calendar.js`'s `clHash()` — **hold disse to implementationer identiske** hvis du ændrer PIN-logikken, ellers kan en PIN sat på én side ikke låses op fra den anden).

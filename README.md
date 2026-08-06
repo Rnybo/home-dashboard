@@ -17,6 +17,7 @@ A family dashboard for the Danish school platform Aula, designed for a wall-moun
 - **Settings page** — Configure everything via browser at `/settings.html` — no terminal needed
 - **Spotify search** — Search songs, albums, playlists and podcasts directly from the cast widget (requires active Spotify playback)
 - **Familie** — Optional dropdown with Børn and Voksne pages; configured via Settings → Familie Apps (shown only when at least one app is enabled)
+- **PWA** — Installable manifest + offline app-shell service worker (network-first — always tries fresh, falls back to cache). Requires HTTPS (or `localhost`) to actually activate; iPhone "Add to Home Screen" works over plain HTTP regardless
 
 ## Quick Install (Android/Termux)
 

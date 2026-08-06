@@ -16,6 +16,16 @@ Bundlet offline pdf.js (v3.11.174, UMD-build — **ikke** npm-pakkens ESM-build,
 
 Bundlet offline `docx-preview.js` (v0.3.5) + `jszip.min.js` (ekstern afhængighed — **skal loades før** `docx-preview.js` i `viewer.html`, UMD-builden bundler den ikke selv). Renderer kun `.docx` (OOXML) til HTML/CSS — **ikke** det gamle binære `.doc`-format, som stadig ender i den generiske download-fallback i `calendar.js`. Samme offline-princip som `vendor/pdfjs/`.
 
+## `manifest.json` + `sw.js` — PWA
+
+`sw.js` cacher **kun statiske app-shell-filer** (html/css/js/vendor/ikoner) — rører aldrig `/api/*`, det er `cache.js`'s domæne (localStorage, egen TTL-logik). To cache-lag der konkurrerer om samme data var en reel fejlkilde tidligere; hold dem strikt adskilt.
+
+**Network-first, ikke cache-first** — bevidst valg efter Fully Kiosk-cache-sagaen (ændringer der ikke slog igennem efter deploy, se `js/CLAUDE.md`/git-historik). `sw.js` forsøger altid netværket først og falder kun tilbage til cache hvis fetch fejler (reel offline). Skift ikke til cache-first uden at forstå hvorfor det blev undgået her.
+
+**Kræver HTTPS (eller `localhost`) for at virke overhovedet** — service workers registrerer ikke i en "insecure context". Over almindeligt `http://familiekalender.local` (nuværende tablet-opsætning) vil `navigator.serviceWorker.register()` simpelthen fejle stille (fanget i en `.catch(() => {})` i `index.html` — ingen synlig fejl, bare ingen offline-cache/rigtig install-prompt). iPhones "Tilføj til hjemmeskærm" virker uafhængigt af dette (bruger `apple-mobile-web-app-*`-meta-tags, ikke manifestet). Virker fuldt ud den dag der lægges HTTPS på (fx via Tailscale) — ingen kodeændring nødvendig da.
+
+`CACHE_NAME` i `sw.js` er versioneret (`familieoverblik-shell-v1`) — **bump versionsnummeret ved strukturelle ændringer** i `SHELL_FILES`-listen (nye/omdøbte js-filer), `activate`-handleren rydder automatisk gamle cache-versioner op.
+
 ## `settings.html`
 
 Selvstændig side, egen inline `<style>` og `<script>` — deler ingen kode med `index.html`/`js/`. Tre uafhængige `<script>`-blokke: hovedindstillinger, Familie Apps (gemmes i `localStorage`, ikke server-side!), og børnelås (samme `localStorage`-nøgle og hash-funktion som `calendar.js`'s `clHash()` — **hold disse to implementationer identiske** hvis du ændrer PIN-logikken, ellers kan en PIN sat på én side ikke låses op fra den anden).

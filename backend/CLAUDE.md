@@ -11,6 +11,10 @@ FastAPI + uvicorn app. Single process, single async event loop. Runs on Windows 
 - **`async def`-routes og baggrundstasks er IKKE automatisk trådpuljede.** Hvis sådan en kalder blokerende kode direkte, fryser det *hele* serveren (cast, vejr, websockets, alt) for varigheden af kaldet. Wrap blokerende kald i `starlette.concurrency.run_in_threadpool`. Se `routers/aula.py::update_presence` og `main.py::_session_keepalive` for eksemplet — begge blev rettet for præcis dette.
 - **Startup-sekvens** (`main.py`): `check_deps` → mDNS-registrering → sikr default `.env`-nøgler → app + routers → baggrundstasks (mqtt connect, cast start, `_session_keepalive` loop, `_google_calendar_sync` loop, `auto_refresh_loop`, `_startup_token_refresh`).
 
+## `/api/file-proxy` (i `main.py`) — vigtig gotcha
+
+Streamer en Aula-fil videre via `client.session.get(url, stream=True)` + `r.iter_content()`. **Forward ALDRIG origin'ens `Content-Length`-header** — `iter_content()` afkomprimerer transparent gzip/deflate-indhold, så det oprindelige (komprimerede) `Content-Length` ikke længere matcher de bytes vi reelt sender. Browseren klipper downloadet ved den forkerte, korte længde (set i praksis: PDF-titel/første bytes kom med, resten ikke — filen fremstod som "kan ikke åbnes"). Lad Starlette bruge chunked transfer-encoding i stedet ved simpelthen ikke at sætte headeren. Samme faldgrube gælder principielt `/api/profile-picture`, som dog ikke forwarder Content-Length i dag — rør ikke ved det uden at huske denne note.
+
 ## `check_deps.py`
 
 Tjekker at alle Python-pakker er installeret *før* appen starter — fejler hurtigt med en klar `pip install`/`pkg install`-besked i stedet for en kryptisk `ImportError` midt i et request. **Tilføj nye dependencies her**, når du tilføjer en ny integration.

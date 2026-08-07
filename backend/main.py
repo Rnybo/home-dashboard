@@ -304,8 +304,13 @@ def file_proxy(url: str):
             filename = url.split("/")[-1].split("?")[0] or "file"
             disp = f'attachment; filename="{filename}"'
         headers = {"Content-Disposition": disp}
-        if "Content-Length" in r.headers:
-            headers["Content-Length"] = r.headers["Content-Length"]
+        # NOTE: deliberately NOT forwarding the origin's Content-Length here.
+        # requests' iter_content() transparently decompresses gzip/deflate
+        # content, so the origin's declared length (compressed) no longer
+        # matches the bytes we actually send (decompressed) — the browser
+        # would truncate the download at the shorter, wrong length. Omitting
+        # it makes Starlette use chunked transfer-encoding instead, which is
+        # correct regardless of whether the origin compressed the response.
         return StreamingResponse(r.iter_content(chunk_size=65536), media_type=content_type, headers=headers)
     except Exception as e:
         raise HTTPException(502, f"Could not fetch file: {e}")

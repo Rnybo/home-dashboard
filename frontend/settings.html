@@ -302,6 +302,25 @@
     </details>
   </div>
 
+  <!-- Ugebrev → Kalender -->
+  <div class="card">
+    <h2>📋 Ugebrev → Kalender</h2>
+    <p class="section-note">Finder automatisk skoleskemaet i ugentlige "ugebrev"-beskeder (Google Docs-link i beskedteksten) og opretter kalenderevents for det valgte barn. Events er tydeligt mærkede (📋-ikon, orange farve) og nemme at slette manuelt hvis en uge er tolket forkert.</p>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+        <input type="checkbox" id="ugebrev_enabled" style="width:auto"> Aktivér automatisk synkronisering (hver 6. time)
+      </label>
+    </div>
+    <div class="field">
+      <label>Barn</label>
+      <select id="ugebrev_child_id" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.88rem;color:#333">
+        <option value="">Vælg barn...</option>
+      </select>
+    </div>
+    <button class="btn-gen" id="ugebrev-sync-btn" onclick="syncUgebrevNow()" style="width:100%;padding:10px">🔄 Synkroniser nu</button>
+    <div id="ugebrev-sync-status" style="margin-top:10px;font-size:0.82rem;font-weight:600"></div>
+  </div>
+
   <button class="save-btn" id="save-btn" onclick="saveSettings()">💾 Gem indstillinger</button>
   <div class="toast" id="toast"></div>
 
@@ -350,9 +369,51 @@
         if (s.google_calendars && s.google_calendars.length) {
           s.google_calendars.forEach(c => addCalendar(c.url, c.name));
         }
+        document.getElementById('ugebrev_enabled').checked = !!s.ugebrev_enabled;
+        await loadUgebrevChildren(s.ugebrev_child_id || '');
       } catch(e) {
         showToast('Kunne ikke hente indstillinger: ' + e.message, true);
       }
+    }
+
+    async function loadUgebrevChildren(selectedId) {
+      const sel = document.getElementById('ugebrev_child_id');
+      try {
+        const cfg = await fetch('/api/profile-config', {
+          headers: { 'x-api-key': document.getElementById('api_key').value }
+        }).then(r => r.json());
+        sel.innerHTML = '<option value="">Vælg barn...</option>' +
+          (cfg.children || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        sel.value = selectedId;
+      } catch(e) { /* Aula-session evt. ikke klar endnu — barnet kan stadig gemmes manuelt */ }
+    }
+
+    async function syncUgebrevNow() {
+      const btn = document.getElementById('ugebrev-sync-btn');
+      const status = document.getElementById('ugebrev-sync-status');
+      btn.disabled = true; btn.textContent = 'Synkroniserer...';
+      status.textContent = '';
+      try {
+        const r = await fetch('/api/ugebrev/sync', {
+          method: 'POST',
+          headers: { 'x-api-key': document.getElementById('api_key').value }
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          status.style.color = '#c62828';
+          status.textContent = '⚠️ ' + (data.detail || 'Kunne ikke synkronisere.');
+        } else if (data.found && data.events_created) {
+          status.style.color = '#2e7d32';
+          status.textContent = `✅ Uge ${data.week}/${data.year}: ${data.events_created} events oprettet/opdateret.`;
+        } else {
+          status.style.color = '#e65100';
+          status.textContent = 'ℹ️ ' + (data.message || 'Intet ugebrev fundet.');
+        }
+      } catch(e) {
+        status.style.color = '#c62828';
+        status.textContent = '⚠️ Fejl: ' + e.message;
+      }
+      btn.disabled = false; btn.textContent = '🔄 Synkroniser nu';
     }
 
     function copyIcsUrl() {
@@ -436,6 +497,8 @@
         google_calendars,
         weather_lat: document.getElementById('weather_lat').value.trim(),
         weather_lon: document.getElementById('weather_lon').value.trim(),
+        ugebrev_enabled: document.getElementById('ugebrev_enabled').checked,
+        ugebrev_child_id: document.getElementById('ugebrev_child_id').value.trim(),
       };
 
       try {

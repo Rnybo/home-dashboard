@@ -19,6 +19,7 @@ from backend.aula_client import AulaClient
 from backend import aula_version
 from backend.mqtt_client import mqtt_client
 from backend.aula_auth import AulaAuth, auto_refresh_loop
+from backend import ugebrev
 import os
 import json
 import logging
@@ -182,6 +183,27 @@ async def _google_calendar_sync():
         await asyncio.sleep(300)  # 5 minutes
 
 
+async def _ugebrev_sync_loop():
+    """Hver 6. time: tjek for en 'ugebrev'-besked og synkronisér skemaet til
+    kalenderen for det valgte barn — kun hvis funktionen er aktiveret i
+    indstillinger. sync_ugebrev() gør blokerende requests-kald, derfor
+    run_in_threadpool (se kørselsmodel-noten øverst i backend/CLAUDE.md)."""
+    log = logging.getLogger("ugebrev_sync")
+    await asyncio.sleep(90)  # lad serveren færdiggøre opstart først
+    while True:
+        try:
+            if os.getenv("UGEBREV_ENABLED", "") == "1":
+                child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
+                if child_id:
+                    result = await run_in_threadpool(ugebrev.sync_ugebrev, client, child_id)
+                    log.info(f"Ugebrev auto-sync: {result}")
+                    if result.get("events_created"):
+                        mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
+        except Exception as e:
+            log.warning(f"Ugebrev sync fejlede: {e}")
+        await asyncio.sleep(6 * 60 * 60)
+
+
 async def _startup_token_refresh():
     """Refresh tokens immediately at startup so session is always fresh."""
     await asyncio.sleep(5)  # Let server finish starting
@@ -204,6 +226,7 @@ async def startup():
     asyncio.create_task(_session_keepalive())
     asyncio.create_task(_google_calendar_sync())
     asyncio.create_task(auto_refresh_loop(aula_auth))
+    asyncio.create_task(_ugebrev_sync_loop())
     # Refresh tokens immediately at startup so session is fresh
     asyncio.create_task(_startup_token_refresh())
 
@@ -277,6 +300,20 @@ def config(request: Request):
 @app.get("/api/status", dependencies=[Depends(check_api_key)])
 def status():
     return {"session_valid": client.check_session()}
+
+
+@app.post("/api/ugebrev/sync", dependencies=[Depends(check_api_key)])
+async def ugebrev_sync_now():
+    """Manuel trigger — samme logik som _ugebrev_sync_loop, men on-demand.
+    Bruges fra settings.html når den automatiske baggrundsscanning ikke
+    fandt ugebrevet (fx pga. en emnelinje der ikke matcher)."""
+    child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
+    if not child_id:
+        raise HTTPException(400, "Intet barn valgt til Ugebrev i indstillinger.")
+    result = await run_in_threadpool(ugebrev.sync_ugebrev, client, child_id)
+    if result.get("events_created"):
+        mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
+    return result
 
 
 @app.get("/api/file-proxy", dependencies=[Depends(check_api_key)])

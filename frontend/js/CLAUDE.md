@@ -29,6 +29,13 @@ cache.js → globals.js → presence_edit.js → calendar.js → klasse.js → g
 - **`_addMinutes(timeStr, mins)`** er en lille hjælper til "HH:MM + N minutter"-aritmetik (bruges til presence-bar'ens visuelle sluttidspunkt) — brug den frem for at genopfinde tidsregning inline.
 - `openPost()` finder post-elementet via `data-postid` (ikke `onclick`-streng-match).
 - **`openFileModal()` router efter filendelse** — PDF renderes via en bundlet offline pdf.js-viewer (`frontend/vendor/pdfjs/viewer.html`), `.docx` via en bundlet offline docx-preview.js-viewer (`frontend/vendor/docx-preview/viewer.html`) — begge fordi Android WebView (Fully Kiosk) ikke har indbygget PDF/Office-rendering som desktop Chrome. Gammelt binært `.doc` kan **ikke** parses af docx-preview og ender derfor i den generiske fallback. Billeder går uden om modalen helt (lightbox). Alt WebView ikke kan vise (xlsx/pptx/zip/ukendt/`.doc`) viser et fallback-skærmbillede (`#file-modal-fallback`) med download-knap i stedet for at forsøge en iframe der ville fejle stille. Tilføj nye filtyper til `INLINE_TEXT_EXT`/`IMAGE_EXT` eller en ny `else if`-gren i stedet for at ændre selve routing-logikken.
+
+## `skolekalender.js`
+
+Børnevenlig "hvad skal jeg i dag/denne uge"-modal, uafhængig af den komplekse uge-grid. Åbnes via 🎒-knappen på et barns fane (se `globals.js`'s child-tabs-render). Viser **kun** events med `source === "ugebrev"` fra `/api/custom-events`, matchet på `calendar === "cal-child-<id>"` — ingen ny backend-kode, ren client-side filtrering af eksisterende data (se `backend/CLAUDE.md`'s `ugebrev.py`-sektion for hvordan de events opstår).
+
+- **Titel-parsing forudsætter formatet `"{ikon} {tekst}"`** (splitter på det FØRSTE mellemrum) — det er et kontrakt med `backend/ugebrev.py`s `build_events()`. Ændres formatet ét sted, skal det ændres begge steder.
+- **Brug lokale `Date`-komponenter til dato-strenge, ALDRIG `toISOString()`** — den konverterer til UTC og forskyder datoen en dag i dansk sommertid (UTC+2), så "i dag" om aftenen ville matche gårsdagens events. Ramt og rettet under udvikling (ugevisningen manglede 2 ud af 10 seedede testevents indtil dette blev fundet). `isoDate()`-helperen her bruger `getFullYear()`/`getMonth()`/`getDate()` konsekvent — kopiér IKKE `toISOString()`-mønstret fra andre dele af kodebasen uden at tjekke om det samme problem gælder der.
 - `_renderWeekNow()` viser nu "📅 Indlæser kalender…" hvis `CHILDREN` endnu ikke er indlæst, i stedet for at vise et helt tomt kalenderområde.
 - PIN-koden til børnelåsen (`clHash()`) bruger en bevidst simpel, ikke-kryptografisk hash — det er en friktionsmekanisme mod nysgerrige børn, ikke en sikkerhedsgrænse. Skift den ikke til noget "stærkere" uden grund; det løser intet reelt problem her.
 

@@ -306,6 +306,21 @@
     </div>
   </div>
 
+  <!-- Skolekalender modal — børnevenlig, ikon-først visning af skoledag/uge -->
+  <div id="school-cal-overlay" onclick="closeSchoolCalendar(event)">
+    <div id="school-cal-modal">
+      <div id="school-cal-header">
+        <span id="school-cal-title">🎒 Skoledag</span>
+        <div id="school-cal-toggle">
+          <button class="scope-btn active" onclick="setSchoolCalScope('day')">I dag</button>
+          <button class="scope-btn" onclick="setSchoolCalScope('week')">Denne uge</button>
+        </div>
+        <button id="school-cal-close" onclick="closeSchoolCalendar()">✕</button>
+      </div>
+      <div id="school-cal-body"></div>
+    </div>
+  </div>
+
   <!-- File viewer modal -->
   <div id="file-modal-overlay" onclick="closeFileModal(event)">
     <div id="file-modal">
@@ -356,6 +371,7 @@
   <script src="/js/presence_edit.js"></script>
   <script src="/js/calendar.js"></script>
   <script src="/js/klasse.js"></script>
+  <script src="/js/skolekalender.js"></script>
   <script src="/js/gallery.js"></script>
   <script src="/js/aula.js"></script>
   <script src="/js/auth.js"></script>

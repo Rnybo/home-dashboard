@@ -232,6 +232,7 @@
             `<div class="tab ${i===0?'active':''}" onclick="switchTab(${i})" style="border-bottom:3px solid ${childColor(i)}">
               ${c.photoUrl ? `<img src="${aulaImg(c.photoUrl)}" alt="${c.name}" onerror="this.style.display='none'">` : ''}
               ${c.name}
+              <span class="school-cal-btn" title="Se skoledag" onclick="event.stopPropagation();openSchoolCalendar(${c.id})">🎒</span>
             </div>`
           ),
           ...GOOGLE_TABS.map((g, i) =>

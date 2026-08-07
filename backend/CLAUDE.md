@@ -9,7 +9,21 @@ FastAPI + uvicorn app. Single process, single async event loop. Runs on Windows 
 - **Globale singletons**, oprettet ved import af `main.py`: `client` (AulaClient), `aula_auth` (AulaAuth), `mqtt_client`. Der er kun én instans, delt af alle requests — ikke per-request. Det er en bevidst arkitektur for et single-user dashboard, ikke en fejl.
 - **Sync `def`-routes køres automatisk i en trådpulje af Starlette** — de blokerer IKKE event loopet, selv med blokerende `requests`-kald indeni. De fleste Aula-endpoints (kalender, galleri, profil, klasser) er `def` og er derfor sikre som de er.
 - **`async def`-routes og baggrundstasks er IKKE automatisk trådpuljede.** Hvis sådan en kalder blokerende kode direkte, fryser det *hele* serveren (cast, vejr, websockets, alt) for varigheden af kaldet. Wrap blokerende kald i `starlette.concurrency.run_in_threadpool`. Se `routers/aula.py::update_presence` og `main.py::_session_keepalive` for eksemplet — begge blev rettet for præcis dette.
-- **Startup-sekvens** (`main.py`): `check_deps` → mDNS-registrering → sikr default `.env`-nøgler → app + routers → baggrundstasks (mqtt connect, cast start, `_session_keepalive` loop, `_google_calendar_sync` loop, `auto_refresh_loop`, `_startup_token_refresh`).
+- **Startup-sekvens** (`main.py`): `check_deps` → mDNS-registrering → sikr default `.env`-nøgler → app + routers → baggrundstasks (mqtt connect, cast start, `_session_keepalive` loop, `_google_calendar_sync` loop, `auto_refresh_loop`, `_ugebrev_sync_loop`, `_startup_token_refresh`).
+
+## `ugebrev.py` — skoleskema fra "ugebrev"-beskeder til kalenderen
+
+Scanner beskedtråde for et emne der matcher "ugebrev", finder et Google Docs-link i beskedteksten (**ikke** en rigtig vedhæftning — skolen deler et delt dokument), henter det via `.../export?format=html` (kræver "alle med link kan se", ingen login), og parser en dag×tidsblok-tabel til kalenderevents for et valgt barn (`UGEBREV_CHILD_ID`/`UGEBREV_ENABLED` i `.env`, sat via settings.html).
+
+- **Ugenummer læses fra dokumentets tekst** ("Uge XX"), ikke fra beskeddatoen — men beskeddatoen bruges som "anker" til at vælge det rigtige ÅR for det ugenummer (`resolve_week_dates`), fordi et ugenummer alene er tvetydigt over årsskiftet (uge 1 sendt i december hører til næste år). Testet med begge retninger af årsskifte-tvivlen.
+- **Kildetabellens tidskolonne kan skrive et interval** (`"8.00-8.45"`, `"8-8.45"`, eller med en Unicode-dash i stedet for almindelig bindestreg — Google Docs' autokorrektur bytter den nogle gange ud) — `_parse_time()` tager kun imod starten af intervallet, og en bar time uden minutter ("8") tolkes som hele timen ("08:00"). Uden dette parses hele rækken som ugyldig og forsvinder stille, hvilket i praksis fjernede en hel dags eneste indhold.
+- **Dag-headers matches uafhængigt af versaler/kolon** ("MANDAG", "mandag:", "Mandag" giver alle "Mandag") — kildedokumentets skrivemåde varierer i praksis mellem klasser/skoler.
+- **Dubletter af samme dagnavn i header-rækken** (set i praksis — to "Fredag"-kolonner i kildedokumentet) kollapses til FØRSTE forekomst. Ingen automatisk lige/ulige-uge-logik — der var ikke belæg for at gætte på hvorfor duplikaten fandtes.
+- **Ikon-mapping (`ICON_KEYWORDS`) er nøgleord → emoji, rækkefølge betyder noget** — mere specifikke ord skal stå højere end generiske for at undgå fejlmatch (fx "lege" som delstreng af "leger" matchede før "morgenbånd" blev tjekket, indtil ordren blev rettet). Test nye nøgleord mod eksisterende titler, ikke kun isoleret.
+- **Idempotent via `(calendar_tag, week, year)` som naturlig nøgle**, ikke `thread_id` — en gentaget/rettet sync for samme uge overskriver kun præcis den uges auto-genererede events, aldrig andre ugers eller manuelt oprettede events. Se `replace_ugebrev_events()`.
+- **Events tagges med `calendar: "cal-child-<id>"`** — samme konvention som når man manuelt opretter et event og vælger et barn (se `frontend/js/CLAUDE.md`). Ingen særskilt "hvilket barn"-logik nødvendig i frontend — events flyder gennem den eksisterende `googleEvents`/custom-events-pipeline.
+- **Titel-format er ALTID `"{ikon} {tekst}"`** (ét emoji, ét mellemrum, resten) — `frontend/js/skolekalender.js` splitter på det første mellemrum for at vise ikon og tekst separat. Ændrer du formatet her, skal den opdateres samtidig.
+
 
 ## `/api/file-proxy` (i `main.py`) — vigtig gotcha
 

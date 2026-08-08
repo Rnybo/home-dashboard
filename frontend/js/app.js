@@ -178,6 +178,14 @@
           html += `<div class="presence-bar" ${clickAttr} style="top:${topPct}%;height:14px;min-height:14px;left:calc(2px + ${l}%);width:calc(${w}% - 4px);right:auto;cursor:pointer;${e._style}">${e._label}</div>`;
           return;
         }
+        // Konsolideret ugebrev-blok (se calendar.js::_renderWeekNow) — åbner
+        // skolekalenderen i stedet for den almindelige event-info.
+        if (e._schoolSummary) {
+          html += `<div class="cal-event" style="top:${topPct}%;height:${heightPct}%;min-height:20px;background:${e.color};left:calc(3px + ${l}%);width:calc(${w}% - 6px);right:auto;cursor:pointer"
+            onclick="openSchoolCalendar(${e._childId}, '${e._scope}')">
+            <span class="ev-title">${e.title}</span><span class="ev-time">${ts}</span></div>`;
+          return;
+        }
         const title = e.title||'(ingen titel)';
         const color = e.color || 'var(--blue-accent)';
         const calStr = e.calendar || e.familieoverblik_calendars || '';

@@ -8,13 +8,14 @@
 let _schoolCalChildId = null;
 let _schoolCalScope = 'day';
 
-function openSchoolCalendar(childId) {
+function openSchoolCalendar(childId, initialScope) {
   _schoolCalChildId = childId;
-  _schoolCalScope = 'day';
-  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === 'day'));
+  _schoolCalScope = initialScope || 'day';
+  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === _schoolCalScope));
   const child = (CHILDREN || []).find(c => c.id === childId);
   document.getElementById('school-cal-title').dataset.baseTitle = '🎒 ' + (child ? child.name + 's skoledag' : 'Skoledag');
   document.getElementById('school-cal-title').textContent = document.getElementById('school-cal-title').dataset.baseTitle;
+  document.getElementById('school-cal-info-box').classList.remove('open');
   document.getElementById('school-cal-overlay').classList.add('open');
   renderSchoolCalendar();
 }
@@ -28,7 +29,22 @@ function closeSchoolCalendar(e) {
 function setSchoolCalScope(scope) {
   _schoolCalScope = scope;
   document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === scope));
+  document.getElementById('school-cal-info-box').classList.remove('open');
   renderSchoolCalendar();
+}
+
+async function toggleSchoolCalInfo() {
+  const box = document.getElementById('school-cal-info-box');
+  if (box.classList.contains('open')) { box.classList.remove('open'); return; }
+  box.textContent = 'Indlæser…';
+  box.classList.add('open');
+  try {
+    const r = await apiFetch(`/api/ugebrev/info?calendar=cal-child-${_schoolCalChildId}&week=${box.dataset.week}&year=${box.dataset.year}`);
+    const data = await r.json();
+    box.textContent = data.text && data.text.trim() ? data.text : 'Ingen besked fundet for denne uge i ugebrevet.';
+  } catch (e) {
+    box.textContent = 'Kunne ikke hente beskeden.';
+  }
 }
 
 // ISO 8601-ugenummer — bruges kun til at vise "· Uge X" i titlen, så "Denne
@@ -66,16 +82,25 @@ async function renderSchoolCalendar() {
   let days;
   const titleEl = document.getElementById('school-cal-title');
   const baseTitle = titleEl.dataset.baseTitle || titleEl.textContent;
+  const monday = new Date(today);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  if (_schoolCalScope === 'nextweek') monday.setDate(monday.getDate() + 7);
+
   if (_schoolCalScope === 'day') {
     days = [today];
     titleEl.textContent = baseTitle;
   } else {
-    const monday = new Date(today);
-    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-    if (_schoolCalScope === 'nextweek') monday.setDate(monday.getDate() + 7);
     days = [0, 1, 2, 3, 4].map(i => { const d = new Date(monday); d.setDate(d.getDate() + i); return d; });
     titleEl.textContent = `${baseTitle} · Uge ${_isoWeekNumber(monday)}`;
   }
+
+  // Info-boksen (ℹ️-ikon) skal altid pege på den uge der reelt vises, også i
+  // "I dag"-scope — ellers ved toggleSchoolCalInfo() ikke hvilken uge den
+  // skal hente brødtekst for.
+  const infoBox = document.getElementById('school-cal-info-box');
+  infoBox.dataset.week = _isoWeekNumber(monday);
+  infoBox.dataset.year = monday.getFullYear();
+  infoBox.classList.remove('open');
 
   const DAY_LABELS = ['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'];
   let html = '';

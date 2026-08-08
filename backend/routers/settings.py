@@ -56,8 +56,6 @@ def get_settings():
         "spotify_client_id":          "***" if os.getenv("SPOTIFY_CLIENT_ID") else "",
         "spotify_client_secret":      "***" if os.getenv("SPOTIFY_CLIENT_SECRET") else "",
         "spotify_connected":          bool(os.getenv("SPOTIFY_OAUTH_REFRESH_TOKEN")),
-        "ugebrev_enabled":            os.getenv("UGEBREV_ENABLED", "") == "1",
-        "ugebrev_child_id":           os.getenv("UGEBREV_CHILD_ID", ""),
     }
     for suffix in [""] + [f"_{i}" for i in range(2, 11)]:
         u = os.getenv(f"MITID_USERNAME{suffix}", "")
@@ -139,9 +137,6 @@ async def save_settings(request: Request):
     os.environ["DASHBOARD_TITLE"] = title
     ak = data.get("anthropic_key", "").strip()
     if ak and ak != "***": set_env("ANTHROPIC_API_KEY", ak)
-
-    set_env("UGEBREV_ENABLED", "1" if data.get("ugebrev_enabled") else "")
-    set_env("UGEBREV_CHILD_ID", data.get("ugebrev_child_id", "").strip())
 
     env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     load_dotenv(override=True)

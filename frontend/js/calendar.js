@@ -615,11 +615,33 @@
           }
 
           // All events for this child — aula + custom + presence — in one layout pass
-          const childEvents = [
+          const rawChildEvents = [
             ...presenceEvents,
             ...allEvents.filter(e => !e.allDay && (e.profiles||[]).includes(child.id) && isSameDay(new Date(e.start), day)),
             ...googleEvents.filter(e => e.custom && !e.allDay && isSameDay(new Date(e.start), day) && (e.calendar || '').split(',').includes('cal-child-' + child.id)),
           ];
+
+          // Ugebrev-tidsblokke (Frugt, Dansk, SFO, ...) ville ellers oversvømme
+          // dagen med et dusin små bidder — konsolideres i stedet til ét
+          // "🏫 Skole"-blok for hele perioden. Klik åbner skolekalenderen i
+          // stedet for den almindelige event-info (se app.js::renderCalEvents'
+          // _schoolSummary-gren og skolekalender.js). weekOffset mapper direkte
+          // til skolekalenderens scope: 0=denne uge, 1=næste uge.
+          const ugebrevEvents = rawChildEvents.filter(e => e.source === 'ugebrev');
+          const childEvents = rawChildEvents.filter(e => e.source !== 'ugebrev');
+          if (ugebrevEvents.length) {
+            const starts = ugebrevEvents.map(e => e.start).sort();
+            const ends = ugebrevEvents.map(e => e.end || e.start).sort();
+            childEvents.push({
+              _schoolSummary: true,
+              title: '🏫 Skole',
+              start: starts[0],
+              end: ends[ends.length - 1],
+              color: '#e65100',
+              _childId: child.id,
+              _scope: weekOffset === 1 ? 'nextweek' : 'week',
+            });
+          }
           html += renderCalEvents(childEvents, pct, true);
         }
 

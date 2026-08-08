@@ -91,6 +91,7 @@
       const seen = new Set();
       _upcomingEvents = googleEvents
         .filter(e => e.owner !== 'Helligdag')
+        .filter(e => e.source !== 'ugebrev')  // se skolekalender.js — hvert tidsblok ville ellers oversvømme "Kommende"
         .map(e => ({ ...e, _date: e.allDay ? new Date(e.start + 'T00:00:00') : new Date(e.start) }))
         .filter(e => e.allDay ? e._date >= today : e._date >= now)
         .filter(e => { const k=e.title+'|'+e.start; if(seen.has(k)) return false; seen.add(k); return true; })

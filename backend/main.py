@@ -184,21 +184,18 @@ async def _google_calendar_sync():
 
 
 async def _ugebrev_sync_loop():
-    """Hver 6. time: tjek for en 'ugebrev'-besked og synkronisér skemaet til
-    kalenderen for det valgte barn — kun hvis funktionen er aktiveret i
-    indstillinger. sync_ugebrev() gør blokerende requests-kald, derfor
-    run_in_threadpool (se kørselsmodel-noten øverst i backend/CLAUDE.md)."""
+    """Hver 6. time: tjek alle børns opslag for et Google Docs-skema og
+    synkroniser det til det barns kalender — altid aktiv, ingen indstilling.
+    sync_ugebrev() gør blokerende requests-kald, derfor run_in_threadpool
+    (se kørselsmodel-noten øverst i backend/CLAUDE.md)."""
     log = logging.getLogger("ugebrev_sync")
     await asyncio.sleep(90)  # lad serveren færdiggøre opstart først
     while True:
         try:
-            if os.getenv("UGEBREV_ENABLED", "") == "1":
-                child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
-                if child_id:
-                    result = await run_in_threadpool(ugebrev.sync_ugebrev, client, child_id)
-                    log.info(f"Ugebrev auto-sync: {result}")
-                    if result.get("events_created"):
-                        mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
+            result = await run_in_threadpool(ugebrev.sync_ugebrev, client)
+            log.info(f"Ugebrev auto-sync: {result}")
+            if any(r.get("events_created") for r in result.get("results", [])):
+                mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
         except Exception as e:
             log.warning(f"Ugebrev sync fejlede: {e}")
         await asyncio.sleep(6 * 60 * 60)
@@ -305,13 +302,10 @@ def status():
 @app.post("/api/ugebrev/sync", dependencies=[Depends(check_api_key)])
 async def ugebrev_sync_now():
     """Manuel trigger — samme logik som _ugebrev_sync_loop, men on-demand.
-    Bruges fra settings.html når den automatiske baggrundsscanning ikke
-    fandt ugebrevet (fx pga. en emnelinje der ikke matcher)."""
-    child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
-    if not child_id:
-        raise HTTPException(400, "Intet barn valgt til Ugebrev i indstillinger.")
-    result = await run_in_threadpool(ugebrev.sync_ugebrev, client, child_id)
-    if result.get("events_created"):
+    Ingen barn-parameter — sync_ugebrev() tjekker automatisk ALLE børns
+    opslag og finder selv det/de relevante."""
+    result = await run_in_threadpool(ugebrev.sync_ugebrev, client)
+    if any(r.get("events_created") for r in result.get("results", [])):
         mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
     return result
 
@@ -320,19 +314,26 @@ async def ugebrev_sync_now():
 async def ugebrev_sync_url(payload: dict):
     """Per-besked/opslag trigger — "🎒 Tilføj til skolekalender"-knappen i
     besked-modalen (aula.js) og opslags-modalen (calendar.js). Frontend har
-    allerede udtrukket doc_url fra det indhold brugeren kigger på, uanset om
-    det er en besked eller et opslag — se ugebrev.py::_sync_core()."""
+    allerede udtrukket doc_url fra det indhold brugeren kigger på; hvilket
+    barn det hører til bestemmes automatisk i ugebrev.py ud fra hvis opslag
+    URL'en faktisk blev delt i — ingen indstilling."""
     doc_url = (payload.get("doc_url") or "").strip()
     anchor_date = payload.get("anchor_date")
     if not doc_url:
         raise HTTPException(400, "doc_url mangler.")
-    child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
-    if not child_id:
-        raise HTTPException(400, "Intet barn valgt til Ugebrev i indstillinger.")
-    result = await run_in_threadpool(ugebrev.sync_ugebrev_url, client, child_id, doc_url, anchor_date)
+    result = await run_in_threadpool(ugebrev.sync_ugebrev_url, client, doc_url, anchor_date)
     if result.get("events_created"):
         mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
     return result
+
+
+@app.get("/api/ugebrev/info", dependencies=[Depends(check_api_key)])
+def ugebrev_info(calendar: str, week: int, year: int):
+    """Brødteksten fra selve ugebrevet (huskere/beskeder uden for skematabellen)
+    — hentet af info-ikonet i skolekalenderen (skolekalender.js)."""
+    from backend.store import load_ugebrev_notes
+    notes = load_ugebrev_notes()
+    return {"text": notes.get(f"{calendar}|{year}|{week}", "")}
 
 
 @app.get("/api/file-proxy", dependencies=[Depends(check_api_key)])

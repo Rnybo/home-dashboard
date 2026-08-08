@@ -1,11 +1,13 @@
 """
-backend/ugebrev.py — Parser af ugentlige skoleskema-"ugebreve" fra Aula-beskeder
-til kalenderevents for et valgt barn.
+backend/ugebrev.py — Parser af ugentlige skoleskema-"ugebreve" (Aula-opslag,
+delt klassevis) til kalenderevents for det barn opslaget faktisk blev delt til.
 
-Kilden er typisk et Google Docs-link i beskedteksten (ikke en rigtig vedhæftning)
-med en tabel: dag-kolonner × tidsblok-rækker. Se frontend/CLAUDE.md / dette
-moduls docstrings for antagelser om formatet — det er set fra ÉT eksempel og
-kan vise sig skævt for andre klasser/skoler.
+Ingen manuel barn-indstilling — se _find_calendar_tag_for_doc()/sync_ugebrev()
+for hvordan det rette barn bestemmes automatisk. Kilden er et Google Docs-link
+i opslagets/beskedens tekst (ikke en rigtig vedhæftning) med en tabel:
+dag-kolonner × tidsblok-rækker. Se frontend/CLAUDE.md / dette moduls
+docstrings for antagelser om formatet — det er set fra ÉT eksempel og kan
+vise sig skævt for andre klasser/skoler.
 """
 import logging
 import re
@@ -15,7 +17,7 @@ from datetime import date, timedelta
 import requests
 from bs4 import BeautifulSoup
 
-from backend.store import load_custom_events, save_custom_events
+from backend.store import load_custom_events, save_custom_events, save_ugebrev_note
 
 logger = logging.getLogger("ugebrev")
 
@@ -118,7 +120,8 @@ def _add_minutes(hhmm, minutes):
 
 
 def parse_schedule(html):
-    """Returnerer {"week": int|None, "days": {dagnavn: [(start,slut,titel), ...]}}.
+    """Returnerer {"week": int|None, "days": {dagnavn: [(start,slut,titel), ...]},
+    "body_text": str}.
 
     Antagelser (baseret på ét eksempel — kan vise sig skæve for andre klasser):
     - Første <table> i dokumentet er skematabellen.
@@ -126,17 +129,30 @@ def parse_schedule(html):
     - Dubletter af samme dagnavn (set i praksis — to "Fredag"-kolonner i
       kildedokumentet) kollapses til FØRSTE forekomst; senere ignoreres.
     - En celles sluttid = næste rækkes starttid (sidste række får 30 min).
+    - "body_text" = al paragraf-/overskriftstekst UDENFOR selve tabellen —
+      typisk ugentlige huskere/beskeder fra læreren, som skematabellen ikke
+      har plads til. Vist via et info-ikon i skolekalenderen (se
+      frontend/js/skolekalender.js).
     """
     soup = BeautifulSoup(html, "html.parser")
     week = parse_week_number(soup.get_text(" "))
     days = {d: [] for d in DAY_NAMES}
+    table = next(iter(soup.find_all("table")), None)
 
-    tables = soup.find_all("table")
-    if not tables:
-        return {"week": week, "days": days}
-    rows = tables[0].find_all("tr")
+    body_parts = []
+    for tag in soup.find_all(["p", "h1", "h2", "h3"]):
+        if table and tag.find_parent("table") is table:
+            continue
+        text = tag.get_text(" ", strip=True)
+        if text:
+            body_parts.append(text)
+    body_text = "\n".join(body_parts)
+
+    if not table:
+        return {"week": week, "days": days, "body_text": body_text}
+    rows = table.find_all("tr")
     if len(rows) < 2:
-        return {"week": week, "days": days}
+        return {"week": week, "days": days, "body_text": body_text}
 
     header_cells = rows[0].find_all(["td", "th"])
     col_day, seen = {}, set()
@@ -167,7 +183,7 @@ def parse_schedule(html):
             if title:
                 days[day].append((start_t, end_t, title))
 
-    return {"week": week, "days": days}
+    return {"week": week, "days": days, "body_text": body_text}
 
 
 def resolve_week_dates(anchor_date, week):
@@ -231,15 +247,41 @@ def replace_ugebrev_events(new_events, calendar_tag, week, year):
     save_custom_events(events)
 
 
-def _sync_core(client, child_id, doc_url, anchor_date):
-    """Fælles kerne — henter/parser dokumentet og (gen)opretter events.
-    Kilde-uafhængig med vilje: "ugebrev" er set optræde som BÅDE en Aula
-    *besked* og et Aula *opslag* (to helt forskellige datamodeller/API'er) —
-    ved at tage imod en allerede-udtrukket URL i stedet for selv at slå
-    tråd/opslag op server-side, virker denne funktion uanset hvilken af de to
-    kilden var, og for enhver fremtidig tredje kilde uden ændringer her."""
-    calendar_tag = f"cal-child-{child_id}"
+def _get_children(client):
+    """Returnerer [{"id":.., "name":..}, ...] for alle børn på kontoen."""
+    profile = client.get_profile().get("data", {})
+    children = []
+    for inst in profile.get("institutions") or []:
+        for c in inst.get("children") or []:
+            if c.get("id"):
+                children.append({"id": c["id"], "name": (c.get("name") or "").split()[0] or "barn"})
+    return children
 
+
+def _find_calendar_tag_for_doc(client, doc_url):
+    """Finder hvilket barn et opslag med `doc_url` faktisk blev delt til ved
+    at forespørge Aula pr. barn — samme opdeling `get_posts()` i forvejen
+    bruger — og se hvis barns opslagsliste indeholder det. Undgår at skulle
+    kende/stole på et internt Aula-felt for "hvilken klasse/gruppe et opslag
+    hører til", som ikke er bekræftet at eksistere i den offentlige respons.
+    Der er bevidst INGEN manuel barn-indstilling — "opslaget der delte
+    ugebrevet er kalenderen det hører til" er hele pointen."""
+    for child in _get_children(client):
+        posts = client.get_posts([child["id"]], index=0, limit=15).get("posts", [])
+        for p in posts:
+            content = p.get("content") or {}
+            html = content.get("html") or content.get("text") or ""
+            if find_doc_url(html) == doc_url:
+                return f"cal-child-{child['id']}"
+    return None
+
+
+def _sync_core(client, calendar_tag, doc_url, anchor_date):
+    """Fælles kerne — henter/parser dokumentet og (gen)opretter events plus
+    en evt. brødtekst-note. Kilde-uafhængig med vilje: tager imod en
+    allerede-bestemt kalender-tag + URL i stedet for selv at slå noget op,
+    så både `sync_ugebrev_url()` (bruger-klik) og `sync_ugebrev()`
+    (automatisk scanning) kan dele den uden at duplikere logik."""
     html = fetch_doc_html(doc_url)
     schedule = parse_schedule(html)
     if not schedule["week"]:
@@ -256,57 +298,47 @@ def _sync_core(client, child_id, doc_url, anchor_date):
                            "skematabellen kan have et andet format end forventet."}
 
     replace_ugebrev_events(events, calendar_tag, schedule["week"], year)
+    if schedule.get("body_text"):
+        save_ugebrev_note(f"{calendar_tag}|{year}|{schedule['week']}", schedule["body_text"])
     logger.info(f"Ugebrev uge {schedule['week']}/{year}: {len(events)} events for {calendar_tag}")
     return {"found": True, "week": schedule["week"], "year": year, "events_created": len(events)}
 
 
-def sync_ugebrev_url(client, child_id, doc_url, anchor_date_str=None):
+def sync_ugebrev_url(client, doc_url, anchor_date_str=None):
     """Bruges af "🎒 Tilføj til skolekalender"-knappen — frontend har allerede
     udtrukket doc_url fra enten en besked (aula.js) eller et opslag
-    (calendar.js), ingen server-side tråd/opslag-opslag nødvendig."""
+    (calendar.js). Bestemmer selv hvilket barn via `_find_calendar_tag_for_doc`
+    — ingen barn-parameter, ingen indstilling at glemme at sætte."""
+    calendar_tag = _find_calendar_tag_for_doc(client, doc_url)
+    if not calendar_tag:
+        return {"found": False,
+                "message": "Kunne ikke se hvilket barn dette blev delt til — opslaget blev ikke "
+                           "fundet blandt nogen af børnenes seneste opslag (kan skyldes at det er "
+                           "en besked, ikke et opslag, eller at det er ældre end de sidste 15 opslag)."}
     anchor = date.fromisoformat(anchor_date_str[:10]) if anchor_date_str else date.today()
-    return _sync_core(client, child_id, doc_url, anchor)
+    return _sync_core(client, calendar_tag, doc_url, anchor)
 
 
-def sync_ugebrev(client, child_id, subject_match="ugebrev"):
-    """Baggrunds-/manuel scanning uden en bestemt besked/opslag at gå ud fra.
-    Prøver OPSLAG først — det er hvor et "ugebrev" typisk rent faktisk ligger
-    (delt med hele klassen, ikke en privat besked) — og falder tilbage til
-    beskedtråde med emnematch. Se `_sync_core()`s docstring for hvorfor disse
-    to kilder begge skal understøttes."""
-    posts = client.get_posts([int(child_id)], index=0, limit=15).get("posts", [])
-    for p in posts:
-        content = p.get("content") or {}
-        html = content.get("html") or content.get("text") or ""
-        url = find_doc_url(html)
-        if url:
-            anchor = date.fromisoformat(p["timestamp"][:10]) if p.get("timestamp") else date.today()
-            return _sync_core(client, child_id, url, anchor)
-
-    threads = []
-    for page in range(3):
-        batch = client.get_threads(page=page)
-        if not batch:
-            break
-        threads.extend(batch)
-    match = next((t for t in threads if subject_match.lower() in (t.get("subject") or "").lower()), None)
-    if not match:
-        return {"found": False,
-                "message": f"Fandt hverken et opslag med et Google Docs-link eller en tråd med "
-                           f"'{subject_match}' i emnet blandt de seneste."}
-
-    data = client.get_messages_for_thread(match["id"])
-    doc_url, msg_date_str = None, None
-    for m in data.get("messages", []):
-        text = m.get("text") or {}
-        html = text.get("html") if isinstance(text, dict) else text
-        url = find_doc_url(html)
-        if url:
-            doc_url, msg_date_str = url, m.get("sendDateTime")
-            break
-    if not doc_url:
-        return {"found": False,
-                "message": f"Fandt tråden '{match.get('subject')}', men intet Google Docs-link i den."}
-
-    anchor = date.fromisoformat(msg_date_str[:10]) if msg_date_str else date.today()
-    return _sync_core(client, child_id, doc_url, anchor)
+def sync_ugebrev(client):
+    """Automatisk scanning — tjekker ALLE børns seneste opslag for ét med et
+    Google Docs-link, og synkroniserer det til PRÆCIS det barns kalender
+    opslaget blev delt til. Håndterer flere børn i forskellige klasser
+    uden videre: hvert barn med et matchende opslag får sit eget skema.
+    Returnerer {"found": False, "message": ...} eller
+    {"found": True, "results": [{"child_name":.., "week":.., ...}, ...]}."""
+    results = []
+    for child in _get_children(client):
+        posts = client.get_posts([child["id"]], index=0, limit=15).get("posts", [])
+        for p in posts:
+            content = p.get("content") or {}
+            html = content.get("html") or content.get("text") or ""
+            url = find_doc_url(html)
+            if url:
+                anchor = date.fromisoformat(p["timestamp"][:10]) if p.get("timestamp") else date.today()
+                result = _sync_core(client, f"cal-child-{child['id']}", url, anchor)
+                result["child_name"] = child["name"]
+                results.append(result)
+                break  # kun det nyeste matchende opslag pr. barn
+    if not results:
+        return {"found": False, "message": "Intet opslag med et Google Docs-link fundet for nogen af børnene."}
+    return {"found": True, "results": results}

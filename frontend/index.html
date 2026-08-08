@@ -316,8 +316,10 @@
           <button class="scope-btn" data-scope="week" onclick="setSchoolCalScope('week')">Denne uge</button>
           <button class="scope-btn" data-scope="nextweek" onclick="setSchoolCalScope('nextweek')">Næste uge</button>
         </div>
+        <button id="school-cal-info-btn" onclick="toggleSchoolCalInfo()" title="Læs beskeden fra ugebrevet">ℹ️</button>
         <button id="school-cal-close" onclick="closeSchoolCalendar()">✕</button>
       </div>
+      <div id="school-cal-info-box"></div>
       <div id="school-cal-body"></div>
     </div>
   </div>

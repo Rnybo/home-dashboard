@@ -182,7 +182,7 @@
         // skolekalenderen i stedet for den almindelige event-info.
         if (e._schoolSummary) {
           html += `<div class="cal-event" style="top:${topPct}%;height:${heightPct}%;min-height:20px;background:${e.color};left:calc(3px + ${l}%);width:calc(${w}% - 6px);right:auto;cursor:pointer"
-            onclick="openSchoolCalendar(${e._childId}, '${e._scope}')">
+            onclick="openSchoolCalendar(${e._childId}, '${e._scope}', ${e._weekOffset})">
             <span class="ev-title">${e.title}</span><span class="ev-time">${ts}</span></div>`;
           return;
         }

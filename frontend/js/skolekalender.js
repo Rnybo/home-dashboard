@@ -7,10 +7,16 @@
 
 let _schoolCalChildId = null;
 let _schoolCalScope = 'day';
+// Uger relativt til DENNE kalenderuge (0 = denne uge, -1 = forrige, +1 = næste,
+// osv.) — erstatter den tidligere faste 'nextweek'-knap med fri navigation
+// vilkårligt frem/tilbage, da et ugebrev-dokument typisk indeholder mange
+// uger (skolen genbruger ét løbende Google Doc for hele skoleåret).
+let _schoolCalWeekOffset = 0;
 
-function openSchoolCalendar(childId, initialScope) {
+function openSchoolCalendar(childId, initialScope, initialOffset) {
   _schoolCalChildId = childId;
   _schoolCalScope = initialScope || 'day';
+  _schoolCalWeekOffset = initialOffset || 0;
   document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === _schoolCalScope));
   const child = (CHILDREN || []).find(c => c.id === childId);
   document.getElementById('school-cal-title').dataset.baseTitle = '🎒 ' + (child ? child.name + 's skoledag' : 'Skoledag');
@@ -28,7 +34,16 @@ function closeSchoolCalendar(e) {
 
 function setSchoolCalScope(scope) {
   _schoolCalScope = scope;
+  if (scope === 'day') _schoolCalWeekOffset = 0;  // "I dag" nulstiller altid til nu
   document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === scope));
+  document.getElementById('school-cal-info-box').classList.remove('open');
+  renderSchoolCalendar();
+}
+
+function shiftSchoolCalWeek(delta) {
+  _schoolCalScope = 'week';
+  _schoolCalWeekOffset += delta;
+  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === 'week'));
   document.getElementById('school-cal-info-box').classList.remove('open');
   renderSchoolCalendar();
 }
@@ -84,7 +99,7 @@ async function renderSchoolCalendar() {
   const baseTitle = titleEl.dataset.baseTitle || titleEl.textContent;
   const monday = new Date(today);
   monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  if (_schoolCalScope === 'nextweek') monday.setDate(monday.getDate() + 7);
+  monday.setDate(monday.getDate() + _schoolCalWeekOffset * 7);
 
   if (_schoolCalScope === 'day') {
     days = [today];

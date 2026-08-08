@@ -174,10 +174,8 @@
                 const data = await r.json();
                 if (!r.ok) {
                   alert('⚠️ ' + (data.detail || 'Kunne ikke synkronisere.'));
-                } else if (data.found && data.events_created) {
-                  alert(`✅ Uge ${data.week}/${data.year}: ${data.events_created} events oprettet/opdateret.`);
                 } else {
-                  alert('ℹ️ ' + (data.message || 'Intet skema fundet.'));
+                  alert(formatUgebrevSyncResult(data));
                 }
               } catch (err) {
                 alert('⚠️ Fejl: ' + err.message);

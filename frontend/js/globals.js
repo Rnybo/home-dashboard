@@ -4,6 +4,21 @@
     let CHILDREN = [];
     let INST_PROFILE_IDS = [];
     let activeTab = 0, weekOffset = 0, allEvents = [], presenceData = {};
+
+    // Delt af aula.js (besked-knap) og calendar.js (opslags-knap) — begge
+    // kalder /api/ugebrev/sync-url og skal vise samme slags resultat-besked.
+    // "weeks" er en liste fordi ét Google Docs-dokument typisk indeholder
+    // flere ugers ugebreve (skolen genbruger ét løbende dokument i stedet
+    // for et nyt pr. uge) — se backend/CLAUDE.md's ugebrev.py-sektion.
+    function formatUgebrevSyncResult(data) {
+      if (!data.found) return 'ℹ️ ' + (data.message || 'Intet skema fundet.');
+      if (!data.events_created) return 'ℹ️ ' + (data.message || 'Ingen nye events fundet.');
+      const weeks = (data.weeks || []).map(w => w.week);
+      const weekLabel = weeks.length > 1
+        ? `uge ${Math.min(...weeks)}–${Math.max(...weeks)} (${weeks.length} uger)`
+        : `uge ${weeks[0]}`;
+      return `✅ ${data.events_created} events oprettet/opdateret (${weekLabel}).`;
+    }
     // Tab modes: 'aula' = child tab, 'google' = google calendar tab
     const GOOGLE_TABS = [
       { name: 'Fælles', owner: null, color: '#2e7d32' },

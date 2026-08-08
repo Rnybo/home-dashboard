@@ -22,7 +22,6 @@ from backend.store import load_custom_events, save_custom_events, save_ugebrev_n
 logger = logging.getLogger("ugebrev")
 
 DAY_NAMES = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag"]
-WEEK_RE = re.compile(r"[Uu]ge\s*[:.]?\s*(\d{1,2})\b")
 DOC_URL_RE = re.compile(r'https://docs\.google\.com/document/d/[\w-]+[^\s"\'<>]*')
 EVENT_COLOR = "#e65100"  # bevidst afvigende farve — nem at få øje på og slette
 
@@ -47,6 +46,10 @@ ICON_KEYWORDS = [
 DEFAULT_ICON = "📋"
 LEADING_TIME_RE = re.compile(r"^\d{1,2}[.:]\d{2}\s+")
 DASH_RE = re.compile(r"[-\u2010-\u2015]")  # bindestreg + alle Unicode-dash-varianter
+# Kun HELE afsnit der udelukkende siger "Uge XX" tæller som en ny uges
+# sektionsoverskrift — en sætning der blot NÆVNER en uge midt i teksten
+# (fx "Vi glæder os til uge 33") skal ikke fejlagtigt splitte dokumentet.
+SECTION_HEADING_RE = re.compile(r"^[Uu]ge\s*[:.]?\s*(\d{1,2})\.?$")
 
 
 def _icon_for(title):
@@ -90,17 +93,12 @@ def fetch_doc_html(doc_url, timeout=15):
     return r.text
 
 
-def parse_week_number(doc_text):
-    m = WEEK_RE.search(doc_text)
-    return int(m.group(1)) if m else None
-
-
 def _parse_time(txt):
     """'8' / '8.00' / '13.30' -> '08:00' / '08:00' / '13:30'. Tager også imod
     et interval ('8-8.45', '8.00-8.45' — almindelig bindestreg ELLER en
     Unicode-dash, Google Docs' autokorrektur skriver nogle gange en anden
     dash-type end den man taster) og bruger kun starten, som altid regnes
-    sammen med næste rækkes start i parse_schedule(). En bar time uden
+    sammen med næste rækkes start i _parse_table(). En bar time uden
     minutter ('8') tolkes som hele timen ('08:00'). None hvis ikke parsbar."""
     txt = DASH_RE.split(txt.strip())[0].strip()
     m = re.match(r"^(\d{1,2})(?:[.:](\d{2}))?$", txt)
@@ -119,40 +117,21 @@ def _add_minutes(hhmm, minutes):
     return f"{total // 60:02d}:{total % 60:02d}"
 
 
-def parse_schedule(html):
-    """Returnerer {"week": int|None, "days": {dagnavn: [(start,slut,titel), ...]},
-    "body_text": str}.
+def _parse_table(table):
+    """Parser én skematabel til {dagnavn: [(start,slut,titel), ...]}.
 
     Antagelser (baseret på ét eksempel — kan vise sig skæve for andre klasser):
-    - Første <table> i dokumentet er skematabellen.
     - Række 0 = dag-headers, kolonne 0 = tidspunkt-kolonne.
     - Dubletter af samme dagnavn (set i praksis — to "Fredag"-kolonner i
       kildedokumentet) kollapses til FØRSTE forekomst; senere ignoreres.
     - En celles sluttid = næste rækkes starttid (sidste række får 30 min).
-    - "body_text" = al paragraf-/overskriftstekst UDENFOR selve tabellen —
-      typisk ugentlige huskere/beskeder fra læreren, som skematabellen ikke
-      har plads til. Vist via et info-ikon i skolekalenderen (se
-      frontend/js/skolekalender.js).
     """
-    soup = BeautifulSoup(html, "html.parser")
-    week = parse_week_number(soup.get_text(" "))
     days = {d: [] for d in DAY_NAMES}
-    table = next(iter(soup.find_all("table")), None)
-
-    body_parts = []
-    for tag in soup.find_all(["p", "h1", "h2", "h3"]):
-        if table and tag.find_parent("table") is table:
-            continue
-        text = tag.get_text(" ", strip=True)
-        if text:
-            body_parts.append(text)
-    body_text = "\n".join(body_parts)
-
-    if not table:
-        return {"week": week, "days": days, "body_text": body_text}
+    if table is None:
+        return days
     rows = table.find_all("tr")
     if len(rows) < 2:
-        return {"week": week, "days": days, "body_text": body_text}
+        return days
 
     header_cells = rows[0].find_all(["td", "th"])
     col_day, seen = {}, set()
@@ -182,8 +161,64 @@ def parse_schedule(html):
             title = cells[ci].get_text(separator=" ", strip=True)
             if title:
                 days[day].append((start_t, end_t, title))
+    return days
 
-    return {"week": week, "days": days, "body_text": body_text}
+
+def split_document_into_weeks(html):
+    """Splitter et Google Docs-dokument i separate uge-sektioner. Skolen
+    genbruger i praksis ÉT løbende dokument og tilføjer bare en ny "Uge XX"-
+    overskrift for hver uge i stedet for at lave et nyt dokument hver gang —
+    uden denne opsplitning ville brødteksten (og for et dokument med flere
+    tabeller, skemaet) blande ALLE ugers indhold sammen, uanset hvilken uge
+    man reelt kiggede på.
+
+    Returnerer [{"week": int|None, "table": <Tag|None>, "body_text": str}, ...]
+    i dokumentets rækkefølge. Et dokument uden eksplicitte "Uge XX"-overskrifter
+    (kun ét ugebrev, ingen akkumulering) giver én sektion med week=None og alt
+    indhold samlet — matcher tidligere adfærd for den slags dokumenter.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    # find_all bevarer dokument-rækkefølgen på tværs af tag-typer. Filtreringen
+    # udelukker <p>/<hN> der reelt ligger INDE i en tabel (Google Docs-export
+    # pakker celletekst i <p>-tags), så tabellens indhold ikke optræder to
+    # gange — én gang som del af <table>, én gang som løsrevet paragraf.
+    elements = soup.find_all(["h1", "h2", "h3", "p", "table"])
+    flow = [el for el in elements if el.name == "table" or not el.find_parent("table")]
+
+    sections = []
+    current = None
+    for el in flow:
+        if el.name != "table":
+            text = el.get_text(" ", strip=True)
+            m = SECTION_HEADING_RE.match(text)
+            if m:
+                current = {"week": int(m.group(1)), "table": None, "body_parts": []}
+                sections.append(current)
+                continue
+        if current is None:
+            current = {"week": None, "table": None, "body_parts": []}
+            sections.append(current)
+        if el.name == "table":
+            if current["table"] is None:  # første tabel i sektionen er skemaet
+                current["table"] = el
+        else:
+            text = el.get_text(" ", strip=True)
+            if text:
+                current["body_parts"].append(text)
+
+    return [{"week": s["week"], "table": s["table"], "body_text": "\n".join(s["body_parts"])}
+            for s in sections]
+
+
+def parse_document(html):
+    """Parser hele dokumentet til én skema-dict PR. uge fundet i det (se
+    split_document_into_weeks). Returnerer [{"week":.., "days":{...},
+    "body_text":..}, ...] — springer sektioner uden noget ugenummer over."""
+    sections = split_document_into_weeks(html)
+    return [
+        {"week": s["week"], "days": _parse_table(s["table"]), "body_text": s["body_text"]}
+        for s in sections if s["week"]
+    ]
 
 
 def resolve_week_dates(anchor_date, week):
@@ -277,31 +312,33 @@ def _find_calendar_tag_for_doc(client, doc_url):
 
 
 def _sync_core(client, calendar_tag, doc_url, anchor_date):
-    """Fælles kerne — henter/parser dokumentet og (gen)opretter events plus
-    en evt. brødtekst-note. Kilde-uafhængig med vilje: tager imod en
-    allerede-bestemt kalender-tag + URL i stedet for selv at slå noget op,
-    så både `sync_ugebrev_url()` (bruger-klik) og `sync_ugebrev()`
-    (automatisk scanning) kan dele den uden at duplikere logik."""
+    """Fælles kerne — henter dokumentet og (gen)opretter events + brødtekst-
+    noter for HVER uge fundet i det (se parse_document/split_document_into_weeks
+    — skolen genbruger typisk ét løbende dokument for hele skoleåret). Kilde-
+    uafhængig med vilje: tager imod en allerede-bestemt kalender-tag + URL i
+    stedet for selv at slå noget op, så både `sync_ugebrev_url()` (bruger-klik)
+    og `sync_ugebrev()` (automatisk scanning) kan dele den uden at duplikere
+    logik. `anchor_date` bruges til årsopløsning for HVER uge for sig."""
     html = fetch_doc_html(doc_url)
-    schedule = parse_schedule(html)
-    if not schedule["week"]:
+    schedules = parse_document(html)
+    if not schedules:
         return {"found": False,
-                "message": "Fandt dokumentet, men kunne ikke læse et ugenummer i det (forventer 'Uge XX')."}
+                "message": "Fandt dokumentet, men kunne ikke læse noget ugenummer i det (forventer 'Uge XX')."}
 
-    dates = resolve_week_dates(anchor_date, schedule["week"])
-    year = dates["Mandag"].year
+    weeks_synced = []
+    for schedule in schedules:
+        dates = resolve_week_dates(anchor_date, schedule["week"])
+        year = dates["Mandag"].year
+        events = build_events(schedule, dates, calendar_tag, year)
+        if events:
+            replace_ugebrev_events(events, calendar_tag, schedule["week"], year)
+        if schedule.get("body_text"):
+            save_ugebrev_note(f"{calendar_tag}|{year}|{schedule['week']}", schedule["body_text"])
+        weeks_synced.append({"week": schedule["week"], "year": year, "events_created": len(events)})
 
-    events = build_events(schedule, dates, calendar_tag, year)
-    if not events:
-        return {"found": True, "week": schedule["week"], "year": year, "events_created": 0,
-                "message": "Dokumentet blev læst, men ingen udfyldte tidsblokke blev fundet — "
-                           "skematabellen kan have et andet format end forventet."}
-
-    replace_ugebrev_events(events, calendar_tag, schedule["week"], year)
-    if schedule.get("body_text"):
-        save_ugebrev_note(f"{calendar_tag}|{year}|{schedule['week']}", schedule["body_text"])
-    logger.info(f"Ugebrev uge {schedule['week']}/{year}: {len(events)} events for {calendar_tag}")
-    return {"found": True, "week": schedule["week"], "year": year, "events_created": len(events)}
+    total_events = sum(w["events_created"] for w in weeks_synced)
+    logger.info(f"Ugebrev-dokument for {calendar_tag}: {len(weeks_synced)} uge(r), {total_events} events i alt")
+    return {"found": True, "weeks": weeks_synced, "events_created": total_events}
 
 
 def sync_ugebrev_url(client, doc_url, anchor_date_str=None):
@@ -325,7 +362,7 @@ def sync_ugebrev(client):
     opslaget blev delt til. Håndterer flere børn i forskellige klasser
     uden videre: hvert barn med et matchende opslag får sit eget skema.
     Returnerer {"found": False, "message": ...} eller
-    {"found": True, "results": [{"child_name":.., "week":.., ...}, ...]}."""
+    {"found": True, "results": [{"child_name":.., "weeks":[...], "events_created":..}, ...]}."""
     results = []
     for child in _get_children(client):
         posts = client.get_posts([child["id"]], index=0, limit=15).get("posts", [])

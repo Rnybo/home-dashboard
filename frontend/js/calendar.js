@@ -251,10 +251,8 @@
             const data = await r.json();
             if (!r.ok) {
               alert('⚠️ ' + (data.detail || 'Kunne ikke synkronisere.'));
-            } else if (data.found && data.events_created) {
-              alert(`✅ Uge ${data.week}/${data.year}: ${data.events_created} events oprettet/opdateret.`);
             } else {
-              alert('ℹ️ ' + (data.message || 'Intet skema fundet.'));
+              alert(formatUgebrevSyncResult(data));
             }
           } catch (err) {
             alert('⚠️ Fejl: ' + err.message);
@@ -625,8 +623,9 @@
           // dagen med et dusin små bidder — konsolideres i stedet til ét
           // "🏫 Skole"-blok for hele perioden. Klik åbner skolekalenderen i
           // stedet for den almindelige event-info (se app.js::renderCalEvents'
-          // _schoolSummary-gren og skolekalender.js). weekOffset mapper direkte
-          // til skolekalenderens scope: 0=denne uge, 1=næste uge.
+          // _schoolSummary-gren og skolekalender.js). weekOffset (som allerede
+          // kan gå både frem og tilbage via changeWeek()) mapper 1:1 til
+          // skolekalenderens eget uge-offset — ingen oversættelse nødvendig.
           const ugebrevEvents = rawChildEvents.filter(e => e.source === 'ugebrev');
           const childEvents = rawChildEvents.filter(e => e.source !== 'ugebrev');
           if (ugebrevEvents.length) {
@@ -639,7 +638,8 @@
               end: ends[ends.length - 1],
               color: '#e65100',
               _childId: child.id,
-              _scope: weekOffset === 1 ? 'nextweek' : 'week',
+              _scope: 'week',
+              _weekOffset: weekOffset,
             });
           }
           html += renderCalEvents(childEvents, pct, true);

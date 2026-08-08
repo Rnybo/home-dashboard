@@ -381,9 +381,13 @@
           const withEvents = data.results.filter(res => res.events_created);
           if (withEvents.length) {
             status.style.color = '#2e7d32';
-            status.textContent = '✅ ' + withEvents.map(res =>
-              `${res.child_name}: uge ${res.week}/${res.year}, ${res.events_created} events`
-            ).join(' · ');
+            status.textContent = '✅ ' + withEvents.map(res => {
+              const weeks = (res.weeks || []).map(w => w.week);
+              const weekLabel = weeks.length > 1
+                ? `uge ${Math.min(...weeks)}–${Math.max(...weeks)} (${weeks.length} uger)`
+                : `uge ${weeks[0]}`;
+              return `${res.child_name}: ${weekLabel}, ${res.events_created} events`;
+            }).join(' · ');
           } else {
             status.style.color = '#e65100';
             status.textContent = 'ℹ️ ' + data.results.map(res => res.message || `${res.child_name}: intet nyt`).join(' · ');

@@ -17,10 +17,12 @@
     #school-cal-header { background: var(--blue); color: #fff; padding: 14px 18px;
       display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
     #school-cal-title { font-size: 1.2rem; font-weight: 700; }
-    #school-cal-toggle { display: flex; gap: 6px; }
+    #school-cal-toggle { display: flex; gap: 6px; align-items: center; }
     #school-cal-toggle .scope-btn { background: rgba(255,255,255,.15); border: none; color: #fff;
       padding: 6px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
     #school-cal-toggle .scope-btn.active { background: #fff; color: var(--blue); }
+    #school-cal-week-prev, #school-cal-week-next { background: rgba(255,255,255,.15); border: none;
+      color: #fff; width: 26px; height: 26px; border-radius: 50%; font-size: 0.85rem; cursor: pointer; }
     #school-cal-close { background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer; }
     #school-cal-info-btn { background: rgba(255,255,255,.15); border: none; color: #fff; font-size: 1rem;
       width: 30px; height: 30px; border-radius: 50%; cursor: pointer; flex-shrink: 0; }

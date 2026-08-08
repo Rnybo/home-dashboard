@@ -225,8 +225,44 @@
       document.getElementById('post-modal-body').innerHTML = p.content?.html || p.content?.text || '(intet indhold)';
       const plainText = (p.content?.html||p.content?.text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
       const btnId = 'parse-btn-' + postId;
-      document.getElementById('post-modal-body').innerHTML += `<div style="margin-top:12px"><button class="parse-event-btn" id="${btnId}">📅 Tilføj til kalender</button></div>`;
+      // "Tilføj til skolekalender" — vises kun hvis opslaget rent faktisk
+      // indeholder et Google Docs-link. Dette er den PRIMÆRE kilde til
+      // ugebreve i praksis (skolen deler dem som opslag til hele klassen,
+      // ikke som private beskeder) — se backend/ugebrev.py.
+      const rawPostHtml = p.content?.html || p.content?.text || '';
+      const postDocLinkMatch = rawPostHtml.match(/https:\/\/docs\.google\.com\/document\/d\/[\w-]+[^\s"'<>]*/);
+      const schoolBtnId = 'ugebrev-post-btn-' + postId;
+      const schoolBtnHtml = postDocLinkMatch ? `<button class="parse-event-btn" id="${schoolBtnId}" style="margin-left:8px">🎒 Tilføj til skolekalender</button>` : '';
+      document.getElementById('post-modal-body').innerHTML += `<div style="margin-top:12px"><button class="parse-event-btn" id="${btnId}">📅 Tilføj til kalender</button>${schoolBtnHtml}</div>`;
       document.getElementById(btnId).addEventListener('click', e => { e.stopPropagation(); openEventModal(plainText); });
+      if (postDocLinkMatch) {
+        const schoolBtn = document.getElementById(schoolBtnId);
+        schoolBtn.addEventListener('click', async e => {
+          e.stopPropagation();
+          schoolBtn.disabled = true;
+          const orig = schoolBtn.textContent;
+          schoolBtn.textContent = 'Synkroniserer...';
+          try {
+            const r = await apiFetch('/api/ugebrev/sync-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ doc_url: postDocLinkMatch[0], anchor_date: p.timestamp || null })
+            });
+            const data = await r.json();
+            if (!r.ok) {
+              alert('⚠️ ' + (data.detail || 'Kunne ikke synkronisere.'));
+            } else if (data.found && data.events_created) {
+              alert(`✅ Uge ${data.week}/${data.year}: ${data.events_created} events oprettet/opdateret.`);
+            } else {
+              alert('ℹ️ ' + (data.message || 'Intet skema fundet.'));
+            }
+          } catch (err) {
+            alert('⚠️ Fejl: ' + err.message);
+          }
+          schoolBtn.disabled = false;
+          schoolBtn.textContent = orig;
+        });
+      }
       document.getElementById('post-modal-attachments').innerHTML = renderAttachments(p.attachments || []);
       document.getElementById('post-modal-overlay').classList.add('open');
     }

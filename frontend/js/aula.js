@@ -142,8 +142,8 @@
           // "Tilføj til skolekalender" vises KUN på beskeder der rent
           // faktisk indeholder et Google Docs-link — se backend/ugebrev.py.
           const rawHtml = m.text?.html || m.text || '';
-          const hasDocLink = /docs\.google\.com\/document/.test(rawHtml);
-          const schoolBtnHtml = hasDocLink ? `<button class="parse-event-btn" id="ugebrev-btn-${mBtnId}">🎒 Tilføj til skolekalender</button>` : '';
+          const docLinkMatch = rawHtml.match(/https:\/\/docs\.google\.com\/document\/d\/[\w-]+[^\s"'<>]*/);
+          const schoolBtnHtml = docLinkMatch ? `<button class="parse-event-btn" id="ugebrev-btn-${mBtnId}">🎒 Tilføj til skolekalender</button>` : '';
           return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div>${attsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${attsHtml}</div>` : ''}<button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button>${schoolBtnHtml}</div>`;
         }).join('');
         // Attach event listeners after render
@@ -156,13 +156,20 @@
           }
           const schoolBtn = document.getElementById('ugebrev-btn-' + mBtnId);
           if (schoolBtn) {
+            const rawHtml = m.text?.html || m.text || '';
+            const docLinkMatch = rawHtml.match(/https:\/\/docs\.google\.com\/document\/d\/[\w-]+[^\s"'<>]*/);
             schoolBtn.addEventListener('click', async e => {
               e.stopPropagation();
+              if (!docLinkMatch) return;
               schoolBtn.disabled = true;
               const orig = schoolBtn.textContent;
               schoolBtn.textContent = 'Synkroniserer...';
               try {
-                const r = await apiFetch(`/api/ugebrev/sync-thread/${threadId}`, { method: 'POST' });
+                const r = await apiFetch('/api/ugebrev/sync-url', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ doc_url: docLinkMatch[0], anchor_date: m.sendDateTime || null })
+                });
                 const data = await r.json();
                 if (!r.ok) {
                   alert('⚠️ ' + (data.detail || 'Kunne ikke synkronisere.'));

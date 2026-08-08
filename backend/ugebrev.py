@@ -231,27 +231,14 @@ def replace_ugebrev_events(new_events, calendar_tag, week, year):
     save_custom_events(events)
 
 
-def _sync_from_thread(client, child_id, thread_id, thread_subject=None):
-    """Fælles kerne for både emne-baseret søgning (sync_ugebrev) og direkte
-    per-besked-trigger (sync_ugebrev_thread) — se de to for hvordan tråden
-    findes. `thread_subject` er kun til en pænere fejlbesked, ikke påkrævet."""
+def _sync_core(client, child_id, doc_url, anchor_date):
+    """Fælles kerne — henter/parser dokumentet og (gen)opretter events.
+    Kilde-uafhængig med vilje: "ugebrev" er set optræde som BÅDE en Aula
+    *besked* og et Aula *opslag* (to helt forskellige datamodeller/API'er) —
+    ved at tage imod en allerede-udtrukket URL i stedet for selv at slå
+    tråd/opslag op server-side, virker denne funktion uanset hvilken af de to
+    kilden var, og for enhver fremtidig tredje kilde uden ændringer her."""
     calendar_tag = f"cal-child-{child_id}"
-
-    data = client.get_messages_for_thread(thread_id)
-    messages = data.get("messages", [])
-
-    doc_url, msg_date_str = None, None
-    for m in messages:
-        text = m.get("text") or {}
-        html = text.get("html") if isinstance(text, dict) else text
-        url = find_doc_url(html)
-        if url:
-            doc_url, msg_date_str = url, m.get("sendDateTime")
-            break
-
-    if not doc_url:
-        where = f"tråden '{thread_subject}'" if thread_subject else "beskeden"
-        return {"found": False, "message": f"Fandt {where}, men intet Google Docs-link i den."}
 
     html = fetch_doc_html(doc_url)
     schedule = parse_schedule(html)
@@ -259,8 +246,7 @@ def _sync_from_thread(client, child_id, thread_id, thread_subject=None):
         return {"found": False,
                 "message": "Fandt dokumentet, men kunne ikke læse et ugenummer i det (forventer 'Uge XX')."}
 
-    anchor = date.fromisoformat(msg_date_str[:10]) if msg_date_str else date.today()
-    dates = resolve_week_dates(anchor, schedule["week"])
+    dates = resolve_week_dates(anchor_date, schedule["week"])
     year = dates["Mandag"].year
 
     events = build_events(schedule, dates, calendar_tag, year)
@@ -274,27 +260,53 @@ def _sync_from_thread(client, child_id, thread_id, thread_subject=None):
     return {"found": True, "week": schedule["week"], "year": year, "events_created": len(events)}
 
 
+def sync_ugebrev_url(client, child_id, doc_url, anchor_date_str=None):
+    """Bruges af "🎒 Tilføj til skolekalender"-knappen — frontend har allerede
+    udtrukket doc_url fra enten en besked (aula.js) eller et opslag
+    (calendar.js), ingen server-side tråd/opslag-opslag nødvendig."""
+    anchor = date.fromisoformat(anchor_date_str[:10]) if anchor_date_str else date.today()
+    return _sync_core(client, child_id, doc_url, anchor)
+
+
 def sync_ugebrev(client, child_id, subject_match="ugebrev"):
-    """Scanner nylige beskedtråde for én der matcher `subject_match`, finder
-    Google Docs-linket, parser skemaet, og (gen)opretter kalenderevents for
-    `child_id`. Returnerer et resultat-dict til visning i UI/log."""
+    """Baggrunds-/manuel scanning uden en bestemt besked/opslag at gå ud fra.
+    Prøver OPSLAG først — det er hvor et "ugebrev" typisk rent faktisk ligger
+    (delt med hele klassen, ikke en privat besked) — og falder tilbage til
+    beskedtråde med emnematch. Se `_sync_core()`s docstring for hvorfor disse
+    to kilder begge skal understøttes."""
+    posts = client.get_posts([int(child_id)], index=0, limit=15).get("posts", [])
+    for p in posts:
+        content = p.get("content") or {}
+        html = content.get("html") or content.get("text") or ""
+        url = find_doc_url(html)
+        if url:
+            anchor = date.fromisoformat(p["timestamp"][:10]) if p.get("timestamp") else date.today()
+            return _sync_core(client, child_id, url, anchor)
+
     threads = []
     for page in range(3):
         batch = client.get_threads(page=page)
         if not batch:
             break
         threads.extend(batch)
-
     match = next((t for t in threads if subject_match.lower() in (t.get("subject") or "").lower()), None)
     if not match:
-        return {"found": False, "message": f"Ingen tråd med '{subject_match}' i emnet fundet."}
+        return {"found": False,
+                "message": f"Fandt hverken et opslag med et Google Docs-link eller en tråd med "
+                           f"'{subject_match}' i emnet blandt de seneste."}
 
-    return _sync_from_thread(client, child_id, match["id"], match.get("subject"))
+    data = client.get_messages_for_thread(match["id"])
+    doc_url, msg_date_str = None, None
+    for m in data.get("messages", []):
+        text = m.get("text") or {}
+        html = text.get("html") if isinstance(text, dict) else text
+        url = find_doc_url(html)
+        if url:
+            doc_url, msg_date_str = url, m.get("sendDateTime")
+            break
+    if not doc_url:
+        return {"found": False,
+                "message": f"Fandt tråden '{match.get('subject')}', men intet Google Docs-link i den."}
 
-
-def sync_ugebrev_thread(client, child_id, thread_id):
-    """Som sync_ugebrev, men for en bestemt tråd i stedet for at søge efter
-    emnematch — bruges af "🎒 Tilføj til skolekalender"-knappen direkte på en
-    besked. Fjerner al usikkerhed om emnematch/baggrunds-timing, da brugeren
-    selv peger på den rigtige besked."""
-    return _sync_from_thread(client, child_id, thread_id)
+    anchor = date.fromisoformat(msg_date_str[:10]) if msg_date_str else date.today()
+    return _sync_core(client, child_id, doc_url, anchor)

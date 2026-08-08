@@ -11,9 +11,10 @@ let _schoolCalScope = 'day';
 function openSchoolCalendar(childId) {
   _schoolCalChildId = childId;
   _schoolCalScope = 'day';
-  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === 'day'));
   const child = (CHILDREN || []).find(c => c.id === childId);
-  document.getElementById('school-cal-title').textContent = '🎒 ' + (child ? child.name + 's skoledag' : 'Skoledag');
+  document.getElementById('school-cal-title').dataset.baseTitle = '🎒 ' + (child ? child.name + 's skoledag' : 'Skoledag');
+  document.getElementById('school-cal-title').textContent = document.getElementById('school-cal-title').dataset.baseTitle;
   document.getElementById('school-cal-overlay').classList.add('open');
   renderSchoolCalendar();
 }
@@ -26,9 +27,19 @@ function closeSchoolCalendar(e) {
 
 function setSchoolCalScope(scope) {
   _schoolCalScope = scope;
-  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b =>
-    b.classList.toggle('active', b.textContent.trim() === (scope === 'day' ? 'I dag' : 'Denne uge')));
+  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === scope));
   renderSchoolCalendar();
+}
+
+// ISO 8601-ugenummer — bruges kun til at vise "· Uge X" i titlen, så "Denne
+// uge" og "Næste uge" ikke er umulige at skelne når begge (endnu) er tomme.
+function _isoWeekNumber(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNr = (dt.getUTCDay() + 6) % 7;
+  dt.setUTCDate(dt.getUTCDate() - dayNr + 3);
+  const firstThursday = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4));
+  const diffDays = (dt - firstThursday) / 86400000;
+  return 1 + Math.round(diffDays / 7);
 }
 
 async function renderSchoolCalendar() {
@@ -53,12 +64,17 @@ async function renderSchoolCalendar() {
   // "days" nedenfor, som også bruger lokale Date-metoder konsekvent.
   const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   let days;
+  const titleEl = document.getElementById('school-cal-title');
+  const baseTitle = titleEl.dataset.baseTitle || titleEl.textContent;
   if (_schoolCalScope === 'day') {
     days = [today];
+    titleEl.textContent = baseTitle;
   } else {
     const monday = new Date(today);
     monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    if (_schoolCalScope === 'nextweek') monday.setDate(monday.getDate() + 7);
     days = [0, 1, 2, 3, 4].map(i => { const d = new Date(monday); d.setDate(d.getDate() + i); return d; });
+    titleEl.textContent = `${baseTitle} · Uge ${_isoWeekNumber(monday)}`;
   }
 
   const DAY_LABELS = ['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'];
@@ -68,7 +84,7 @@ async function renderSchoolCalendar() {
       .filter(e => e.start && e.start.slice(0, 10) === isoDate(day))
       .sort((a, b) => a.start.localeCompare(b.start));
 
-    if (_schoolCalScope === 'week') {
+    if (_schoolCalScope !== 'day') {
       html += `<div class="day-group-label">${DAY_LABELS[day.getDay()]} ${day.getDate()}.</div>`;
     }
     if (!dayEvents.length) {

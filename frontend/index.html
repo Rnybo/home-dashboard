@@ -312,8 +312,9 @@
       <div id="school-cal-header">
         <span id="school-cal-title">🎒 Skoledag</span>
         <div id="school-cal-toggle">
-          <button class="scope-btn active" onclick="setSchoolCalScope('day')">I dag</button>
-          <button class="scope-btn" onclick="setSchoolCalScope('week')">Denne uge</button>
+          <button class="scope-btn active" data-scope="day" onclick="setSchoolCalScope('day')">I dag</button>
+          <button class="scope-btn" data-scope="week" onclick="setSchoolCalScope('week')">Denne uge</button>
+          <button class="scope-btn" data-scope="nextweek" onclick="setSchoolCalScope('nextweek')">Næste uge</button>
         </div>
         <button id="school-cal-close" onclick="closeSchoolCalendar()">✕</button>
       </div>

@@ -316,15 +316,20 @@ async def ugebrev_sync_now():
     return result
 
 
-@app.post("/api/ugebrev/sync-thread/{thread_id}", dependencies=[Depends(check_api_key)])
-async def ugebrev_sync_thread(thread_id: str):
-    """Per-besked trigger — "🎒 Tilføj til skolekalender"-knappen i
-    beskedmodalen (aula.js). Kører direkte på den tråd brugeren kigger på,
-    ingen emnematch eller baggrunds-timing involveret."""
+@app.post("/api/ugebrev/sync-url", dependencies=[Depends(check_api_key)])
+async def ugebrev_sync_url(payload: dict):
+    """Per-besked/opslag trigger — "🎒 Tilføj til skolekalender"-knappen i
+    besked-modalen (aula.js) og opslags-modalen (calendar.js). Frontend har
+    allerede udtrukket doc_url fra det indhold brugeren kigger på, uanset om
+    det er en besked eller et opslag — se ugebrev.py::_sync_core()."""
+    doc_url = (payload.get("doc_url") or "").strip()
+    anchor_date = payload.get("anchor_date")
+    if not doc_url:
+        raise HTTPException(400, "doc_url mangler.")
     child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
     if not child_id:
         raise HTTPException(400, "Intet barn valgt til Ugebrev i indstillinger.")
-    result = await run_in_threadpool(ugebrev.sync_ugebrev_thread, client, child_id, thread_id)
+    result = await run_in_threadpool(ugebrev.sync_ugebrev_url, client, child_id, doc_url, anchor_date)
     if result.get("events_created"):
         mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
     return result

@@ -23,6 +23,8 @@ Scanner beskedtråde for et emne der matcher "ugebrev", finder et Google Docs-li
 - **Idempotent via `(calendar_tag, week, year)` som naturlig nøgle**, ikke `thread_id` — en gentaget/rettet sync for samme uge overskriver kun præcis den uges auto-genererede events, aldrig andre ugers eller manuelt oprettede events. Se `replace_ugebrev_events()`.
 - **Events tagges med `calendar: "cal-child-<id>"`** — samme konvention som når man manuelt opretter et event og vælger et barn (se `frontend/js/CLAUDE.md`). Ingen særskilt "hvilket barn"-logik nødvendig i frontend — events flyder gennem den eksisterende `googleEvents`/custom-events-pipeline.
 - **Titel-format er ALTID `"{ikon} {tekst}"`** (ét emoji, ét mellemrum, resten) — `frontend/js/skolekalender.js` splitter på det første mellemrum for at vise ikon og tekst separat. Ændrer du formatet her, skal den opdateres samtidig.
+- **`AulaClient`s metode hedder `get_messages_for_thread(thread_id, page=0)`, IKKE `get_messages(thread_id)`** — sidstnævnte findes slet ikke og fejler med `AttributeError`. Denne fejl lå upåagtet i koden fra featurens første version, fordi ingen af de tidligere tests rent faktisk mockede/kaldte `client`-metoden direkte (kun UI-routing og isoleret parsing blev testet) — først en ægte mock-baseret backend-test af `_sync_from_thread()` afslørede det. Skriv altid en test der mocker `client`s metoder direkte og går gennem den rigtige endpoint, ikke kun parsing-funktionerne isoleret.
+- **To indgange til samme logik**: `sync_ugebrev()` (emne-søgning, bruges af baggrundsloop + settings-siden) og `sync_ugebrev_thread()` (direkte på en bestemt tråd, bruges af "🎒 Tilføj til skolekalender"-knappen på selve beskeden i `aula.js`) deler kernen `_sync_from_thread()`. Per-besked-varianten fjerner al usikkerhed om emnematch/baggrunds-timing, da brugeren selv peger på den rigtige besked.
 
 
 ## `/api/file-proxy` (i `main.py`) — vigtig gotcha
@@ -32,6 +34,10 @@ Streamer en Aula-fil videre via `client.session.get(url, stream=True)` + `r.iter
 ## `check_deps.py`
 
 Tjekker at alle Python-pakker er installeret *før* appen starter — fejler hurtigt med en klar `pip install`/`pkg install`-besked i stedet for en kryptisk `ImportError` midt i et request. **Tilføj nye dependencies her**, når du tilføjer en ny integration.
+
+## `NoCacheMiddleware` (i `main.py`)
+
+Sætter `Cache-Control: no-store` på en eksplicit liste af paths — kun `/`, `/index.html` og `/settings.html` i dag. **Enhver ny HTML-side der tilføjes til frontend/, og som brugeren navigerer direkte til (ikke kun loades via fetch), skal føjes til denne liste**, ellers kan browseren/Fully Kiosk cache en gammel version efter et deploy uden at nogen opdager det — nøjagtig det der skete med `/settings.html` før den blev tilføjet (en helt ny indstillings-sektion var usynlig for brugeren i lang tid, ikke fordi koden var forkert, men fordi siden aldrig blev hentet frisk).
 
 ## `store.py`
 

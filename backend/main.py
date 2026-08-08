@@ -239,7 +239,7 @@ async def shutdown():
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
-        if request.url.path in ("/", "/index.html"):
+        if request.url.path in ("/", "/index.html", "/settings.html"):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
             response.headers["Pragma"] = "no-cache"
         return response
@@ -311,6 +311,20 @@ async def ugebrev_sync_now():
     if not child_id:
         raise HTTPException(400, "Intet barn valgt til Ugebrev i indstillinger.")
     result = await run_in_threadpool(ugebrev.sync_ugebrev, client, child_id)
+    if result.get("events_created"):
+        mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
+    return result
+
+
+@app.post("/api/ugebrev/sync-thread/{thread_id}", dependencies=[Depends(check_api_key)])
+async def ugebrev_sync_thread(thread_id: str):
+    """Per-besked trigger — "🎒 Tilføj til skolekalender"-knappen i
+    beskedmodalen (aula.js). Kører direkte på den tråd brugeren kigger på,
+    ingen emnematch eller baggrunds-timing involveret."""
+    child_id = os.getenv("UGEBREV_CHILD_ID", "").strip()
+    if not child_id:
+        raise HTTPException(400, "Intet barn valgt til Ugebrev i indstillinger.")
+    result = await run_in_threadpool(ugebrev.sync_ugebrev_thread, client, child_id, thread_id)
     if result.get("events_created"):
         mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
     return result

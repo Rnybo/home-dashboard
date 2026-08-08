@@ -139,7 +139,12 @@
           const sender=m.sender?.fullName||'Ukendt', date=m.sendDateTime?new Date(m.sendDateTime).toLocaleString('da-DK',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
           const mBtnId = 'parse-msg-' + (m.id ?? mi);
           const attsHtml = renderAttachments(m.attachments || []);
-          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div>${attsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${attsHtml}</div>` : ''}<button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button></div>`;
+          // "Tilføj til skolekalender" vises KUN på beskeder der rent
+          // faktisk indeholder et Google Docs-link — se backend/ugebrev.py.
+          const rawHtml = m.text?.html || m.text || '';
+          const hasDocLink = /docs\.google\.com\/document/.test(rawHtml);
+          const schoolBtnHtml = hasDocLink ? `<button class="parse-event-btn" id="ugebrev-btn-${mBtnId}">🎒 Tilføj til skolekalender</button>` : '';
+          return `<div class="thread-msg"><div class="thread-msg-header"><span class="thread-msg-sender">${sender}</span><span class="thread-msg-date">${date}</span></div><div class="thread-msg-body">${m.text?.html||m.text||'(intet indhold)'}</div>${attsHtml ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">${attsHtml}</div>` : ''}<button class="parse-event-btn" id="${mBtnId}">📅 Tilføj til kalender</button>${schoolBtnHtml}</div>`;
         }).join('');
         // Attach event listeners after render
         msgs.forEach((m, mi) => {
@@ -148,6 +153,30 @@
           if (btn) {
             const txt = (m.text?.html||m.text||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
             btn.addEventListener('click', e => { e.stopPropagation(); openEventModal(txt); });
+          }
+          const schoolBtn = document.getElementById('ugebrev-btn-' + mBtnId);
+          if (schoolBtn) {
+            schoolBtn.addEventListener('click', async e => {
+              e.stopPropagation();
+              schoolBtn.disabled = true;
+              const orig = schoolBtn.textContent;
+              schoolBtn.textContent = 'Synkroniserer...';
+              try {
+                const r = await apiFetch(`/api/ugebrev/sync-thread/${threadId}`, { method: 'POST' });
+                const data = await r.json();
+                if (!r.ok) {
+                  alert('⚠️ ' + (data.detail || 'Kunne ikke synkronisere.'));
+                } else if (data.found && data.events_created) {
+                  alert(`✅ Uge ${data.week}/${data.year}: ${data.events_created} events oprettet/opdateret.`);
+                } else {
+                  alert('ℹ️ ' + (data.message || 'Intet skema fundet.'));
+                }
+              } catch (err) {
+                alert('⚠️ Fejl: ' + err.message);
+              }
+              schoolBtn.disabled = false;
+              schoolBtn.textContent = orig;
+            });
           }
         });
       } catch(e) { document.getElementById('msg-modal-body').textContent='Fejl: '+e.message; }

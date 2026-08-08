@@ -217,6 +217,23 @@ async def _startup_token_refresh():
 
 @app.on_event("startup")
 async def startup():
+    # Sikkerhedsnet: en uventet exception i en asyncio.create_task()-baggrundstask
+    # dræber KUN den ene task, lydløst (kun en svær-at-få-øje-på "Task exception
+    # was never retrieved" i loggen) — serveren ser ellers ud til at køre videre,
+    # men den ramte funktion (session-refresh, sync, etc.) er stoppet for evigt.
+    # Det er præcis den fejlklasse der ramte auto_refresh_loop (se aula_auth.py)
+    # og udadtil ligner "serveren er stoppet med at virke" uden noget synligt
+    # nedbrud. Denne handler logger den slags højlydt fremover, selv for
+    # baggrundstasks vi ikke selv har tænkt på at wrappe i try/except.
+    def _log_unhandled_task_exception(loop, context):
+        exc = context.get("exception")
+        log = logging.getLogger("asyncio")
+        if exc:
+            log.error(f"Uventet, ufanget baggrundstask-fejl: {context.get('message')}", exc_info=exc)
+        else:
+            log.error(f"Uventet baggrundstask-problem: {context.get('message')}")
+    asyncio.get_event_loop().set_exception_handler(_log_unhandled_task_exception)
+
     mqtt_client.connect()
     from backend.cast_service import start as cast_start
     cast_start()

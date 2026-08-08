@@ -121,28 +121,12 @@ fi
 # ── Trin 6: Termux:Boot auto-start ───────────────────────────────────────────
 step "Konfigurerer auto-start..."
 mkdir -p "$HOME/.termux/boot"
+chmod +x "$INSTALL_DIR/scripts/run_server.sh"
 cat > "$HOME/.termux/boot/start-familieoverblik.sh" << 'BOOT'
 #!/data/data/com.termux/files/usr/bin/sh
 export PATH="/data/data/com.termux/files/usr/bin:$PATH"
 export HOME="/data/data/com.termux/files/home"
-cd ~/home-dashboard
-
-# Start Mosquitto
-pkill -f mosquitto 2>/dev/null; sleep 1
-nohup mosquitto -c mosquitto.conf > ~/home-dashboard/mosquitto.log 2>&1 &
-sleep 2
-
-# Start uvicorn med watchdog — genstarter automatisk ved crash
-while true; do
-    uvicorn backend.main:app \
-        --host 0.0.0.0 \
-        --port 8000 \
-        --loop uvloop \
-        --timeout-keep-alive 30 \
-        >> ~/home-dashboard/server.log 2>&1
-    echo "$(date): uvicorn crashed — genstarter om 5 sek" >> ~/home-dashboard/server.log
-    sleep 5
-done &
+nohup sh ~/home-dashboard/scripts/run_server.sh >> ~/home-dashboard/server.log 2>&1 &
 BOOT
 chmod +x "$HOME/.termux/boot/start-familieoverblik.sh"
 ok "Auto-start konfigureret"
@@ -151,19 +135,13 @@ ok "Auto-start konfigureret"
 step "Genstarter server..."
 pkill -f uvicorn 2>/dev/null || true
 pkill -f mosquitto 2>/dev/null || true
+pkill -f run_server.sh 2>/dev/null || true
 sleep 2
 PID=$(ss -tlnp 2>/dev/null | awk '/:8000 /{match($0,/pid=([0-9]+)/,a); if(a[1]) print a[1]}')
 [ -n "$PID" ] && kill -9 "$PID" 2>/dev/null || true
 sleep 1
-nohup mosquitto -c "$INSTALL_DIR/mosquitto.conf" > "$INSTALL_DIR/mosquitto.log" 2>&1 &
-sleep 2
-nohup uvicorn backend.main:app \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --loop uvloop \
-    --timeout-keep-alive 30 \
-    > "$INSTALL_DIR/server.log" 2>&1 &
-sleep 3
+nohup sh "$INSTALL_DIR/scripts/run_server.sh" >> "$INSTALL_DIR/server.log" 2>&1 &
+sleep 5
 
 if pgrep -f uvicorn > /dev/null; then
     ok "Server kører!"
@@ -176,3 +154,11 @@ else
     warn "Server startede ikke — tjek $INSTALL_DIR/server.log"
     tail -20 "$INSTALL_DIR/server.log" 2>/dev/null
 fi
+
+# ── Trin 8: Robusthed — Android dræber jævnligt Termux i baggrunden ─────────
+# Ingen watchdog inde i Termux kan reparere DETTE — Android lukker hele
+# processen, ikke bare uvicorn. Kun en OS-indstilling løser det.
+printf "\n${YELLOW}⚠ For at undgå at Android lukker serveren ned i baggrunden:${NC}\n"
+printf "  Indstillinger → Apps → Termux → Batteri → 'Ingen begrænsninger'\n"
+printf "  (samme sted som 'Tillad baggrundsaktivitet'/batterioptimering)\n"
+printf "  Kør evt. også: termux-wake-lock (i en separat Termux-session)\n"

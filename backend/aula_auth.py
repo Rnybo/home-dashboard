@@ -289,16 +289,25 @@ async def auto_refresh_loop(auth: AulaAuth, interval_seconds: int = 50 * 60) -> 
     """Background task: refresh tokens every 50 min (access_token lifetime is 1h)."""
     while True:
         await asyncio.sleep(interval_seconds)
-        accounts = _get_accounts()
-        if not accounts:
-            continue
-        for acc in accounts:
-            username = acc["username"]
-            token_data = _load_tokens()
-            account_tokens = token_data.get(username, {})
-            if not account_tokens.get("tokens", {}).get("refresh_token"):
+        try:
+            accounts = _get_accounts()
+            if not accounts:
                 continue
-            logger.info(f"Auto-refreshing token for {username}")
-            success = await auth._try_refresh(username, account_tokens)
-            if not success:
-                logger.warning(f"Auto-refresh failed for {username} — login required")
+            for acc in accounts:
+                username = acc["username"]
+                token_data = _load_tokens()
+                account_tokens = token_data.get(username, {})
+                if not account_tokens.get("tokens", {}).get("refresh_token"):
+                    continue
+                logger.info(f"Auto-refreshing token for {username}")
+                success = await auth._try_refresh(username, account_tokens)
+                if not success:
+                    logger.warning(f"Auto-refresh failed for {username} — login required")
+        except Exception as e:
+            # UDEN dette dræber én uventet fejl (korrupt tokens.json, netværks-
+            # timeout, etc.) denne asyncio-task permanent og lydløst — serveren
+            # kører videre, men Aula-sessionen bliver aldrig fornyet igen, hvilket
+            # udadtil ligner "serveren er stoppet med at virke" uden noget crash
+            # at se på. Ramt i praksis — denne løkke manglede try/except mens de
+            # tre tilsvarende løkker i main.py allerede havde det.
+            logger.warning(f"Auto-refresh loop fejlede uventet: {e}")

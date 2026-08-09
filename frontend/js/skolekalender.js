@@ -53,13 +53,16 @@ async function toggleSchoolCalInfo() {
   if (box.classList.contains('open')) { box.classList.remove('open'); return; }
   box.textContent = 'Indlæser…';
   box.classList.add('open');
-  try {
-    const r = await apiFetch(`/api/ugebrev/info?calendar=cal-child-${_schoolCalChildId}&week=${box.dataset.week}&year=${box.dataset.year}`);
-    const data = await r.json();
-    box.textContent = data.text && data.text.trim() ? data.text : 'Ingen besked fundet for denne uge i ugebrevet.';
-  } catch (e) {
-    box.textContent = 'Kunne ikke hente beskeden.';
-  }
+  const calTag = 'cal-child-' + _schoolCalChildId;
+  const week = box.dataset.week, year = box.dataset.year;
+  // cacheFetch, IKKE et rent apiFetch — samme grund som i renderSchoolCalendar()
+  // nedenfor: skolekalenderen skal kunne læses uden en gyldig Aula-session.
+  await cacheFetch(
+    `ugebrev_info_${calTag}_${year}_${week}`,
+    () => apiFetch(`/api/ugebrev/info?calendar=${calTag}&week=${week}&year=${year}`).then(r => r.json()),
+    (data) => { box.textContent = (data && data.text && data.text.trim()) ? data.text : 'Ingen besked fundet for denne uge i ugebrevet.'; },
+    true  // se kommentaren i renderSchoolCalendar() — denne endpoint kræver ikke Aula-session
+  );
 }
 
 // ISO 8601-ugenummer — bruges kun til at vise "· Uge X" i titlen, så "Denne
@@ -77,14 +80,25 @@ async function renderSchoolCalendar() {
   const body = document.getElementById('school-cal-body');
   body.innerHTML = '<div class="school-cal-empty">Indlæser…</div>';
 
-  let events;
-  try {
-    events = await apiFetch('/api/custom-events').then(r => r.json());
-  } catch (e) {
-    body.innerHTML = '<div class="school-cal-empty">Kunne ikke hente skemaet.</div>';
-    return;
-  }
+  // cacheFetch (localStorage), IKKE et rent apiFetch — uden dette var
+  // skolekalenderen helt tom hvis Aula-sessionen var udløbet eller nettet
+  // hakkede, selv når /api/custom-events reelt kunne have svaret fint (den
+  // læser en lokal fil, ikke Aula, og afhænger derfor IKKE af Aula-session —
+  // sessionValid sættes derfor bevidst til `true` her, ikke den globale
+  // Aula-sessionstilstand, som ville være den forkerte ting at spørge om).
+  // Matcher det etablerede mønster i resten af appen, se cache.js. Cache-hit
+  // kalder onData synkront FØR noget netværkskald overhovedet forsøges, så
+  // "Indlæser…" ovenfor bliver i praksis aldrig synlig når der er en cache.
+  await cacheFetch(
+    'ugebrev_custom_events',
+    () => apiFetch('/api/custom-events').then(r => r.json()),
+    (events) => _renderSchoolCalendarBody(events || []),
+    true
+  );
+}
 
+function _renderSchoolCalendarBody(events) {
+  const body = document.getElementById('school-cal-body');
   const calTag = 'cal-child-' + _schoolCalChildId;
   const mine = events.filter(e => e.source === 'ugebrev' && e.calendar === calTag);
 

@@ -46,10 +46,16 @@ ICON_KEYWORDS = [
 DEFAULT_ICON = "📋"
 LEADING_TIME_RE = re.compile(r"^\d{1,2}[.:]\d{2}\s+")
 DASH_RE = re.compile(r"[-\u2010-\u2015]")  # bindestreg + alle Unicode-dash-varianter
-# Kun HELE afsnit der udelukkende siger "Uge XX" tæller som en ny uges
-# sektionsoverskrift — en sætning der blot NÆVNER en uge midt i teksten
-# (fx "Vi glæder os til uge 33") skal ikke fejlagtigt splitte dokumentet.
-SECTION_HEADING_RE = re.compile(r"^[Uu]ge\s*[:.]?\s*(\d{1,2})\.?$")
+# En sektionsoverskrift skal starte med "Uge XX" og derefter enten stoppe,
+# eller fortsætte med et klart skilletegn (bindestreg/kolon/punktum) — accepterer
+# fx "Uge 33", "Uge 33.", "Uge 33 – Kragelundskolen", "Uge 33: skema", men
+# afviser en almindelig sætning der blot NÆVNER en uge og fortsætter uden
+# skilletegn (fx "Uge 33 var fantastisk, vi..."), som ellers ville splitte
+# dokumentet forkert midt i en sektions brødtekst.
+SECTION_HEADING_RE = re.compile(r"^[Uu]ge\s*[:.]?\s*(\d{1,2})\s*(?:[-–—:.]|$)")
+DAY_ABBREVIATIONS = {
+    "Man": "Mandag", "Tirs": "Tirsdag", "Ons": "Onsdag", "Tors": "Torsdag", "Fre": "Fredag",
+}
 
 
 def _icon_for(title):
@@ -93,15 +99,10 @@ def fetch_doc_html(doc_url, timeout=15):
     return r.text
 
 
-def _parse_time(txt):
-    """'8' / '8.00' / '13.30' -> '08:00' / '08:00' / '13:30'. Tager også imod
-    et interval ('8-8.45', '8.00-8.45' — almindelig bindestreg ELLER en
-    Unicode-dash, Google Docs' autokorrektur skriver nogle gange en anden
-    dash-type end den man taster) og bruger kun starten, som altid regnes
-    sammen med næste rækkes start i _parse_table(). En bar time uden
+def _parse_single_time(txt):
+    """'8' / '8.00' / '13.30' -> '08:00' / '08:00' / '13:30'. En bar time uden
     minutter ('8') tolkes som hele timen ('08:00'). None hvis ikke parsbar."""
-    txt = DASH_RE.split(txt.strip())[0].strip()
-    m = re.match(r"^(\d{1,2})(?:[.:](\d{2}))?$", txt)
+    m = re.match(r"^(\d{1,2})(?:[.:](\d{2}))?$", txt.strip())
     if not m:
         return None
     h = int(m.group(1))
@@ -109,6 +110,22 @@ def _parse_time(txt):
     if not (0 <= h < 24 and 0 <= mi < 60):
         return None
     return f"{h:02d}:{mi:02d}"
+
+
+def _parse_time_range(txt):
+    """Parser en tidscelle til (start, explicit_end|None). Tager imod et
+    interval ('8-8.45', '8.00-8.45' — almindelig bindestreg ELLER en
+    Unicode-dash, Google Docs' autokorrektur skriver nogle gange en anden
+    dash-type end den man taster). Er kun ét tidspunkt angivet, er
+    explicit_end None, og _parse_table() udleder i stedet sluttiden af næste
+    rækkes start (bagudkompatibel adfærd). Et EKSPLICIT angivet sluttidspunkt
+    respekteres derimod altid — uden det ville et hul i skemaet (fx et
+    frikvarter uden sin egen række) fejlagtigt strække forrige aktivitet
+    frem til den næste rækkes start."""
+    parts = DASH_RE.split(txt.strip())
+    start = _parse_single_time(parts[0])
+    end = _parse_single_time(parts[1]) if len(parts) > 1 and parts[1].strip() else None
+    return start, end
 
 
 def _add_minutes(hhmm, minutes):
@@ -124,7 +141,9 @@ def _parse_table(table):
     - Række 0 = dag-headers, kolonne 0 = tidspunkt-kolonne.
     - Dubletter af samme dagnavn (set i praksis — to "Fredag"-kolonner i
       kildedokumentet) kollapses til FØRSTE forekomst; senere ignoreres.
-    - En celles sluttid = næste rækkes starttid (sidste række får 30 min).
+    - En celles sluttid er det EKSPLICIT angivne sluttidspunkt, hvis der er
+      angivet et interval — ellers næste rækkes starttid (sidste række får
+      30 min).
     """
     days = {d: [] for d in DAY_NAMES}
     if table is None:
@@ -139,22 +158,29 @@ def _parse_table(table):
         # .capitalize() normaliserer "MANDAG"/"mandag"/"Mandag:" -> "Mandag"
         # så header-matchet ikke er afhængigt af kildedokumentets forskellige
         # skrivemåder (versaler varierer i praksis mellem klasser/skoler).
+        # Tager også imod almindelige forkortelser ("Tirs", "Fre", ...).
         name = cell.get_text(strip=True).rstrip(":.").strip().capitalize()
-        if name in DAY_NAMES and name not in seen:
-            col_day[ci] = name
-            seen.add(name)
+        resolved = name if name in DAY_NAMES else DAY_ABBREVIATIONS.get(name)
+        if resolved and resolved not in seen:
+            col_day[ci] = resolved
+            seen.add(resolved)
 
     time_rows = []
     for row in rows[1:]:
         cells = row.find_all(["td", "th"])
         if not cells:
             continue
-        t = _parse_time(cells[0].get_text(strip=True))
-        if t is not None:
-            time_rows.append((t, cells))
+        start_t, explicit_end = _parse_time_range(cells[0].get_text(strip=True))
+        if start_t is not None:
+            time_rows.append((start_t, explicit_end, cells))
 
-    for ri, (start_t, cells) in enumerate(time_rows):
-        end_t = time_rows[ri + 1][0] if ri + 1 < len(time_rows) else _add_minutes(start_t, 30)
+    for ri, (start_t, explicit_end, cells) in enumerate(time_rows):
+        if explicit_end:
+            end_t = explicit_end
+        elif ri + 1 < len(time_rows):
+            end_t = time_rows[ri + 1][0]
+        else:
+            end_t = _add_minutes(start_t, 30)
         for ci, day in col_day.items():
             if ci >= len(cells):
                 continue
@@ -172,10 +198,14 @@ def split_document_into_weeks(html):
     tabeller, skemaet) blande ALLE ugers indhold sammen, uanset hvilken uge
     man reelt kiggede på.
 
-    Returnerer [{"week": int|None, "table": <Tag|None>, "body_text": str}, ...]
-    i dokumentets rækkefølge. Et dokument uden eksplicitte "Uge XX"-overskrifter
-    (kun ét ugebrev, ingen akkumulering) giver én sektion med week=None og alt
-    indhold samlet — matcher tidligere adfærd for den slags dokumenter.
+    Returnerer [{"week": int|None, "tables": [<Tag>, ...], "body_text": str}, ...]
+    i dokumentets rækkefølge — "tables" er ALLE tabeller i sektionen, ikke kun
+    den første, fordi en lærer kan sætte en anden tabel (fx en note-tabel)
+    før selve skematabellen; parse_document() prøver dem i rækkefølge og
+    bruger den første der reelt giver indhold. Et dokument uden eksplicitte
+    "Uge XX"-overskrifter (kun ét ugebrev, ingen akkumulering) giver én
+    sektion med week=None og alt indhold samlet — matcher tidligere adfærd
+    for den slags dokumenter.
     """
     soup = BeautifulSoup(html, "html.parser")
     # find_all bevarer dokument-rækkefølgen på tværs af tag-typer. Filtreringen
@@ -192,33 +222,43 @@ def split_document_into_weeks(html):
             text = el.get_text(" ", strip=True)
             m = SECTION_HEADING_RE.match(text)
             if m:
-                current = {"week": int(m.group(1)), "table": None, "body_parts": []}
+                current = {"week": int(m.group(1)), "tables": [], "body_parts": []}
                 sections.append(current)
                 continue
         if current is None:
-            current = {"week": None, "table": None, "body_parts": []}
+            current = {"week": None, "tables": [], "body_parts": []}
             sections.append(current)
         if el.name == "table":
-            if current["table"] is None:  # første tabel i sektionen er skemaet
-                current["table"] = el
+            current["tables"].append(el)
         else:
             text = el.get_text(" ", strip=True)
             if text:
                 current["body_parts"].append(text)
 
-    return [{"week": s["week"], "table": s["table"], "body_text": "\n".join(s["body_parts"])}
+    return [{"week": s["week"], "tables": s["tables"], "body_text": "\n".join(s["body_parts"])}
             for s in sections]
 
 
 def parse_document(html):
     """Parser hele dokumentet til én skema-dict PR. uge fundet i det (se
     split_document_into_weeks). Returnerer [{"week":.., "days":{...},
-    "body_text":..}, ...] — springer sektioner uden noget ugenummer over."""
+    "body_text":..}, ...] — springer sektioner uden noget ugenummer over.
+    Prøver hver tabel i en sektion i rækkefølge og bruger den første der
+    reelt giver mindst én udfyldt tidsblok — falder tilbage til en tom dict
+    hvis ingen tabel i sektionen kan tolkes (fx en note-tabel uden dage)."""
     sections = split_document_into_weeks(html)
-    return [
-        {"week": s["week"], "days": _parse_table(s["table"]), "body_text": s["body_text"]}
-        for s in sections if s["week"]
-    ]
+    results = []
+    for s in sections:
+        if not s["week"]:
+            continue
+        days = {d: [] for d in DAY_NAMES}
+        for table in s["tables"]:
+            parsed = _parse_table(table)
+            if any(blocks for blocks in parsed.values()):
+                days = parsed
+                break
+        results.append({"week": s["week"], "days": days, "body_text": s["body_text"]})
+    return results
 
 
 def resolve_week_dates(anchor_date, week):
@@ -301,12 +341,18 @@ def _find_calendar_tag_for_doc(client, doc_url):
     hører til", som ikke er bekræftet at eksistere i den offentlige respons.
     Der er bevidst INGEN manuel barn-indstilling — "opslaget der delte
     ugebrevet er kalenderen det hører til" er hele pointen."""
+    target_id = _doc_id(doc_url)
     for child in _get_children(client):
         posts = client.get_posts([child["id"]], index=0, limit=15).get("posts", [])
         for p in posts:
             content = p.get("content") or {}
             html = content.get("html") or content.get("text") or ""
-            if find_doc_url(html) == doc_url:
+            found_url = find_doc_url(html)
+            # Sammenlign dokument-ID, IKKE hele URL-strengen — Google kan
+            # variere query-parametre (fx "usp=sharing" vs. "usp=drive_link")
+            # for samme dokument, hvilket ville få et eksakt strengmatch til
+            # fejlagtigt at afvise et reelt match.
+            if found_url and target_id and _doc_id(found_url) == target_id:
                 return f"cal-child-{child['id']}"
     return None
 

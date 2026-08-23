@@ -226,7 +226,14 @@
               .then(r => r.ok ? r.json() : []).catch(() => []),
             apiFetch('/api/custom-events').then(r => r.json()).catch(() => []),
           ]);
-          return [...gcal, ...custom.map(e => ({ ...e, allDay: !e.start.includes('T'), custom: true }))];
+          // Stoler på backendens EGEN allDay-boolean frem for at gætte ud fra om
+          // "start" indeholder "T" — den gamle antagelse ("intet T = heldag")
+          // holdt kun så længe alle heldagsevents brugte en bar dato-streng.
+          // SFO/billed-ugeplaner (backend/ugebrev.py) er heldagsevents der ALLIGEVEL
+          // sætter "T00:00" i start (for at markere start på dagen eksplicit), hvilket
+          // fik dem til fejlagtigt at blive behandlet som tidsbestemte events og
+          // forsvinde ud af syne ved midnat i stedet for at vises som heldags-badges.
+          return [...gcal, ...custom.map(e => ({ ...e, allDay: e.allDay ?? !e.start.includes('T'), custom: true }))];
         },
         (data) => { googleEvents = data; renderUpcomingGoogleEvents(); }
       );

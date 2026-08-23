@@ -628,7 +628,16 @@ def _ocr_parse_weekplan_image(image_bytes):
 def _build_events_from_days_dict(days_dict, dates, calendar_tag, year, week, is_sfo):
     """Bygger heldagsevents fra OCR'ens {"Mandag": ["aktivitet", ...], ...}-
     svar. Heldagsevents med vilje — billed-ugeplaner angiver typisk ikke
-    klokkeslæt, kun dag+aktivitet, i modsætning til tabel-ugebrevet."""
+    klokkeslæt, kun dag+aktivitet, i modsætning til tabel-ugebrevet.
+
+    Start/slut er en BAR dato-streng (ingen "T..."), matchende den
+    konvention appens egen "Gem til Familieoverblik"-formular bruger for
+    heldagsevents (se app.js::saveEventLocal — `<input type="date">`-værdi
+    uden klokkeslæt). En tidligere version brugte "T00:00"/"T23:59" — det
+    fik frontend (globals.js::loadGoogleCalendar, som dengang gættede
+    allDay ud fra fravær af "T" i start-strengen) til fejlagtigt at
+    behandle disse som TIDSBESTEMTE events ved midnat, usynlige i den
+    normale kalendervisning."""
     events = []
     color = SFO_EVENT_COLOR if is_sfo else EVENT_COLOR
     for day, activities in (days_dict or {}).items():
@@ -641,8 +650,8 @@ def _build_events_from_days_dict(days_dict, dates, calendar_tag, year, week, is_
             events.append({
                 "id": str(uuid.uuid4()),
                 "title": f"{icon} {activity}".strip(),
-                "start": f"{d.isoformat()}T00:00",
-                "end": f"{d.isoformat()}T23:59",
+                "start": d.isoformat(),
+                "end": d.isoformat(),
                 "allDay": True,
                 "description": "",
                 "color": color,

@@ -51,7 +51,13 @@ function shiftSchoolCalWeek(delta) {
 async function toggleSchoolCalInfo() {
   const box = document.getElementById('school-cal-info-box');
   if (box.classList.contains('open')) { box.classList.remove('open'); return; }
-  box.textContent = 'Indlæser…';
+  // Fast lille header med et eksplicit luk-kryds + en separat scrollbar
+  // tekst-container — lange ugebrev-noter (set i praksis: op til ~2000
+  // tegn) skal kunne scrolles UDEN at skjule resten af dialogen eller
+  // gøre den umulig at lukke (se CSS-kommentaren for #school-cal-info-box).
+  box.innerHTML = '<div class="info-box-head"><span>📋 Besked fra ugebrevet</span>' +
+    '<button class="info-box-close" onclick="toggleSchoolCalInfo()" title="Luk">✕</button></div>' +
+    '<div class="info-box-text">Indlæser…</div>';
   box.classList.add('open');
   const calTag = 'cal-child-' + _schoolCalChildId;
   const week = box.dataset.week, year = box.dataset.year;
@@ -60,7 +66,10 @@ async function toggleSchoolCalInfo() {
   await cacheFetch(
     `ugebrev_info_${calTag}_${year}_${week}`,
     () => apiFetch(`/api/ugebrev/info?calendar=${calTag}&week=${week}&year=${year}`).then(r => r.json()),
-    (data) => { box.textContent = (data && data.text && data.text.trim()) ? data.text : 'Ingen besked fundet for denne uge i ugebrevet.'; },
+    (data) => {
+      const textEl = box.querySelector('.info-box-text');
+      if (textEl) textEl.textContent = (data && data.text && data.text.trim()) ? data.text : 'Ingen besked fundet for denne uge i ugebrevet.';
+    },
     true  // se kommentaren i renderSchoolCalendar() — denne endpoint kræver ikke Aula-session
   );
 }

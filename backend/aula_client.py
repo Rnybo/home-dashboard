@@ -332,6 +332,26 @@ class AulaClient:
         except Exception:
             return _from_disk_cache()
 
+    def get_group_member_ids(self, group_id: int) -> set:
+        """Institutionsprofil-ID'er for ALLE medlemmer af `group_id`, uanset
+        membershipType. I modsætning til `get_groups()` (som med vilje kun
+        medtager grupper med `membershipType == "direct"` — den udgør
+        kontaktlisten/hovedgrupperne) udelader denne intet: bruges af
+        `backend/ugebrev.py` til at slå tværklasse-grupper op (fx "0. årgang
+        forældre"), som et opslag/ugebrev kan være delt med, men som
+        `get_groups()` bevidst ikke overvåger."""
+        try:
+            data = self._get("groups.getMemberships", f"&groupId={group_id}")
+            memberships = data.get("data", {}).get("memberships", []) or []
+            return {
+                m.get("institutionProfile", {}).get("id")
+                for m in memberships
+                if m.get("institutionProfile", {}).get("id")
+            }
+        except Exception as e:
+            logger.warning(f"Kunne ikke hente medlemmer af gruppe {group_id}: {e}")
+            return set()
+
     def get_contact_list(self, group_id: int) -> list:
         """Fetch all children with contact info for a group (paginated)."""
         results = []

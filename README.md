@@ -18,7 +18,7 @@ A family dashboard for the Danish school platform Aula, designed for a wall-moun
 - **Spotify search** — Search songs, albums, playlists and podcasts directly from the cast widget (requires active Spotify playback)
 - **Familie** — Optional dropdown with Børn and Voksne pages; configured via Settings → Familie Apps (shown only when at least one app is enabled)
 - **PWA** — Installable manifest + offline app-shell service worker (network-first — always tries fresh, falls back to cache). Requires HTTPS (or `localhost`) to actually activate; iPhone "Add to Home Screen" works over plain HTTP regardless
-- **Ugebrev → Kalender** — Auto-detects the school's weekly schedule (shared as a Google Docs link inside an Aula *post*, shared class-wide — not a private message, and not a real attachment) and creates named, icon-tagged calendar events for exactly the child that post was shared to — always on, no setting to configure. Handles one document accumulating many weeks over a whole school year (splits into per-week sections so each week's schedule and written notes stay separate). A "🎒 Tilføj til skolekalender" button appears directly on any post or message containing a Google Docs link, so you're never dependent on subject-line matching or background-scan timing. Browse any synced week — past or future — in a child-friendly "🎒 Skoledag" popup (per-child tab, "I dag" + ◀/▶ week navigation) — large icon-first blocks, plus an ℹ️ icon to read that week's own written notes/reminders, separate from the full week grid.
+- **Ugebrev → Kalender** — Auto-detects weekly schedules/plans shared as an Aula *post* (class-wide, image, or plain text — not a private message, and not always a Google Doc) and creates named, icon-tagged calendar events for exactly the child(ren) that post was shared to, resolved via Aula's own group data (works for single classes and cross-class "grade" groups alike). Handles three content types per post: a Google Doc with a schedule table, a photographed weekly plan (read locally via Tesseract OCR — no AI API, no key needed — SFO plans get their own colour/icon so they're visually distinct from the class schedule), or plain text with no schedule at all (saved as a note). Runs automatically in the background (throttled trigger when new posts appear in Overblik, plus every 6h as a fallback) and only re-syncs weeks that are missing or imminent, not a whole school year's history each time. A "🎒 Tilføj til skolekalender" button on any post/message with a Google Docs link still works for manual one-off syncs. Browse any synced week — past or future — in a child-friendly "🎒 Skoledag" popup (per-child tab, "I dag" + ◀/▶ week navigation) — large icon-first blocks, plus an ℹ️ icon to read that week's own written notes/reminders, separate from the full week grid.
 
 ## Quick Install (Android/Termux)
 
@@ -72,6 +72,13 @@ Edit `.env` or use the settings page after starting the server.
 winget install mosquitto
 ```
 `start.bat` starter Mosquitto automatisk — hvis ikke installeret, kører dashboardet stadig men uden MQTT.
+
+### 5b. Installer Tesseract OCR (valgfrit — kun for SFO/billed-ugeplaner)
+Windows: `winget install --id UB-Mannheim.TesseractOCR`, derefter hent dansk sprogdata:
+```
+Invoke-WebRequest -Uri "https://github.com/tesseract-ocr/tessdata_fast/raw/main/dan.traineddata" -OutFile "$env:LOCALAPPDATA\Programs\Tesseract-OCR\tessdata\dan.traineddata"
+```
+Uden dette gemmes SFO/billed-ugeplaner blot som ren tekst i stedet for at blive til kalenderevents — resten af dashboardet virker upåvirket.
 
 ### 6. Start server
 ```bash
@@ -185,6 +192,9 @@ ICS-læsning virker fuldt ud for alle kilder (Google, iCloud, Outlook, Rejseplan
 | `GET /api/routes` | Commute times from OpenRouteService |
 | `GET /api/custom-events` | Local calendar events |
 | `GET /api/custom-events.ics` | ICS feed for calendar apps |
+| `POST /api/ugebrev/sync` | Scan Overblik posts and sync any weekly letters/plans (background loop + throttled Overblik-triggered call use this) |
+| `POST /api/ugebrev/sync-url` | Manual "🎒 Tilføj til skolekalender" — sync one specific Google Docs schedule link |
+| `GET /api/ugebrev/info` | Written note for one child+week+year (ℹ️ icon in "🎒 Skoledag") |
 | `POST /api/login/start` | Start MitID login |
 | `GET /api/login/status` | Login status + QR |
 | `GET /api/settings` | Get configuration |

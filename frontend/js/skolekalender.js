@@ -100,7 +100,10 @@ async function renderSchoolCalendar() {
 function _renderSchoolCalendarBody(events) {
   const body = document.getElementById('school-cal-body');
   const calTag = 'cal-child-' + _schoolCalChildId;
-  const mine = events.filter(e => e.source === 'ugebrev' && e.calendar === calTag);
+  // 'ugebrev' = tabel-baseret skoleskema, 'sfo_ugebrev'/'ugebrev_billede' =
+  // billed-tolkede ugeplaner (Claude Vision, se backend/ugebrev.py) — alle
+  // skal vises her, ikke kun det oprindelige tabel-format.
+  const mine = events.filter(e => ['ugebrev', 'sfo_ugebrev', 'ugebrev_billede'].includes(e.source) && e.calendar === calTag);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // Lokale dato-komponenter, IKKE toISOString() — den konverterer til UTC og
@@ -149,7 +152,10 @@ function _renderSchoolCalendarBody(events) {
       const spaceIdx = ev.title.indexOf(' ');
       const icon = spaceIdx > -1 ? ev.title.slice(0, spaceIdx) : '📋';
       const label = spaceIdx > -1 ? ev.title.slice(spaceIdx + 1) : ev.title;
-      const time = ev.start.slice(11, 16);
+      // Heldagsevents (SFO/billed-ugeplaner har intet rigtigt klokkeslæt,
+      // se _build_events_from_days_dict i backend/ugebrev.py) skal ikke vise
+      // det kunstige "00:00" fra start-strengen.
+      const time = ev.allDay ? '' : ev.start.slice(11, 16);
       html += `<div class="school-cal-item"><span class="icon">${icon}</span>` +
         `<div class="info"><div class="time">${time}</div><div class="title">${label}</div></div></div>`;
     }

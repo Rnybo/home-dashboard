@@ -5,6 +5,14 @@ Run at server startup to fail fast with a clear error message.
 
 REQUIRED = [
     # (import_name, pip_install_name, termux_pkg_name or None)
+    #
+    # NB: "pytesseract" (SFO/billed-ugeplan-OCR, backend/ugebrev.py) er BEVIDST
+    # ikke på denne liste — det er en valgfri forbedring, ikke en kerne-
+    # afhængighed. `_ocr_parse_weekplan_image()` fanger selv ImportError/
+    # manglende tesseract-binær og falder tilbage til at gemme opslagets
+    # rå tekst i stedet. At kræve den her ville blokere HELE serverens
+    # opstart, hvis tesseract mangler — for stor konsekvens for en enkelt
+    # delfeature.
     ("fastapi",           "fastapi",                None),
     ("uvicorn",           "uvicorn",                None),
     ("requests",          "requests",               None),

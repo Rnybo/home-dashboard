@@ -101,6 +101,25 @@ $PIP install --break-system-packages Pillow >> "$LOG" 2>&1 \
 $PIP install --break-system-packages html2text >> "$LOG" 2>&1 \
     && ok "html2text" || warn "html2text fejlede"
 
+$PIP install --break-system-packages pytesseract >> "$LOG" 2>&1 \
+    && ok "pytesseract" || warn "pytesseract fejlede"
+
+# ── Trin 3b: Tesseract OCR (SFO/billed-ugeplaner, se backend/ugebrev.py) ─────
+step "Installerer Tesseract OCR..."
+pkg install -y tesseract >> "$LOG" 2>&1 \
+    && ok "tesseract" || warn "tesseract fejlede — billed-ugeplaner (SFO) vil ikke kunne læses"
+
+TESSDATA_DIR="$PREFIX/share/tessdata"
+if [ ! -f "$TESSDATA_DIR/dan.traineddata" ]; then
+    mkdir -p "$TESSDATA_DIR"
+    curl -sSL "https://github.com/tesseract-ocr/tessdata_fast/raw/main/dan.traineddata" \
+        -o "$TESSDATA_DIR/dan.traineddata" >> "$LOG" 2>&1 \
+        && ok "Dansk OCR-sprogpakke" \
+        || warn "Kunne ikke hente dansk OCR-sprogpakke — SFO-billeder læses da kun med engelsk"
+else
+    ok "Dansk OCR-sprogpakke OK"
+fi
+
 # ── Trin 4: Verificér ────────────────────────────────────────────────────────
 step "Verificerer afhængigheder..."
 if python backend/check_deps.py; then

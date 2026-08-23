@@ -128,6 +128,23 @@
       try{localStorage.setItem('ls_bdays',JSON.stringify(bdayData));}catch(e){}
       renderOverviewEvents(datesData, bdayData);
       renderOverviewPosts(postsData.posts || []);
+      _maybeTriggerUgebrevSync(postsData.posts || []);
+    }
+
+    // Kigger IKKE efter en Google Docs-tabel her — det er backend's job
+    // (backend/ugebrev.py genkender selv ugebrev/ugeplan/SFO-billeder ud fra
+    // opslagenes titel). Dette er kun en billig client-side forudsigelse af
+    // "er det overhovedet værd at kalde /api/ugebrev/sync nu", så vi ikke
+    // rammer serveren (og dermed Claude Vision-kald for billed-ugeplaner)
+    // hver gang overblikket genindlæses uden at der reelt er noget nyt.
+    function _maybeTriggerUgebrevSync(posts) {
+      const hasWeeklyLetter = posts.some(p => /ugebrev|ugeplan/i.test(p.title || ''));
+      if (!hasWeeklyLetter) return;
+      const THROTTLE_MS = 30 * 60 * 1000; // 30 min
+      const last = parseInt(localStorage.getItem('ugebrev_auto_sync_ts') || '0', 10);
+      if (Date.now() - last < THROTTLE_MS) return;
+      localStorage.setItem('ugebrev_auto_sync_ts', String(Date.now()));
+      apiFetch('/api/ugebrev/sync', { method: 'POST' }).catch(() => {});
     }
 
     function renderOverviewEvents(dates, birthdays) {

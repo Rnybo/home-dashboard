@@ -4,6 +4,7 @@ session.json
 spotify_tokens.json
 custom_events.json
 ugebrev_notes.json
+groups_cache.json
 
 # Python
 __pycache__/

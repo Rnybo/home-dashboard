@@ -33,7 +33,11 @@ REQUIRED = [
     # anonyme HTML-export hænger uden svar, se backend/CLAUDE.md) og parser
     # tabellen med python-docx. Det er en KERNE-afhængighed (ikke valgfri
     # som pytesseract ovenfor) — uden den fejler hele ugebrev-featuren, ikke
-    # kun en delfunktion.
+    # kun en delfunktion. BEMÆRK: en almindelig `pip install python-docx`
+    # FEJLER i en frisk Termux (lxml kræver en C-compiler der ikke er der
+    # som standard) — se `scripts/install.sh`s "Trin 3b" for den rigtige
+    # installationsrækkefølge (Termux's egen prækompilerede `python-lxml`
+    # først, kildekode-bygning kun som sikkerhedsnet).
     ("docx",              "python-docx",            None),
 ]
 

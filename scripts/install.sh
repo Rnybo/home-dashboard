@@ -106,13 +106,32 @@ $PIP install --break-system-packages pytesseract >> "$LOG" 2>&1 \
 
 # ── Trin 3b: python-docx (ugebrev.py henter skoleugebreve som .docx, ikke
 # .html — Googles anonyme HTML-export hænger uden svar, se backend/CLAUDE.md)
-# — kræver lxml, som normalt skal BYGGES FRA KILDEKODE i Termux (ingen
-# færdig ARM/Android-wheel på PyPI, samme grundproblem som pydantic-core
-# tidligere), så libxml2/libxslt dev-headers skal være installeret først.
-step "Installerer python-docx (kræver libxml2/libxslt til lxml)..."
-pkg install -y libxml2 libxslt >> "$LOG" 2>&1 \
-    && ok "libxml2/libxslt" || warn "libxml2/libxslt fejlede — python-docx build kan fejle"
-$PIP install --break-system-packages python-docx >> "$LOG" 2>&1 \
+# — kræver lxml. Ren `pip install lxml`/`python-docx` FEJLER i en frisk
+# Termux (bekræftet i praksis) fordi bygning fra kildekode kræver en
+# C-compiler (`clang`) som IKKE er installeret som standard, uanset om
+# libxml2/libxslt-headerne er der. Prøver derfor Termux's EGEN
+# prækompilerede `python-lxml`-pakke først (samme mønster som
+# `python-cryptography` ovenfor — undgår compiler-afhængigheden helt);
+# falder kun tilbage til en kildekode-bygning (med clang installeret) hvis
+# pkg-pakken skulle mangle/fejle.
+step "Installerer python-docx (prøver Termux's prækompilerede lxml først)..."
+if pkg install -y python-lxml >> "$LOG" 2>&1; then
+    ok "lxml (Termux pkg, prækompileret — ingen bygning nødvendig)"
+else
+    warn "python-lxml (pkg) fejlede/findes ikke — bygger lxml fra kildekode i stedet"
+    pkg install -y clang libxml2 libxslt >> "$LOG" 2>&1 \
+        && ok "clang/libxml2/libxslt (build-værktøjer)" \
+        || warn "clang/libxml2/libxslt fejlede — lxml-bygning vil sandsynligvis også fejle"
+    $PIP install --break-system-packages lxml >> "$LOG" 2>&1 \
+        && ok "lxml (bygget fra kildekode)" \
+        || warn "lxml fejlede at bygge — python-docx/ugebrev-featuren vil ikke virke"
+fi
+$PIP install --break-system-packages typing_extensions >> "$LOG" 2>&1 \
+    && ok "typing_extensions" || warn "typing_extensions fejlede"
+# --no-deps: lxml/typing_extensions er allerede håndteret eksplicit ovenfor —
+# uden dette kunne pip finde på at forsøge sin EGEN (fejlende) kildekode-
+# bygning af lxml alligevel, uafhængigt af om Termux-pakken lige er lykkedes.
+$PIP install --break-system-packages --no-deps python-docx >> "$LOG" 2>&1 \
     && ok "python-docx" || warn "python-docx fejlede — ugebrev-featuren vil ikke virke"
 
 # ── Trin 3c: Tesseract OCR (SFO/billed-ugeplaner, se backend/ugebrev.py) ─────

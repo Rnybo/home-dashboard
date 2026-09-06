@@ -119,9 +119,14 @@ if pkg install -y python-lxml >> "$LOG" 2>&1; then
     ok "lxml (Termux pkg, prækompileret — ingen bygning nødvendig)"
 else
     warn "python-lxml (pkg) fejlede/findes ikke — bygger lxml fra kildekode i stedet"
-    pkg install -y clang libxml2 libxslt >> "$LOG" 2>&1 \
-        && ok "clang/libxml2/libxslt (build-værktøjer)" \
-        || warn "clang/libxml2/libxslt fejlede — lxml-bygning vil sandsynligvis også fejle"
+    # pkg-config er BEVIDST med her, ikke bare libxml2/libxslt selv — lxmls
+    # setup.py bruger pkg-config/xml2-config til at FINDE dem. Uden pkg-config
+    # fejler bygningen med "please make sure the libxml2 and libxslt
+    # development package are installed" UANSET om libxml2/libxslt reelt er
+    # installeret — bekræftet i praksis (september 2026), ikke en antagelse.
+    pkg install -y clang libxml2 libxslt pkg-config >> "$LOG" 2>&1 \
+        && ok "clang/libxml2/libxslt/pkg-config (build-værktøjer)" \
+        || warn "clang/libxml2/libxslt/pkg-config fejlede — lxml-bygning vil sandsynligvis også fejle"
     $PIP install --break-system-packages lxml >> "$LOG" 2>&1 \
         && ok "lxml (bygget fra kildekode)" \
         || warn "lxml fejlede at bygge — python-docx/ugebrev-featuren vil ikke virke"

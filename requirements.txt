@@ -16,3 +16,4 @@ cryptography
 Pillow
 html2text
 pytesseract
+python-docx

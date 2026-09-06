@@ -8,7 +8,15 @@ i opslagets/beskedens tekst (ikke en rigtig vedhæftning) med en tabel:
 dag-kolonner × tidsblok-rækker. Se frontend/CLAUDE.md / dette moduls
 docstrings for antagelser om formatet — det er set fra ÉT eksempel og kan
 vise sig skævt for andre klasser/skoler.
+
+Dokumentet hentes som .docx, IKKE .html — Googles anonyme
+"export?format=html" hænger uden svar for ikke-browser-klienter (bekræftet
+reproducerbart september 2026), mens "export?format=docx" svarer på under
+et sekund. Parsing sker derfor med python-docx i stedet for BeautifulSoup;
+BeautifulSoup bruges stadig til selve Aula-opslagets/beskedens HTML-indhold
+(se sync_ugebrev()), det er kun Google Docs-hentningen der er skiftet.
 """
+import io
 import logging
 import os
 import re
@@ -17,6 +25,11 @@ from datetime import date, timedelta
 
 import requests
 from bs4 import BeautifulSoup
+from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 
 from backend.store import load_custom_events, save_custom_events, save_ugebrev_note, load_ugebrev_notes
 
@@ -100,16 +113,23 @@ def _doc_id(doc_url):
     return m.group(1) if m else None
 
 
-def fetch_doc_html(doc_url, timeout=15):
-    """Henter et delt Google Docs-dokument som ren HTML (kræver 'alle med link
-    kan se' — ingen login understøttet). Kaster ved fejl."""
+def fetch_doc_docx_bytes(doc_url, timeout=15):
+    """Henter et delt Google Docs-dokument som .docx-bytes (kræver 'alle med
+    link kan se' — ingen login understøttet). Kaster ved fejl.
+
+    BEVIDST .docx, ikke .html: Googles anonyme "export?format=html" hænger
+    uden noget svar overhovedet for en almindelig ikke-browser-klient (set
+    reproducerbart, både med requests og curl, med og uden browser-agtig
+    User-Agent — samtidig med at .docx/.txt-varianterne af SAMME dokument
+    svarer på under et sekund). .docx bevarer tabelstrukturen vi skal bruge
+    (i modsætning til .txt), så den er det rette valg her."""
     doc_id = _doc_id(doc_url)
     if not doc_id:
         raise ValueError(f"Kunne ikke finde dokument-id i URL: {doc_url}")
-    export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=html"
+    export_url = f"https://docs.google.com/document/d/{doc_id}/export?format=docx"
     r = requests.get(export_url, timeout=timeout)
     r.raise_for_status()
-    return r.text
+    return r.content
 
 
 def _parse_single_time(txt):
@@ -147,13 +167,23 @@ def _add_minutes(hhmm, minutes):
     return f"{total // 60:02d}:{total % 60:02d}"
 
 
+def _cell_text(cell):
+    """python-docx's Cell.text joiner sætter et LINJESKIFT mellem cellens
+    paragraffer (fx en flerlinjet aktivitet som "Morgenbånd\\nRundkreds") —
+    svarer til bs4's get_text(separator=" ") som vi brugte før, så vi
+    normaliserer til enkelt-mellemrum for at bevare samme titel-format."""
+    return " ".join(part.strip() for part in cell.text.split("\n") if part.strip())
+
+
 def _parse_table(table):
-    """Parser én skematabel til {dagnavn: [(start,slut,titel), ...]}.
+    """Parser én skematabel (python-docx Table) til {dagnavn: [(start,slut,titel), ...]}.
 
     Antagelser (baseret på ét eksempel — kan vise sig skæve for andre klasser):
     - Række 0 = dag-headers, kolonne 0 = tidspunkt-kolonne.
     - Dubletter af samme dagnavn (set i praksis — to "Fredag"-kolonner i
-      kildedokumentet) kollapses til FØRSTE forekomst; senere ignoreres.
+      kildedokumentet, samt python-docx' egen adfærd med at gentage samme
+      celle-reference for hver kolonne en vandret sammenlagt celle spænder
+      over) kollapses til FØRSTE forekomst; senere ignoreres.
     - En celles sluttid er det EKSPLICIT angivne sluttidspunkt, hvis der er
       angivet et interval — ellers næste rækkes starttid (sidste række får
       30 min).
@@ -161,18 +191,18 @@ def _parse_table(table):
     days = {d: [] for d in DAY_NAMES}
     if table is None:
         return days
-    rows = table.find_all("tr")
+    rows = table.rows
     if len(rows) < 2:
         return days
 
-    header_cells = rows[0].find_all(["td", "th"])
+    header_cells = rows[0].cells
     col_day, seen = {}, set()
     for ci, cell in enumerate(header_cells[1:], start=1):
         # .capitalize() normaliserer "MANDAG"/"mandag"/"Mandag:" -> "Mandag"
         # så header-matchet ikke er afhængigt af kildedokumentets forskellige
         # skrivemåder (versaler varierer i praksis mellem klasser/skoler).
         # Tager også imod almindelige forkortelser ("Tirs", "Fre", ...).
-        name = cell.get_text(strip=True).rstrip(":.").strip().capitalize()
+        name = _cell_text(cell).rstrip(":.").strip().capitalize()
         resolved = name if name in DAY_NAMES else DAY_ABBREVIATIONS.get(name)
         if resolved and resolved not in seen:
             col_day[ci] = resolved
@@ -180,10 +210,10 @@ def _parse_table(table):
 
     time_rows = []
     for row in rows[1:]:
-        cells = row.find_all(["td", "th"])
+        cells = row.cells
         if not cells:
             continue
-        start_t, explicit_end = _parse_time_range(cells[0].get_text(strip=True))
+        start_t, explicit_end = _parse_time_range(_cell_text(cells[0]))
         if start_t is not None:
             time_rows.append((start_t, explicit_end, cells))
 
@@ -197,21 +227,36 @@ def _parse_table(table):
         for ci, day in col_day.items():
             if ci >= len(cells):
                 continue
-            title = cells[ci].get_text(separator=" ", strip=True)
+            title = _cell_text(cells[ci])
             if title:
                 days[day].append((start_t, end_t, title))
     return days
 
 
-def split_document_into_weeks(html):
-    """Splitter et Google Docs-dokument i separate uge-sektioner. Skolen
-    genbruger i praksis ÉT løbende dokument og tilføjer bare en ny "Uge XX"-
-    overskrift for hver uge i stedet for at lave et nyt dokument hver gang —
-    uden denne opsplitning ville brødteksten (og for et dokument med flere
-    tabeller, skemaet) blande ALLE ugers indhold sammen, uanset hvilken uge
-    man reelt kiggede på.
+def _iter_block_items(document):
+    """Yielder hvert afsnit (Paragraph) og hver tabel (Table) i dokumentets
+    BODY i rækkefølge. python-docx's egne .paragraphs/.tables er to separate
+    flade lister der ikke bevarer den indbyrdes rækkefølge — uden den kan vi
+    ikke afgøre hvilken tabel der reelt hører til hvilken "Uge XX"-overskrift.
+    Standard-teknik (docx.oxml body-børn er enten <w:p> eller <w:tbl>)."""
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, document)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, document)
 
-    Returnerer [{"week": int|None, "tables": [<Tag>, ...], "body_text": str}, ...]
+
+def split_document_into_weeks(document):
+    """Splitter et Google Docs-dokument (som python-docx Document) i separate
+    uge-sektioner. Skolen genbruger i praksis ÉT løbende dokument og tilføjer
+    bare en ny "Uge XX"-overskrift for hver uge i stedet for at lave et nyt
+    dokument hver gang — uden denne opsplitning ville brødteksten (og for et
+    dokument med flere tabeller, skemaet) blande ALLE ugers indhold sammen,
+    uanset hvilken uge man reelt kiggede på. Nye uger er i praksis set indsat
+    ØVERST i dokumentet (nyeste først) — men opsplitningen er retningsuafhængig,
+    den følger blot dokumentets faktiske rækkefølge uanset hvad den er.
+
+    Returnerer [{"week": int|None, "tables": [<Table>, ...], "body_text": str}, ...]
     i dokumentets rækkefølge — "tables" er ALLE tabeller i sektionen, ikke kun
     den første, fordi en lærer kan sætte en anden tabel (fx en note-tabel)
     før selve skematabellen; parse_document() prøver dem i rækkefølge og
@@ -220,46 +265,42 @@ def split_document_into_weeks(html):
     sektion med week=None og alt indhold samlet — matcher tidligere adfærd
     for den slags dokumenter.
     """
-    soup = BeautifulSoup(html, "html.parser")
-    # find_all bevarer dokument-rækkefølgen på tværs af tag-typer. Filtreringen
-    # udelukker <p>/<hN> der reelt ligger INDE i en tabel (Google Docs-export
-    # pakker celletekst i <p>-tags), så tabellens indhold ikke optræder to
-    # gange — én gang som del af <table>, én gang som løsrevet paragraf.
-    elements = soup.find_all(["h1", "h2", "h3", "p", "table"])
-    flow = [el for el in elements if el.name == "table" or not el.find_parent("table")]
-
     sections = []
     current = None
-    for el in flow:
-        if el.name != "table":
-            text = el.get_text(" ", strip=True)
-            m = SECTION_HEADING_RE.match(text)
-            if m:
-                current = {"week": int(m.group(1)), "tables": [], "body_parts": []}
+    for item in _iter_block_items(document):
+        if isinstance(item, Table):
+            if current is None:
+                current = {"week": None, "tables": [], "body_parts": []}
                 sections.append(current)
-                continue
+            current["tables"].append(item)
+            continue
+
+        text = item.text.strip()
+        m = SECTION_HEADING_RE.match(text) if text else None
+        if m:
+            current = {"week": int(m.group(1)), "tables": [], "body_parts": []}
+            sections.append(current)
+            continue
         if current is None:
             current = {"week": None, "tables": [], "body_parts": []}
             sections.append(current)
-        if el.name == "table":
-            current["tables"].append(el)
-        else:
-            text = el.get_text(" ", strip=True)
-            if text:
-                current["body_parts"].append(text)
+        if text:
+            current["body_parts"].append(text)
 
     return [{"week": s["week"], "tables": s["tables"], "body_text": "\n".join(s["body_parts"])}
             for s in sections]
 
 
-def parse_document(html):
-    """Parser hele dokumentet til én skema-dict PR. uge fundet i det (se
-    split_document_into_weeks). Returnerer [{"week":.., "days":{...},
-    "body_text":..}, ...] — springer sektioner uden noget ugenummer over.
-    Prøver hver tabel i en sektion i rækkefølge og bruger den første der
-    reelt giver mindst én udfyldt tidsblok — falder tilbage til en tom dict
-    hvis ingen tabel i sektionen kan tolkes (fx en note-tabel uden dage)."""
-    sections = split_document_into_weeks(html)
+def parse_document(docx_bytes):
+    """Parser et helt .docx-dokument (bytes, se fetch_doc_docx_bytes) til én
+    skema-dict PR. uge fundet i det (se split_document_into_weeks).
+    Returnerer [{"week":.., "days":{...}, "body_text":..}, ...] — springer
+    sektioner uden noget ugenummer over. Prøver hver tabel i en sektion i
+    rækkefølge og bruger den første der reelt giver mindst én udfyldt
+    tidsblok — falder tilbage til en tom dict hvis ingen tabel i sektionen
+    kan tolkes (fx en note-tabel uden dage)."""
+    document = Document(io.BytesIO(docx_bytes))
+    sections = split_document_into_weeks(document)
     results = []
     for s in sections:
         if not s["week"]:
@@ -690,8 +731,8 @@ def _sync_core(client, calendar_tag, doc_url, anchor_date):
     stedet for selv at slå noget op, så både `sync_ugebrev_url()` (bruger-klik)
     og `sync_ugebrev()` (automatisk scanning) kan dele den uden at duplikere
     logik. `anchor_date` bruges til årsopløsning for HVER uge for sig."""
-    html = fetch_doc_html(doc_url)
-    schedules = parse_document(html)
+    docx_bytes = fetch_doc_docx_bytes(doc_url)
+    schedules = parse_document(docx_bytes)
     if not schedules:
         return {"found": False,
                 "message": "Fandt dokumentet, men kunne ikke læse noget ugenummer i det (forventer 'Uge XX')."}
@@ -792,7 +833,7 @@ def sync_ugebrev(client, limit=20):
             # ── Gren 1: Google Docs-link med tabel ──────────────────────────
             if doc_url:
                 try:
-                    schedules = parse_document(fetch_doc_html(doc_url))
+                    schedules = parse_document(fetch_doc_docx_bytes(doc_url))
                 except Exception as e:
                     logger.warning(f"Kunne ikke hente/parse dokument for '{title}': {e}")
                     schedules = []

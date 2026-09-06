@@ -104,7 +104,18 @@ $PIP install --break-system-packages html2text >> "$LOG" 2>&1 \
 $PIP install --break-system-packages pytesseract >> "$LOG" 2>&1 \
     && ok "pytesseract" || warn "pytesseract fejlede"
 
-# ── Trin 3b: Tesseract OCR (SFO/billed-ugeplaner, se backend/ugebrev.py) ─────
+# ── Trin 3b: python-docx (ugebrev.py henter skoleugebreve som .docx, ikke
+# .html — Googles anonyme HTML-export hænger uden svar, se backend/CLAUDE.md)
+# — kræver lxml, som normalt skal BYGGES FRA KILDEKODE i Termux (ingen
+# færdig ARM/Android-wheel på PyPI, samme grundproblem som pydantic-core
+# tidligere), så libxml2/libxslt dev-headers skal være installeret først.
+step "Installerer python-docx (kræver libxml2/libxslt til lxml)..."
+pkg install -y libxml2 libxslt >> "$LOG" 2>&1 \
+    && ok "libxml2/libxslt" || warn "libxml2/libxslt fejlede — python-docx build kan fejle"
+$PIP install --break-system-packages python-docx >> "$LOG" 2>&1 \
+    && ok "python-docx" || warn "python-docx fejlede — ugebrev-featuren vil ikke virke"
+
+# ── Trin 3c: Tesseract OCR (SFO/billed-ugeplaner, se backend/ugebrev.py) ─────
 step "Installerer Tesseract OCR..."
 pkg install -y tesseract >> "$LOG" 2>&1 \
     && ok "tesseract" || warn "tesseract fejlede — billed-ugeplaner (SFO) vil ikke kunne læses"

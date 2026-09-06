@@ -19,6 +19,7 @@ debug_*.png
 debug_screenshots/
 server.log
 install.log
+server_run*.txt
 
 # SSH nøgler
 tablet_key

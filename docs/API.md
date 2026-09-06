@@ -72,6 +72,8 @@ See `backend/CLAUDE.md`'s `ugebrev.py` section for the full architecture (title-
 | `POST /api/ugebrev/sync-url` | Manual "🎒 Tilføj til skolekalender" — body `{doc_url, anchor_date}`, syncs one specific Google Docs schedule link |
 | `GET /api/ugebrev/info?calendar=&week=&year=` | Written note text for one child+week+year (ℹ️ icon in "🎒 Skoledag") |
 
+Both sync endpoints return a proper JSON body on error too — `401 {"detail": "..."}` for an expired Aula session, `500 {"detail": "..."}` for anything else — instead of letting an unhandled exception fall through to Starlette's plain-text 500 page (which broke `.json()` parsing on the frontend before this was fixed, September 2026).
+
 ## Custom events (local calendar)
 
 | Endpoint | Description |

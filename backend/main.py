@@ -320,8 +320,20 @@ def status():
 async def ugebrev_sync_now():
     """Manuel trigger — samme logik som _ugebrev_sync_loop, men on-demand.
     Ingen barn-parameter — sync_ugebrev() tjekker automatisk ALLE børns
-    opslag og finder selv det/de relevante."""
-    result = await run_in_threadpool(ugebrev.sync_ugebrev, client)
+    opslag og finder selv det/de relevante.
+
+    Fanger PermissionError (udløbet session) og andre fejl eksplicit —
+    uden dette bobler en ufanget exception op til Starlettes standard
+    500-side, som er ren tekst ("Internal Server Error"), IKKE JSON.
+    Frontend (calendar.js/aula.js) kalder altid r.json() på svaret, så en
+    ren tekst-500 viser sig for brugeren som en forvirrende "JSON fejl" i
+    stedet for den egentlige årsag (udløbet session)."""
+    try:
+        result = await run_in_threadpool(ugebrev.sync_ugebrev, client)
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session udløbet — log ind igen.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if any(r.get("events_created") for r in result.get("results", [])):
         mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
     return result
@@ -338,7 +350,12 @@ async def ugebrev_sync_url(payload: dict):
     anchor_date = payload.get("anchor_date")
     if not doc_url:
         raise HTTPException(400, "doc_url mangler.")
-    result = await run_in_threadpool(ugebrev.sync_ugebrev_url, client, doc_url, anchor_date)
+    try:
+        result = await run_in_threadpool(ugebrev.sync_ugebrev_url, client, doc_url, anchor_date)
+    except PermissionError:
+        raise HTTPException(status_code=401, detail="Session udløbet — log ind igen.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     if result.get("events_created"):
         mqtt_client.publish("familieoverblik/events/sync", {"action": "refresh"})
     return result

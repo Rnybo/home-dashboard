@@ -29,6 +29,12 @@ REQUIRED = [
     ("PIL",               "Pillow",                 None),
     ("html2text",         "html2text",              None),
     ("cryptography",      "cryptography",           "python-cryptography"),
+    # ugebrev.py henter delte Google Docs som .docx (ikke .html — Googles
+    # anonyme HTML-export hænger uden svar, se backend/CLAUDE.md) og parser
+    # tabellen med python-docx. Det er en KERNE-afhængighed (ikke valgfri
+    # som pytesseract ovenfor) — uden den fejler hele ugebrev-featuren, ikke
+    # kun en delfunktion.
+    ("docx",              "python-docx",            None),
 ]
 
 

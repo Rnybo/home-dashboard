@@ -881,6 +881,14 @@ def sync_ugebrev(client, limit=20):
                     events = _build_events_from_days_dict(parsed.get("days"), dates, calendar_tag, year, w, is_sfo)
                     if events:
                         replace_ugebrev_events(events, calendar_tag, w, year, source=source)
+                        # Gemmer også selve opslagsteksten som note (samme sted
+                        # ℹ️-ikonet henter fra) — uden dette blev fx en praktisk
+                        # besked ("husk cykel/regntøj") der stod SAMMEN MED et
+                        # SFO-billede i opslaget, aldrig gemt nogen steder, fordi
+                        # `handled=True` forhindrede gren 3 (den eneste anden
+                        # note-kilde) i at køre for denne uge.
+                        if plain_text:
+                            save_ugebrev_note(f"{calendar_tag}|{year}|{w}", plain_text)
                         results.append({"child_name": child["name"], "sfo": is_sfo,
                                          "weeks": [{"week": w, "year": year, "events_created": len(events)}],
                                          "events_created": len(events)})

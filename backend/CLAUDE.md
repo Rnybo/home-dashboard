@@ -54,6 +54,8 @@ Undersøgt august 2026 efter gentagne rapporter om at serveren "bare stopper" og
 
 **Bevidst IKKE forsøgt endnu**: OCR af håndskrevne ugeplaner (Tesseract er trænet til trykt tekst), datakilder ud over Google Docs/billeder (Sheets, PDF).
 
+**Gren 2 (billede) gemmer nu OGSÅ opslagets brødtekst som note** (tilføjet september 2026, sammen med den nye samlede "🏠 SFO"-visning i `frontend/js/skolekalender.js`) — før dette blev en praktisk besked der stod SAMMEN MED et SFO-/ugeplan-billede i opslaget (fx "husk cykel/regntøj") aldrig gemt nogen steder, fordi `handled=True` forhindrede gren 3 (den eneste anden note-kilde) i at køre for den uge. Note gemmes kun hvis `plain_text` reelt findes, samme sted (`ugebrev_notes.json`) som gren 1/3.
+
 **`/api/ugebrev/sync` og `/api/ugebrev/sync-url` (i `main.py`) fanger nu eksplicit `PermissionError`/øvrige exceptions** (samme mønster som `aula_call()` i `routers/aula.py`) — uden det bobler en ufanget exception (fx en udløbet session) op til Starlettes standard 500-side, som er REN TEKST, ikke JSON. Frontend (`calendar.js`/`aula.js`) kalder altid `r.json()` på svaret, så en ren tekst-500 viste sig for brugeren som en forvirrende "JSON-fejl" i stedet for den egentlige årsag. Enhver ny `async def`-route i `main.py` der wrapper et `ugebrev.*`-kald (eller andet der kan kaste `PermissionError`) bør følge samme mønster.
 
 ## `/api/file-proxy` (i `main.py`) — vigtig gotcha

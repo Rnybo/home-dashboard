@@ -257,6 +257,13 @@
               <span class="school-cal-btn" title="Se skoledag" onclick="event.stopPropagation();openSchoolCalendar(${c.id})">🎒</span>
             </div>`
           ),
+          // Ikke en "rigtig" fane (skifter ikke hvilken kalender der vises) —
+          // åbner bare skolekalender-modalen i SFO-tilstand, samme klik-
+          // mønster som 🎒-ikonet ovenfor. #00838f matcher SFO_EVENT_COLOR
+          // i backend/ugebrev.py — SKAL holdes i sync hvis den farve ændres.
+          `<div class="tab" onclick="openSfoCalendar()" style="border-bottom:3px solid #00838f" title="Se SFO-ugeplan (begge børn)">
+            🏠 SFO
+          </div>`,
           ...GOOGLE_TABS.map((g, i) =>
             `<div class="tab" onclick="switchGoogleTab(${i})" style="border-bottom:3px solid ${CAL_COLORS.faelles}">
               <span style="color:${CAL_COLORS.faelles}">📅</span> ${g.name}

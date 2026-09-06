@@ -6,6 +6,10 @@
 // jeg i dag/denne uge". Genbruger /api/custom-events, ingen ny backend-kode.
 
 let _schoolCalChildId = null;
+// 'child' = almindelig per-barn skoledag/uge, 'sfo' = kombineret SFO-visning
+// på tværs af ALLE børn (samme SFO-plan bliver i praksis synkroniseret
+// separat pr. barn med identisk indhold, se _renderSchoolCalendarBody()).
+let _schoolCalMode = 'child';
 let _schoolCalScope = 'day';
 // Uger relativt til DENNE kalenderuge (0 = denne uge, -1 = forrige, +1 = næste,
 // osv.) — erstatter den tidligere faste 'nextweek'-knap med fri navigation
@@ -14,12 +18,29 @@ let _schoolCalScope = 'day';
 let _schoolCalWeekOffset = 0;
 
 function openSchoolCalendar(childId, initialScope, initialOffset) {
+  _schoolCalMode = 'child';
   _schoolCalChildId = childId;
   _schoolCalScope = initialScope || 'day';
   _schoolCalWeekOffset = initialOffset || 0;
   document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === _schoolCalScope));
   const child = (CHILDREN || []).find(c => c.id === childId);
   document.getElementById('school-cal-title').dataset.baseTitle = '🎒 ' + (child ? child.name + 's skoledag' : 'Skoledag');
+  document.getElementById('school-cal-title').textContent = document.getElementById('school-cal-title').dataset.baseTitle;
+  document.getElementById('school-cal-info-box').classList.remove('open');
+  document.getElementById('school-cal-overlay').classList.add('open');
+  renderSchoolCalendar();
+}
+
+// Samme modal som openSchoolCalendar(), men uden en bestemt childId — viser
+// SFO-events for ALLE børn samlet ét sted, i stedet for at man skal tjekke
+// hvert barns fane for sig for at se den samme SFO-plan gentaget.
+function openSfoCalendar(initialScope, initialOffset) {
+  _schoolCalMode = 'sfo';
+  _schoolCalChildId = null;
+  _schoolCalScope = initialScope || 'day';
+  _schoolCalWeekOffset = initialOffset || 0;
+  document.querySelectorAll('#school-cal-toggle .scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === _schoolCalScope));
+  document.getElementById('school-cal-title').dataset.baseTitle = '🏠 SFO';
   document.getElementById('school-cal-title').textContent = document.getElementById('school-cal-title').dataset.baseTitle;
   document.getElementById('school-cal-info-box').classList.remove('open');
   document.getElementById('school-cal-overlay').classList.add('open');
@@ -59,7 +80,7 @@ async function toggleSchoolCalInfo() {
     '<button class="info-box-close" onclick="toggleSchoolCalInfo()" title="Luk">✕</button></div>' +
     '<div class="info-box-text">Indlæser…</div>';
   box.classList.add('open');
-  const calTag = 'cal-child-' + _schoolCalChildId;
+  const calTag = box.dataset.calTag || ('cal-child-' + _schoolCalChildId);
   const week = box.dataset.week, year = box.dataset.year;
   // cacheFetch, IKKE et rent apiFetch — samme grund som i renderSchoolCalendar()
   // nedenfor: skolekalenderen skal kunne læses uden en gyldig Aula-session.
@@ -108,11 +129,30 @@ async function renderSchoolCalendar() {
 
 function _renderSchoolCalendarBody(events) {
   const body = document.getElementById('school-cal-body');
-  const calTag = 'cal-child-' + _schoolCalChildId;
   // 'ugebrev' = tabel-baseret skoleskema, 'sfo_ugebrev'/'ugebrev_billede' =
-  // billed-tolkede ugeplaner (Claude Vision, se backend/ugebrev.py) — alle
-  // skal vises her, ikke kun det oprindelige tabel-format.
-  const mine = events.filter(e => ['ugebrev', 'sfo_ugebrev', 'ugebrev_billede'].includes(e.source) && e.calendar === calTag);
+  // billed-tolkede ugeplaner (OCR, se backend/ugebrev.py) — alle skal vises
+  // her, ikke kun det oprindelige tabel-format.
+  let mine, infoCalTag;
+  if (_schoolCalMode === 'sfo') {
+    // Samme SFO-plan synkroniseres separat PR. BARN (identisk indhold, kun
+    // calendar_tag adskiller dem) — uden dedup ville hver aktivitet vises
+    // én gang pr. barn, dvs. dobbelt op når begge børn er omfattet.
+    const seen = new Map();
+    for (const e of events) {
+      if (e.source !== 'sfo_ugebrev') continue;
+      const key = `${e.start}|${e.end}|${e.title}`;
+      if (!seen.has(key)) seen.set(key, e);
+    }
+    mine = [...seen.values()];
+    // ℹ️-noten er gemt PR. barn (samme tekst for alle, se ugebrev.py) — vi
+    // skal bare bruge ét vilkårligt barns calendar_tag for at slå den op.
+    infoCalTag = mine.length ? mine[0].calendar : (CHILDREN[0] ? `cal-child-${CHILDREN[0].id}` : null);
+  } else {
+    const calTag = 'cal-child-' + _schoolCalChildId;
+    mine = events.filter(e => ['ugebrev', 'sfo_ugebrev', 'ugebrev_billede'].includes(e.source) && e.calendar === calTag);
+    infoCalTag = calTag;
+  }
+  document.getElementById('school-cal-info-box').dataset.calTag = infoCalTag || '';
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   // Lokale dato-komponenter, IKKE toISOString() — den konverterer til UTC og

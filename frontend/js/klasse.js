@@ -1,6 +1,14 @@
 ﻿    let klasseLoaded = false;
     const contactCache = {}; // groupId -> {childId -> contactData}
 
+    // Åbn et enkelt profilbillede stort i den eksisterende lightbox (fra gallery.js)
+    function openAvatarPhoto(url, title, ev) {
+      if (ev) ev.stopPropagation();
+      if (!url) return;
+      lightboxItems = [{ url, thumbUrl: url, isVideo: false, title: title || '' }];
+      openLightbox(0);
+    }
+
     async function loadGroups() {
       if (klasseLoaded) return;
       klasseLoaded = true;
@@ -112,7 +120,7 @@
           const pPicUrl = p.photoSignedUrl || p.photoUrl;
           const pProxyUrl = pPicUrl ? `/api/profile-picture?url=${encodeURIComponent(pPicUrl)}` : '';
           const avatarHtml = pProxyUrl
-            ? `<img class="klasse-parent-avatar" src="${pProxyUrl}" onerror="this.outerHTML='<div class=\\'klasse-parent-avatar\\'>${ini}</div>'">`
+            ? `<img class="klasse-parent-avatar" src="${pProxyUrl}" onclick="openAvatarPhoto('${pProxyUrl}','${p.name.replace(/'/g,"\\'")}',event)" onerror="this.outerHTML='<div class=\\'klasse-parent-avatar\\'>${ini}</div>'">`
             : `<div class="klasse-parent-avatar">${ini}</div>`;
           const relLabel = p.relation || (p.gender === 'F' ? 'Mor' : p.gender === 'M' ? 'Far' : 'Forælder');
           let contactRows = '';
@@ -181,12 +189,14 @@
           const img = row.querySelector('.klasse-child-avatar');
           if (img && img.tagName === 'IMG') {
             img.src = proxyUrl;
+            img.onclick = (ev) => openAvatarPhoto(proxyUrl, contact.name, ev);
           } else if (img) {
             const ini = img.textContent;
             const newImg = document.createElement('img');
             newImg.className = 'klasse-child-avatar';
             newImg.src = proxyUrl;
             newImg.alt = contact.name;
+            newImg.onclick = (ev) => openAvatarPhoto(proxyUrl, contact.name, ev);
             if (row.classList.contains('own-child')) newImg.style.cssText = 'border-color:var(--blue);border-width:3px';
             newImg.onerror = () => { newImg.outerHTML = `<div class="klasse-child-avatar" style="${row.classList.contains('own-child') ? 'background:var(--blue);color:#fff' : ''}">${ini}</div>`; };
             img.replaceWith(newImg);

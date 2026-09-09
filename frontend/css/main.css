@@ -368,7 +368,9 @@
     .klasse-child-row:hover { background: #f8fafc; }
     .klasse-child-row.own-child { background: #f0f7ff; }
     .klasse-child-row.own-child:hover { background: #e4f0fc; }
-    .klasse-child-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--blue-mid); margin-right: 10px; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; color: var(--blue); font-weight: 700; border: 2px solid var(--border); }
+    .klasse-child-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--blue-mid); margin-right: 14px; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; color: var(--blue); font-weight: 700; border: 2px solid var(--border); }
+    img.klasse-child-avatar { cursor: pointer; transition: transform 0.15s; }
+    img.klasse-child-avatar:active { transform: scale(0.95); }
     .klasse-child-name { font-size: 0.85rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .klasse-child-bday { font-size: 0.72rem; color: #aaa; margin-top: 1px; }
     .klasse-child-expand { font-size: 0.7rem; color: #bbb; }
@@ -376,7 +378,9 @@
     .klasse-parents.open { display: block; }
     .klasse-parent-row { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-bottom: 1px solid #eef2f7; }
     .klasse-parent-row:last-child { border-bottom: none; }
-    .klasse-parent-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e0e7ef; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #666; font-weight: 700; }
+    .klasse-parent-avatar { width: 68px; height: 68px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #e0e7ef; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: #666; font-weight: 700; }
+    img.klasse-parent-avatar { cursor: pointer; transition: transform 0.15s; }
+    img.klasse-parent-avatar:active { transform: scale(0.95); }
     .klasse-parent-info { flex: 1; min-width: 0; }
     .klasse-parent-name { font-size: 0.83rem; font-weight: 700; color: #333; margin-bottom: 2px; }
     .klasse-parent-relation { font-size: 0.72rem; color: #999; margin-bottom: 4px; }

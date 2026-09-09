@@ -55,6 +55,7 @@ Børnevenlig "hvad skal jeg i dag/denne uge"-modal, uafhængig af den komplekse 
 - Cacher grupper og kontaktinfo direkte i `localStorage` (`ls_groups`, `ls_contacts_<groupId>`) — et separat, simplere mønster end `cache.js`'s `cacheFetch()` (ingen TTL, viser altid cache først uanset alder). Fungerer fint, men vær opmærksom på at det er en anden caching-tilgang end resten af appen hvis du reviderer det.
 - **`.klasse-child-row` har et `data-child-id`-attribut** — brug det til at finde et barns række/ID fra DOM'en. Brugte tidligere regex på `onclick`-attributten (samme mønster som blev rettet i `calendar.js`/`globals.js`).
 - `renderContactPanel()` viser kun kontaktinfo forældre selv har givet samtykke til at dele (`userHasGivenConsentToShowContactInformation`) — filtreres allerede server-side i `aula_client.py::get_contact_list()`, denne fil viser bare det den får.
+- **Barn-/forælder-avatarer (`.klasse-child-avatar` 60px, `.klasse-parent-avatar` 68px) er klikbare** — `openAvatarPhoto(url, title, ev)` genbruger `gallery.js`s eksisterende lightbox (`lightboxItems`/`openLightbox()`, delt global scope, ingen moduler) til at vise ét enkelt billede stort. `ev.stopPropagation()` er nødvendig fordi avataren sidder inde i `.klasse-child-row`, som selv har en `onclick` (`toggleParents`). Kun `<img>`-elementer (rigtige billeder) får onclick — initial-badges (ingen foto endnu) er ikke klikbare.
 
 ## `app.js` — kalendervisning, event-modal, boot-sekvens
 
